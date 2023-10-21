@@ -1,7 +1,6 @@
 #include "helpers.h"
 #include "poll.h"
 #include "patches/patches.h"
-#include "keyconfig.h"
 #include "constants.h"
 
 extern std::vector<HMODULE> plugins;
@@ -20,6 +19,26 @@ callbackTouch touchCallback;
 u64 touchData;
 callbackAttach attachCallback;
 i32 *attachData;
+
+Keybindings EXIT          = {.keycodes = {VK_ESCAPE}};
+Keybindings TEST          = {.keycodes = {VK_F1}};
+Keybindings SERVICE       = {.keycodes = {VK_F2}};
+Keybindings DEBUG_UP      = {.keycodes = {VK_UP}};
+Keybindings DEBUG_DOWN    = {.keycodes = {VK_DOWN}};
+Keybindings DEBUG_ENTER   = {.keycodes = {VK_RETURN}};
+Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER_BUTTON_START}};
+Keybindings CARD_INSERT_1 = {};
+Keybindings CARD_INSERT_2 = {};
+Keybindings QR_CARD_READ  = {};
+Keybindings QR_DATA_READ  = {.keycodes = {'Q'}};
+Keybindings P1_LEFT_BLUE  = {.keycodes = {'D'}, .axis = {SDL_AXIS_LTRIGGER_DOWN}};
+Keybindings P1_LEFT_RED   = {.keycodes = {'F'}, .buttons = {SDL_CONTROLLER_BUTTON_LEFTSTICK}};
+Keybindings P1_RIGHT_RED  = {.keycodes = {'J'}, .buttons = {SDL_CONTROLLER_BUTTON_RIGHTSTICK}};
+Keybindings P1_RIGHT_BLUE = {.keycodes = {'K'}, .axis = {SDL_AXIS_RTRIGGER_DOWN}};
+Keybindings P2_LEFT_BLUE  = {};
+Keybindings P2_LEFT_RED   = {};
+Keybindings P2_RIGHT_RED  = {};
+Keybindings P2_RIGHT_BLUE = {};
 
 namespace bnusio {
 #define RETURN_FALSE(returnType, functionName, ...) \
@@ -70,24 +89,6 @@ size_t
 bnusio_GetFirmwareVersion () {
 	return 126;
 }
-
-extern Keybindings EXIT;
-extern Keybindings TEST;
-extern Keybindings SERVICE;
-extern Keybindings DEBUG_UP;
-extern Keybindings DEBUG_DOWN;
-extern Keybindings DEBUG_ENTER;
-extern Keybindings COIN_ADD;
-extern Keybindings CARD_INSERT_1;
-extern Keybindings CARD_INSERT_2;
-extern Keybindings P1_LEFT_BLUE;
-extern Keybindings P1_LEFT_RED;
-extern Keybindings P1_RIGHT_RED;
-extern Keybindings P1_RIGHT_BLUE;
-extern Keybindings P2_LEFT_BLUE;
-extern Keybindings P2_LEFT_RED;
-extern Keybindings P2_RIGHT_RED;
-extern Keybindings P2_RIGHT_BLUE;
 
 u16 drumMin        = 10000;
 u16 drumMax        = 20000;
@@ -309,6 +310,43 @@ Init () {
 	INSTALL_HOOK (bngrw_attach);
 	INSTALL_HOOK (bngrw_reqWaitTouch);
 
-	KeyConfig::Init();
+	auto configPath      = std::filesystem::current_path () / "config.toml";
+	toml_table_t *config = openConfig (configPath);
+	if (config) {
+		auto drum = openConfigSection (config, "drum");
+		if (drum) {
+			drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
+		}
+		toml_free (config);
+	}
+
+	auto keyconfigPath      = std::filesystem::current_path () / "keyconfig.toml";
+	toml_table_t *keyconfig = openConfig (keyconfigPath);
+	if (keyconfig) {
+		SetConfigValue (keyconfig, "EXIT", &EXIT);
+
+		SetConfigValue (keyconfig, "TEST", &TEST);
+		SetConfigValue (keyconfig, "SERVICE", &SERVICE);
+		SetConfigValue (keyconfig, "DEBUG_UP", &DEBUG_UP);
+		SetConfigValue (keyconfig, "DEBUG_DOWN", &DEBUG_DOWN);
+		SetConfigValue (keyconfig, "DEBUG_ENTER", &DEBUG_ENTER);
+
+		SetConfigValue (keyconfig, "COIN_ADD", &COIN_ADD);
+		SetConfigValue (keyconfig, "CARD_INSERT_1", &CARD_INSERT_1);
+		SetConfigValue (keyconfig, "CARD_INSERT_2", &CARD_INSERT_2);
+		SetConfigValue (keyconfig, "QR_CARD_READ", &QR_CARD_READ);
+		SetConfigValue (keyconfig, "QR_DATA_READ", &QR_DATA_READ);
+
+		SetConfigValue (keyconfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE);
+		SetConfigValue (keyconfig, "P1_LEFT_RED", &P1_LEFT_RED);
+		SetConfigValue (keyconfig, "P1_RIGHT_RED", &P1_RIGHT_RED);
+		SetConfigValue (keyconfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE);
+		SetConfigValue (keyconfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE);
+		SetConfigValue (keyconfig, "P2_LEFT_RED", &P2_LEFT_RED);
+		SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
+		SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
+
+		toml_free (keyconfig);
+	}
 }
 } // namespace bnusio

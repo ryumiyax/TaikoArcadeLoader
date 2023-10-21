@@ -1,3 +1,0 @@
-namespace KeyConfig {
-    void Init();
-}

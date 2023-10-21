@@ -10,3 +10,6 @@ vsync = false
 [qr]
 card = ""
 data = { serial = "", type = 0, song_no = [] }
+
+[drum]
+wait_period = 4
