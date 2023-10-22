@@ -1,13 +1,13 @@
 #include "bnusio.h"
+#include "constants.h"
 #include "helpers.h"
 #include "patches/patches.h"
 #include "poll.h"
-#include "constants.h"
 
-GameVersion version = GameVersion::UNKNOWN;
+GameVersion gameVersion = GameVersion::UNKNOWN;
 std::vector<HMODULE> plugins;
 
-const char *server  = "127.0.0.1";
+const char *server   = "127.0.0.1";
 char accessCode1[21] = "00000000000000000001";
 char accessCode2[21] = "00000000000000000002";
 char chipId1[33]     = "00000000000000000000000000000001";
@@ -58,12 +58,12 @@ GetGameVersion () {
 	char *buf = (char *)calloc (length + 1, sizeof (char));
 	stream.read (buf, length);
 
-	version = (GameVersion)XXH64 (buf, length, 0);
+	gameVersion = (GameVersion)XXH64 (buf, length, 0);
 
 	stream.close ();
 	free (buf);
 
-	switch (version) {
+	switch (gameVersion) {
 	case GameVersion::JP_NOV_2020:
 	case GameVersion::CN_JUN_2023: break;
 	default: MessageBoxA (0, "Unknown game version", 0, MB_OK); ExitProcess (0);
@@ -91,7 +91,28 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 	if (reason == DLL_PROCESS_ATTACH) {
 		// This is bad, dont do this
 		// I/O in DllMain can easily cause a deadlock
-		GetGameVersion ();
+
+		const char *version  = "auto";
+		auto configPath      = std::filesystem::current_path () / "config.toml";
+		toml_table_t *config = openConfig (configPath);
+		if (config) {
+			auto amauth = openConfigSection (config, "amauth");
+			if (amauth) server = readConfigString (amauth, "server", server);
+			auto patches = openConfigSection (config, "patches");
+			if (patches) version = readConfigString (patches, "version", version);
+			toml_free (config);
+		}
+
+		if (!strcmp (version, "auto")) {
+			GetGameVersion ();
+		} else if (!strcmp (version, "jp_nov_2020")) {
+			gameVersion = GameVersion::JP_NOV_2020;
+		} else if (!strcmp (version, "cn_jun_2023")) {
+			gameVersion = GameVersion::CN_JUN_2023;
+		} else {
+			MessageBoxA (0, "Unknown patch version", 0, MB_OK);
+			ExitProcess (0);
+		}
 
 		auto pluginPath = std::filesystem::current_path () / "plugins";
 
@@ -109,16 +130,6 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 					}
 				}
 			}
-		}
-
-		auto configPath      = std::filesystem::current_path () / "config.toml";
-		toml_table_t *config = openConfig (configPath);
-		if (config) {
-			auto amauth = openConfigSection (config, "amauth");
-			if (amauth) {
-				server = readConfigString (amauth, "server", server);
-			}
-			toml_free (config);
 		}
 
 		if (!std::filesystem::exists (".\\card.ini")) createCard ();
@@ -144,7 +155,7 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 
 		bnusio::Init ();
 
-		switch (version) {
+		switch (gameVersion) {
 		case GameVersion::UNKNOWN: break;
 		case GameVersion::JP_NOV_2020: patches::JP_NOV_2020::Init (); break;
 		case GameVersion::CN_JUN_2023: patches::CN_JUN_2023::Init (); break;

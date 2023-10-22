@@ -77,11 +77,11 @@ readConfigIntArray (toml_table_t *table, const char *key, std::vector<int64_t> n
 	if (!array) return notFoundValue;
 
 	std::vector<int64_t> datas;
-	for (int i = 0; ; i++) {
-        toml_datum_t data = toml_int_at (array, i);
-        if (!data.ok) break;
+	for (int i = 0;; i++) {
+		toml_datum_t data = toml_int_at (array, i);
+		if (!data.ok) break;
 		datas.push_back (data.u.i);
-    }
+	}
 
 	return datas;
 }

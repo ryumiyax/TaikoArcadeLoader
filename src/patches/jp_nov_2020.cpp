@@ -119,7 +119,7 @@ Init () {
 	}
 
 	// Move various files to current directory
-	auto amHandle = (u64) (GetModuleHandle ("AMFrameWork.dll"));
+	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	WRITE_MEMORY (amHandle + 0x33EF7, u8, 0xEB);
 	WRITE_MEMORY (amHandle + 0x3404A, u8, 0xEB);
 	WRITE_MEMORY (amHandle + 0x34429, u8, 0xEB);

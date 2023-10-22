@@ -37,10 +37,10 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 	void *where##functionName           = (void *)(location); \
 	returnType implOf##functionName (__VA_ARGS__)
 
-#define HOOK_DYNAMIC(returnType, callingConvention, functionName, ...)                                                                               \
-	typedef returnType callingConvention (*functionName) (__VA_ARGS__);                                                                              \
-	functionName original##functionName = NULL;                                                                                                      \
-	void *where##functionName           = NULL;                                                                                                      \
+#define HOOK_DYNAMIC(returnType, callingConvention, functionName, ...)  \
+	typedef returnType callingConvention (*functionName) (__VA_ARGS__); \
+	functionName original##functionName = NULL;                         \
+	void *where##functionName           = NULL;                         \
 	returnType callingConvention implOf##functionName (__VA_ARGS__)
 
 #define VTABLE_HOOK(returnType, className, functionName, ...)                      \
@@ -56,10 +56,10 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 		MH_EnableHook ((void *)where##functionName);                                                                   \
 	}
 
-#define INSTALL_HOOK_DYNAMIC(functionName, location)                                                                                                 \
-	{                                                                                                                                                \
-		where##functionName = (void *)location;                                                                                                      \
-		INSTALL_HOOK (functionName);                                                                                                                 \
+#define INSTALL_HOOK_DYNAMIC(functionName, location) \
+	{                                                \
+		where##functionName = (void *)location;      \
+		INSTALL_HOOK (functionName);                 \
 	}
 
 #define INSTALL_VTABLE_HOOK(className, object, functionName, functionIndex)                     \

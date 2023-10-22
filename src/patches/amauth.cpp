@@ -190,7 +190,7 @@ CoCreateInstanceHook (const IID *const rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsC
 void
 Init () {
 	MH_Initialize ();
-	MH_CreateHookApi (L"ole32.dll", "CoCreateInstance", reinterpret_cast<LPVOID> (CoCreateInstanceHook), reinterpret_cast<void **> (&gOriCoCreateInstance)); // NOLINT(clang-diagnostic-microsoft-cast)
+	MH_CreateHookApi (L"ole32.dll", "CoCreateInstance", (LPVOID)CoCreateInstanceHook, (void **)&gOriCoCreateInstance);
 	MH_EnableHook (nullptr);
 }
 } // namespace patches::AmAuth
