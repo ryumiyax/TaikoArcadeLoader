@@ -8,6 +8,12 @@ unlock_songs = true
 shared_audio = true
 vsync = false
 
+  [patches.cn_jun_2023]
+  fix_language = false
+  demo_movie = true
+  mode_collabo025 = false
+  mode_collabo026 = false
+
 [qr]
 card = ""
 data = { serial = "", type = 0, song_no = [] }

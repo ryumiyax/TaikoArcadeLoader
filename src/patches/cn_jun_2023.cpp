@@ -20,25 +20,65 @@ HOOK (i32, HaspRead, PROC_ADDRESS ("hasp_windows_x64.dll", "hasp_read"), i32, i3
 	return 0;
 }
 
-typedef i64 (__fastcall* lua_func) (u64, u64);
-lua_func lua_touserdata;
+typedef i64 (__fastcall *lua_func) (u64, u64);
 lua_func lua_settop;
 lua_func lua_pushboolean;
+lua_func lua_pushstring;
 
-HOOK (i64, sub_1401AC550, ASLR (0x1401AC550), i64 a1) {
-	lua_touserdata (a1, 4294957292);
+i64 __fastcall Lua_PushTrue (i64 a1) {
 	lua_settop (a1, 0);
 	lua_pushboolean (a1, 1);
 	return 1;
 }
 
+HOOK (i64, AvailableMode_Dani_AI, ASLR (0x1401AC550), i64 a1) { return Lua_PushTrue (a1); }
+HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402BFF70), i64 *, i64 a2) { return Lua_PushTrue (a2); }
+HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402BC9B0), i64 a1) { return Lua_PushTrue (a1); }
+
+typedef i64 (__fastcall *_GetLanguage) (i64);
+_GetLanguage GetLanguage;
+
+int language = 0;
+i64 __fastcall GetLanguage_Hook (i64 a1) {
+	auto result = GetLanguage (a1);
+	language    = *((u32 *)result);
+	return result;
+}
+
+const char *
+GetLanguageStr (int language) {
+	switch (language) {
+	case 1: return "en_us";
+	case 2: return "cn_tw";
+	case 3: return "kor";
+	case 4: return "cn_cn";
+	default: return "jpn";
+	}
+}
+
+HOOK (i64, GetRegionLanguage, ASLR (0x1401AC300), i64 a1) {
+	lua_settop (a1, 0);
+	lua_pushstring (a1, (u64)GetLanguageStr (language));
+	return 1;
+}
+
+HOOK (i64, GetCabinetLanguage, ASLR (0x1401AF270), i64, i64 a2) {
+	lua_settop (a2, 0);
+	lua_pushstring (a2, (u64)GetLanguageStr (language));
+	return 1;
+}
+
 void
 Init () {
-	i32 xRes         = 1920;
-	i32 yRes         = 1080;
-	bool unlockSongs = true;
-	bool sharedAudio = true;
-	bool vsync       = false;
+	i32 xRes            = 1920;
+	i32 yRes            = 1080;
+	bool unlockSongs    = true;
+	bool sharedAudio    = true;
+	bool vsync          = false;
+	bool fixLanguage    = false;
+	bool demoMovie      = true;
+	bool modeCollabo025 = false;
+	bool modeCollabo026 = false;
 
 	haspBuffer = (u8 *)malloc (0xD40);
 	memset (haspBuffer, 0, 0xD40);
@@ -67,9 +107,16 @@ Init () {
 				xRes = readConfigInt (res, "x", xRes);
 				yRes = readConfigInt (res, "y", yRes);
 			}
-			unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-			sharedAudio = readConfigBool (patches, "shared_audio", sharedAudio);
-			vsync       = readConfigBool (patches, "vsync", vsync);
+			unlockSongs      = readConfigBool (patches, "unlock_songs", unlockSongs);
+			sharedAudio      = readConfigBool (patches, "shared_audio", sharedAudio);
+			vsync            = readConfigBool (patches, "vsync", vsync);
+			auto cn_jun_2023 = openConfigSection (patches, "cn_jun_2023");
+			if (cn_jun_2023) {
+				fixLanguage    = readConfigBool (cn_jun_2023, "fix_language", fixLanguage);
+				demoMovie      = readConfigBool (cn_jun_2023, "demo_movie", demoMovie);
+				modeCollabo025 = readConfigBool (cn_jun_2023, "mode_collabo025", modeCollabo025);
+				modeCollabo026 = readConfigBool (cn_jun_2023, "mode_collabo026", modeCollabo026);
+			}
 		}
 		toml_free (config);
 	}
@@ -78,6 +125,7 @@ Init () {
 	if (unlockSongs) WRITE_MEMORY (ASLR (0x140425BCD), u8, 0xB0, 0x01);
 	if (sharedAudio) WRITE_MEMORY (ASLR (0x140777F87), u8, 0xEB);
 	if (!vsync) WRITE_MEMORY (ASLR (0x1405FC5B9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
+	if (!demoMovie) WRITE_MEMORY (ASLR (0x14047D387), u8, 0x00);
 
 	// Move various files to current dir
 	WRITE_MEMORY (ASLR (0x140C7B158), char, "./SettingChina1.bin");
@@ -96,11 +144,24 @@ Init () {
 	// Disable SSLVerify
 	WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
 
-	lua_touserdata = (lua_func) PROC_ADDRESS ("lua51.dll", "lua_touserdata");
-	lua_settop = (lua_func) PROC_ADDRESS ("lua51.dll", "lua_settop");
-	lua_pushboolean = (lua_func) PROC_ADDRESS ("lua51.dll", "lua_pushboolean");
+	HMODULE lua51Module = LoadLibrary ("lua51.dll");
+	if (lua51Module) {
+		lua_settop      = (lua_func)GetProcAddress (lua51Module, "lua_settop");
+		lua_pushboolean = (lua_func)GetProcAddress (lua51Module, "lua_pushboolean");
+		lua_pushstring  = (lua_func)GetProcAddress (lua51Module, "lua_pushstring");
 
-	INSTALL_HOOK (sub_1401AC550);
+		if (fixLanguage) {
+			GetLanguage = (_GetLanguage)ASLR (0x140023720);
+			MH_Initialize ();
+			MH_CreateHook ((LPVOID)GetLanguage, (LPVOID)GetLanguage_Hook, (LPVOID *)&GetLanguage);
+			MH_EnableHook (nullptr);
+			INSTALL_HOOK (GetRegionLanguage);
+			INSTALL_HOOK (GetCabinetLanguage);
+		}
+		INSTALL_HOOK (AvailableMode_Dani_AI);
+		if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
+		if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
+	}
 
 	patches::Qr::Init ();
 }
