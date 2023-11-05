@@ -1,0 +1,77 @@
+--- safetyhook/meson.build
++++ safetyhook/meson.build
+@@ -0,0 +1,15 @@
++project('safetyhook', 'c', 'cpp', version: '0.1.3')
++
++safetyhook_inc = include_directories('.')
++safetyhook_lib = static_library(
++       'safetyhook',
++       include_directories: safetyhook_inc,
++       sources: [
++           'safetyhook.cpp',
++           'Zydis.c'
++       ]
++)
++safetyhook_dep = declare_dependency(
++       link_with: safetyhook_lib,
++       include_directories: safetyhook_inc,
++)
+--- safetyhook/safetyhook.cpp
++++ safetyhook/safetyhook.cpp
+@@ -14,7 +14,7 @@
+ #include <limits>
+ 
+ #define NOMINMAX
+-#include <Windows.h>
++#include <windows.h>
+ 
+ 
+ namespace safetyhook {
+@@ -324,7 +324,7 @@ VmtHook create_vmt(void* object) {
+ 
+ #include <iterator>
+ 
+-#include <Windows.h>
++#include <windows.h>
+ 
+ #if __has_include(<Zydis/Zydis.h>)
+ #include <Zydis/Zydis.h>
+@@ -858,7 +858,7 @@ std::expected<void, MidHook::Error> MidHook::setup(
+ // Source file: thread_freezer.cpp
+ //
+ 
+-#include <Windows.h>
++#include <windows.h>
+ #include <winternl.h>
+ 
+ 
+@@ -992,7 +992,7 @@ void fix_ip(CONTEXT& ctx, uint8_t* old_ip, uint8_t* new_ip) {
+ // Source file: utility.cpp
+ //
+ 
+-#include <Windows.h>
++#include <windows.h>
+ 
+ 
+ namespace safetyhook {
+@@ -1046,7 +1046,7 @@ bool is_executable(uint8_t* address) {
+ // Source file: vmt_hook.cpp
+ //
+ 
+-#include <Windows.h>
++#include <windows.h>
+ 
+ 
+ 
+--- safetyhook/safetyhook.hpp
++++ safetyhook/safetyhook.hpp
+@@ -898,7 +898,7 @@ namespace safetyhook {
+ #include <cstdint>
+ #include <functional>
+ 
+-#include <Windows.h>
++#include <windows.h>
+ 
+ namespace safetyhook {
+ /// @brief Executes a function while all other threads are frozen. Also allows for visiting each frozen thread and
+ 

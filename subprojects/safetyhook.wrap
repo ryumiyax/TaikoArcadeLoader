@@ -1,0 +1,10 @@
+[wrap-file]
+directory = safetyhook
+source_url = https://github.com/cursey/safetyhook/releases/download/v0.1.3/safetyhook-amalgamated-zydis.zip
+source_filename = safetyhook-amalgamated-zydis.zip
+source_hash = 5d02299eb9b3fef3f936fba441ad44ec08f049de4cd9125092dd63e1f1f24cfe
+lead_directory_missing = yes
+diff_files = safetyhook.patch
+
+[provide]
+libsafetyhook = safetyhook_dep

@@ -1,10 +1,13 @@
 build/
+xpacks/
 compile_commands.json
+package.json
 .cache
 subprojects/minhook
 subprojects/packagecache
 subprojects/tomlc99
 subprojects/SDL2-2.26.5
 subprojects/xxHash-0.8.2
+subprojects/safetyhook
 dist.7z
 .vscode

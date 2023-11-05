@@ -1,5 +1,6 @@
 #include "helpers.h"
 #include "patches.h"
+#include <safetyhook.hpp>
 
 const u64 song_data_size = 1024 * 1024 * 64;
 void *song_data;
@@ -11,6 +12,38 @@ void *song_data;
 	    (u8)((u64)(location) >> 48), (u8)((u64)(location) >> 56)
 
 namespace patches::JP_NOV_2020 {
+
+HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
+
+const i32 datatableBufferSize = 1024 * 1024 * 12;
+safetyhook::Allocation datatableBuffer;
+const std::vector<uintptr_t> datatableBufferAddresses = {0x14006D9A6, 0x14006D9D3, 0x14006E048, 0x14006E075, 0x14006E3A8, 0x14006E3D5, 0x14006E988, 0x14006E9B5, 0x14006EE22, 0x14006EE51, 0x14006F068,
+                                                         0x14006F095, 0x14006F2F8, 0x14006F325, 0x14006F698, 0x14006F6C5, 0x14006F919, 0x14006F948, 0x14006FC38, 0x14006FC67, 0x14007006C, 0x140070099,
+                                                         0x1400703E3, 0x140070412, 0x140070EB3, 0x140070EE2, 0x140071748, 0x140071775, 0x140071A68, 0x140071A95, 0x140071DD2, 0x140071E04, 0x140072E44,
+                                                         0x140072E73, 0x140073058, 0x140073085, 0x140073374, 0x1400733A0, 0x1400735E8, 0x140073615, 0x14007390C, 0x140073939, 0x140073E73, 0x140073EA6,
+                                                         0x140074A8D, 0x140074ABC, 0x140075082, 0x1400750B1, 0x140075524, 0x140075550, 0x1400758A2, 0x1400758D1, 0x140075D88, 0x140075DB5, 0x1403BA8FD};
+const std::vector<uintptr_t> memsetSizeAddresses      = {0x14006D9A0, 0x14006E042, 0x14006E3A2, 0x14006E982, 0x14006EE1C, 0x14006F062, 0x14006F2F2, 0x14006F692, 0x14006F913,
+                                                         0x14006FC32, 0x140070066, 0x1400703DD, 0x140070EAD, 0x140071742, 0x140071A62, 0x140071DCC, 0x140072E3E, 0x140073052,
+                                                         0x14007336E, 0x1400735E2, 0x140073906, 0x140073E6D, 0x140074A87, 0x14007507C, 0x14007551E, 0x14007589C, 0x140075D82};
+
+void
+AllocateStaticBufferNear (void *target_address, size_t size, safetyhook::Allocation *newBuffer) {
+	auto allocator                = safetyhook::Allocator::global ();
+	std::vector desired_addresses = {(uint8_t *)target_address};
+	auto allocation_result        = allocator->allocate_near (desired_addresses, size);
+	if (allocation_result.has_value ()) *newBuffer = std::move (*allocation_result);
+}
+
+void
+ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *newBufferAddress) {
+	for (auto bufferAddress : bufferAddresses) {
+		uintptr_t lea_instruction_dst = ASLR (bufferAddress) + 3;
+		uintptr_t lea_instruction_end = ASLR (bufferAddress) + 7;
+		intptr_t offset               = (intptr_t)newBufferAddress - lea_instruction_end;
+		WRITE_MEMORY (lea_instruction_dst, i32, (i32)offset);
+	}
+}
+
 void
 Init () {
 	i32 xRes         = 1920;
@@ -40,6 +73,15 @@ Init () {
 	if (unlockSongs) WRITE_MEMORY (ASLR (0x140314E8D), u8, 0xB0, 0x01);
 	if (sharedAudio) WRITE_MEMORY (ASLR (0x140692E17), u8, 0xEB);
 	if (!vsync) WRITE_MEMORY (ASLR (0x140517339), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
+
+	// Remove datatable size limit
+	for (auto address : memsetSizeAddresses)
+		WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
+
+	auto bufferBase = MODULE_HANDLE - 0x01000000;
+	AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer);
+
+	ReplaceLeaBufferAddress (datatableBufferAddresses, datatableBuffer.data ());
 
 	// Remove song limit
 	WRITE_MEMORY (ASLR (0x140313726), i32, 9000);
@@ -97,6 +139,7 @@ Init () {
 	WRITE_MEMORY (ASLR (0x1403067DE), u8, GENERATE_MOV (RDX_MOV, song_data));
 	WRITE_MEMORY (ASLR (0x140306712), u8, GENERATE_MOV (RDX_MOV, song_data));
 	WRITE_MEMORY (ASLR (0x1403069A2), u8, GENERATE_MOV (RDX_MOV, song_data));
+	WRITE_MEMORY (ASLR (0x1403069AC), u8, 0x90, 0x90, 0x90, 0x90, 0x90);
 	// Unknown
 	WRITE_MEMORY (ASLR (0x140313755), u8, GENERATE_MOV (RDX_MOV, song_data));
 	WRITE_MEMORY (ASLR (0x140313A0B), u8, GENERATE_MOV (RDX_MOV, song_data));
@@ -113,10 +156,9 @@ Init () {
 	// Patch TLS v1.0 to v1.2
 	WRITE_MEMORY (ASLR (0x14044B1A9), u8, 0x10);
 
-	if (xRes > 0 && yRes > 0) {
-		WRITE_MEMORY (ASLR (0x14035FC5B), i32, xRes);
-		WRITE_MEMORY (ASLR (0x14035FC62), i32, yRes);
-	}
+	// Res
+	WRITE_MEMORY (ASLR (0x14035FC5B), i32, xRes);
+	WRITE_MEMORY (ASLR (0x14035FC62), i32, yRes);
 
 	// Move various files to current directory
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
@@ -128,6 +170,7 @@ Init () {
 	WRITE_MEMORY (amHandle + 0x34ACD, u8, 0xEB);
 	WRITE_MEMORY (amHandle + 0x148AF, u8, 0xEB);
 	WRITE_MEMORY (amHandle + 0x14A1A, u8, 0xEB);
+	INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x35A00));
 
 	patches::Qr::Init ();
 	patches::AmAuth::Init ();

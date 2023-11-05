@@ -27,6 +27,8 @@ unlock_songs = true
 shared_audio = true
 # vertical sync
 vsync = false
+# window mode
+windowed = false
 
   [patches.cn_jun_2023]
   # sync test mode language to attract etc.

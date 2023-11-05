@@ -1,5 +1,7 @@
 #include "helpers.h"
 #include "patches.h"
+#include <safetyhook.hpp>
+
 namespace patches::CN_JUN_2023 {
 
 u8 *haspBuffer;
@@ -20,33 +22,24 @@ HOOK (i32, HaspRead, PROC_ADDRESS ("hasp_windows_x64.dll", "hasp_read"), i32, i3
 	return 0;
 }
 
-typedef i64 (__fastcall *lua_func) (u64, u64);
-lua_func lua_settop;
-lua_func lua_pushboolean;
-lua_func lua_pushstring;
+i64 (__fastcall *lua_settop) (u64, u64)      = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_settop");
+i64 (__fastcall *lua_pushboolean) (u64, u64) = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushboolean");
+i64 (__fastcall *lua_pushstring) (u64, u64)  = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushstring");
 
-i64 __fastcall Lua_PushTrue (i64 a1) {
+i64
+lua_pushtrue (i64 a1) {
 	lua_settop (a1, 0);
 	lua_pushboolean (a1, 1);
 	return 1;
 }
 
-HOOK (i64, AvailableMode_Dani_AI, ASLR (0x1401AC550), i64 a1) { return Lua_PushTrue (a1); }
-HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402BFF70), i64 *, i64 a2) { return Lua_PushTrue (a2); }
-HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402BC9B0), i64 a1) { return Lua_PushTrue (a1); }
-
-typedef i64 (__fastcall *_GetLanguage) (i64);
-_GetLanguage GetLanguage;
+HOOK (i64, AvailableMode_Dani_AI, ASLR (0x1401AC550), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402BFF70), i64 *, i64 a2) { return lua_pushtrue (a2); }
+HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402BC9B0), i64 a1) { return lua_pushtrue (a1); }
 
 int language = 0;
-i64 __fastcall GetLanguage_Hook (i64 a1) {
-	auto result = GetLanguage (a1);
-	language    = *((u32 *)result);
-	return result;
-}
-
 const char *
-GetLanguageStr (int language) {
+languageStr () {
 	switch (language) {
 	case 1: return "en_us";
 	case 2: return "cn_tw";
@@ -55,17 +48,49 @@ GetLanguageStr (int language) {
 	default: return "jpn";
 	}
 }
-
+HOOK (i64, GetLanguage, ASLR (0x140023720), i64 a1) {
+	auto result = originalGetLanguage (a1);
+	language    = *((u32 *)result);
+	return result;
+}
 HOOK (i64, GetRegionLanguage, ASLR (0x1401AC300), i64 a1) {
 	lua_settop (a1, 0);
-	lua_pushstring (a1, (u64)GetLanguageStr (language));
+	lua_pushstring (a1, (u64)languageStr ());
+	return 1;
+}
+HOOK (i64, GetCabinetLanguage, ASLR (0x1401AF270), i64, i64 a2) {
+	lua_settop (a2, 0);
+	lua_pushstring (a2, (u64)languageStr ());
 	return 1;
 }
 
-HOOK (i64, GetCabinetLanguage, ASLR (0x1401AF270), i64, i64 a2) {
-	lua_settop (a2, 0);
-	lua_pushstring (a2, (u64)GetLanguageStr (language));
-	return 1;
+HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
+
+const i32 datatableBufferSize = 1024 * 1024 * 12;
+safetyhook::Allocation datatableBuffer1;
+safetyhook::Allocation datatableBuffer2;
+safetyhook::Allocation datatableBuffer3;
+const std::vector<uintptr_t> datatableBuffer1Addresses = {0x140093430, 0x1400934A1, 0x1400934CB, 0x14009353C};
+const std::vector<uintptr_t> datatableBuffer2Addresses = {0x14009341C, 0x14009354B, 0x14009357E};
+const std::vector<uintptr_t> datatableBuffer3Addresses = {0x14009356F, 0x140093585, 0x1400935AF};
+const std::vector<uintptr_t> memsetSizeAddresses       = {0x140093416, 0x14009342A, 0x140093569};
+
+void
+AllocateStaticBufferNear (void *target_address, size_t size, safetyhook::Allocation *newBuffer) {
+	auto allocator                = safetyhook::Allocator::global ();
+	std::vector desired_addresses = {(uint8_t *)target_address};
+	auto allocation_result        = allocator->allocate_near (desired_addresses, size);
+	if (allocation_result.has_value ()) *newBuffer = std::move (*allocation_result);
+}
+
+void
+ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *newBufferAddress) {
+	for (auto bufferAddress : bufferAddresses) {
+		uintptr_t lea_instruction_dst = ASLR (bufferAddress) + 3;
+		uintptr_t lea_instruction_end = ASLR (bufferAddress) + 7;
+		intptr_t offset               = (intptr_t)newBufferAddress - lea_instruction_end;
+		WRITE_MEMORY (lea_instruction_dst, i32, (i32)offset);
+	}
 }
 
 void
@@ -144,24 +169,35 @@ Init () {
 	// Disable SSLVerify
 	WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
 
-	HMODULE lua51Module = LoadLibrary ("lua51.dll");
-	if (lua51Module) {
-		lua_settop      = (lua_func)GetProcAddress (lua51Module, "lua_settop");
-		lua_pushboolean = (lua_func)GetProcAddress (lua51Module, "lua_pushboolean");
-		lua_pushstring  = (lua_func)GetProcAddress (lua51Module, "lua_pushstring");
+	// Remove datatable size limit
+	for (auto address : memsetSizeAddresses)
+		WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
 
-		if (fixLanguage) {
-			GetLanguage = (_GetLanguage)ASLR (0x140023720);
-			MH_Initialize ();
-			MH_CreateHook ((LPVOID)GetLanguage, (LPVOID)GetLanguage_Hook, (LPVOID *)&GetLanguage);
-			MH_EnableHook (nullptr);
-			INSTALL_HOOK (GetRegionLanguage);
-			INSTALL_HOOK (GetCabinetLanguage);
-		}
-		INSTALL_HOOK (AvailableMode_Dani_AI);
-		if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
-		if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
+	auto bufferBase = MODULE_HANDLE - 0x03000000;
+	AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer1);
+	bufferBase += datatableBufferSize;
+	AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer2);
+	bufferBase += datatableBufferSize;
+	AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer3);
+
+	ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
+	ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
+	ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
+
+	// Fix language
+	if (fixLanguage) {
+		INSTALL_HOOK (GetLanguage);
+		INSTALL_HOOK (GetRegionLanguage);
+		INSTALL_HOOK (GetCabinetLanguage);
 	}
+
+	// Enable mode
+	INSTALL_HOOK (AvailableMode_Dani_AI);
+	if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
+	if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
+
+	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
+	INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x25A00));
 
 	patches::Qr::Init ();
 }
