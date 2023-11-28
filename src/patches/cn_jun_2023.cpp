@@ -97,9 +97,9 @@ void
 Init () {
 	i32 xRes            = 1920;
 	i32 yRes            = 1080;
-	bool unlockSongs    = true;
-	bool sharedAudio    = true;
 	bool vsync          = false;
+	bool sharedAudio    = true;
+	bool unlockSongs    = true;
 	bool fixLanguage    = false;
 	bool demoMovie      = true;
 	bool modeCollabo025 = false;
@@ -132,9 +132,9 @@ Init () {
 				xRes = readConfigInt (res, "x", xRes);
 				yRes = readConfigInt (res, "y", yRes);
 			}
-			unlockSongs      = readConfigBool (patches, "unlock_songs", unlockSongs);
-			sharedAudio      = readConfigBool (patches, "shared_audio", sharedAudio);
 			vsync            = readConfigBool (patches, "vsync", vsync);
+			sharedAudio      = readConfigBool (patches, "shared_audio", sharedAudio);
+			unlockSongs      = readConfigBool (patches, "unlock_songs", unlockSongs);
 			auto cn_jun_2023 = openConfigSection (patches, "cn_jun_2023");
 			if (cn_jun_2023) {
 				fixLanguage    = readConfigBool (cn_jun_2023, "fix_language", fixLanguage);
@@ -146,11 +146,21 @@ Init () {
 		toml_free (config);
 	}
 
-	WRITE_MEMORY (ASLR (0x14003F690), u8, 0xC3); // Skip errors
-	if (unlockSongs) WRITE_MEMORY (ASLR (0x140425BCD), u8, 0xB0, 0x01);
-	if (sharedAudio) WRITE_MEMORY (ASLR (0x140777F87), u8, 0xEB);
+	// Apply common config patch
+	WRITE_MEMORY (ASLR (0x1404A4ED3), i32, xRes);
+	WRITE_MEMORY (ASLR (0x1404A4EDA), i32, yRes);
 	if (!vsync) WRITE_MEMORY (ASLR (0x1405FC5B9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
-	if (!demoMovie) WRITE_MEMORY (ASLR (0x14047D387), u8, 0x00);
+	if (sharedAudio) WRITE_MEMORY (ASLR (0x140777F87), u8, 0xEB);
+	if (unlockSongs) WRITE_MEMORY (ASLR (0x140425BCD), u8, 0xB0, 0x01);
+
+	// Bypass errors
+	WRITE_MEMORY (ASLR (0x14003F690), u8, 0xC3);
+
+	// Use TLS v1.2
+	WRITE_MEMORY (ASLR (0x140369662), u8, 0x10);
+
+	// Disable SSLVerify
+	WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
 
 	// Move various files to current dir
 	WRITE_MEMORY (ASLR (0x140C7B158), char, "./SettingChina1.bin");
@@ -159,30 +169,22 @@ Init () {
 	WRITE_MEMORY (ASLR (0x140C33C40), char, "./");
 	WRITE_MEMORY (ASLR (0x140C33C44), char, "./");
 
-	// Res
-	WRITE_MEMORY (ASLR (0x1404A4ED3), i32, xRes);
-	WRITE_MEMORY (ASLR (0x1404A4EDA), i32, yRes);
-
-	// Use TLS v1.2
-	WRITE_MEMORY (ASLR (0x140369662), u8, 0x10);
-
-	// Disable SSLVerify
-	WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
-
 	// Remove datatable size limit
-	for (auto address : memsetSizeAddresses)
-		WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
+	{
+		for (auto address : memsetSizeAddresses)
+			WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
 
-	auto bufferBase = MODULE_HANDLE - 0x03000000;
-	AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer1);
-	bufferBase += datatableBufferSize;
-	AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer2);
-	bufferBase += datatableBufferSize;
-	AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer3);
+		auto bufferBase = MODULE_HANDLE - 0x03000000;
+		AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer1);
+		bufferBase += datatableBufferSize;
+		AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer2);
+		bufferBase += datatableBufferSize;
+		AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer3);
 
-	ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
-	ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
-	ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
+		ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
+		ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
+		ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
+	}
 
 	// Fix language
 	if (fixLanguage) {
@@ -191,11 +193,15 @@ Init () {
 		INSTALL_HOOK (GetCabinetLanguage);
 	}
 
+	// Disable demo movie
+	if (!demoMovie) WRITE_MEMORY (ASLR (0x14047D387), u8, 0x00);
+
 	// Enable mode
 	INSTALL_HOOK (AvailableMode_Dani_AI);
 	if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
 	if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
 
+	// Disable live check
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x25A00));
 

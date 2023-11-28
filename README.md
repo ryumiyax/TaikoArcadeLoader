@@ -21,14 +21,14 @@ server = "127.0.0.1"
 version = "auto"
 # window resolution
 res = { x = 1920, y = 1080 }
-# unlock all songs
-unlock_songs = true
-# wasapi shared mode
-shared_audio = true
-# vertical sync
-vsync = false
 # window mode
 windowed = false
+# vertical sync
+vsync = false
+# wasapi shared mode
+shared_audio = true
+# unlock all songs
+unlock_songs = true
 
   [patches.cn_jun_2023]
   # sync test mode language to attract etc.
