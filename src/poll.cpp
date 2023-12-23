@@ -6,6 +6,8 @@ struct {
 	const char *string;
 	uint8_t keycode;
 } ConfigKeyboardButtons[] = {
+    //Row 1
+    {"ESCAPE", VK_ESCAPE},
     {"F1", VK_F1},
     {"F2", VK_F2},
     {"F3", VK_F3},
@@ -18,16 +20,37 @@ struct {
     {"F10", VK_F10},
     {"F11", VK_F11},
     {"F12", VK_F12},
-    {"NUM1", '1'},
-    {"NUM2", '2'},
-    {"NUM3", '3'},
-    {"NUM4", '4'},
-    {"NUM5", '5'},
-    {"NUM6", '6'},
-    {"NUM7", '7'},
-    {"NUM8", '8'},
-    {"NUM9", '9'},
-    {"NUM0", '0'},
+//PrtSc is more important when making snapshots, therefore comment it as reserved
+//  {"PRINT_SCREEN", VK_SNAPSHOT},
+
+    {"SCROLL_LOCK", VK_SCROLL},
+    {"PAUSE", VK_PAUSE},
+    
+    //Row 2
+    {"GRAVE", VK_OEM_3},
+    {"1", '1'},
+    {"2", '2'},
+    {"3", '3'},
+    {"4", '4'},
+    {"5", '5'},
+    {"6", '6'},
+    {"7", '7'},
+    {"8", '8'},
+    {"9", '9'},
+    {"0", '0'},
+    {"HYPHEN", VK_OEM_MINUS},
+    {"EQUAL", VK_OEM_PLUS},
+    {"BACKSPACE", VK_BACK},
+    {"INS", VK_INSERT},
+    {"HOME", VK_HOME},
+    {"PAGE_UP", VK_PRIOR},
+    {"NUM_LOCK", VK_NUMLOCK},
+    {"DIVIDE", VK_DIVIDE},
+    {"MULTIPLY", VK_MULTIPLY},
+    {"SUBTRACT", VK_SUBTRACT},
+    
+    //Row 3
+    {"TAB", VK_TAB},
     {"Q", 'Q'},
     {"W", 'W'},
     {"E", 'E'},
@@ -38,6 +61,19 @@ struct {
     {"I", 'I'},
     {"O", 'O'},
     {"P", 'P'},
+    {"LEFT_SQUARE_BRACKET", VK_OEM_4},
+    {"RIGHT_SQUARE_BRACKET", VK_OEM_6},
+    {"BACKSLASH", VK_OEM_5},
+    {"DELETE", VK_DELETE},
+    {"END", VK_END},
+    {"PAGE_DOWN", VK_NEXT},
+    {"NUM7", VK_NUMPAD7},
+    {"NUM8", VK_NUMPAD8},
+    {"NUM9", VK_NUMPAD9},
+    {"ADD", VK_ADD},
+    
+    //Row 4
+    {"CAPS_LOCK", VK_CAPITAL},
     {"A", 'A'},
     {"S", 'S'},
     {"D", 'D'},
@@ -47,6 +83,16 @@ struct {
     {"J", 'J'},
     {"K", 'K'},
     {"L", 'L'},
+    {"COLON", VK_OEM_1},
+    {"APOSTROPHE", VK_OEM_7},
+    {"ENTER", VK_RETURN},
+    {"NUM4", VK_NUMPAD4},
+    {"NUM5", VK_NUMPAD5},
+    {"NUM6", VK_NUMPAD6},
+    //ADD is already defined
+    
+    //Row 5
+    {"SHIFT", VK_SHIFT},
     {"Z", 'Z'},
     {"X", 'X'},
     {"C", 'C'},
@@ -54,16 +100,32 @@ struct {
     {"B", 'B'},
     {"N", 'N'},
     {"M", 'M'},
+    {"COMMA", VK_OEM_COMMA},
+    {"DOT", VK_OEM_PERIOD},
+    {"SLASH", VK_OEM_2},
+    //SHIFT is already defined
     {"UPARROW", VK_UP},
+    {"NUM1", VK_NUMPAD1},
+    {"NUM2", VK_NUMPAD2},
+    {"NUM3", VK_NUMPAD3},
+    //ENTER is already defined
+    
+    //Row 6
+    {"CONTROL", VK_CONTROL},
+    {"L_WIN", VK_LWIN},
+    {"ALT", VK_MENU},
+    {"SPACE", VK_SPACE},
+    //ALT is already defined
+    {"R_WIN", VK_RWIN},
+    {"MENU", VK_APPS},
+    //CONTROL is already defined
     {"LEFTARROW", VK_LEFT},
     {"DOWNARROW", VK_DOWN},
     {"RIGHTARROW", VK_RIGHT},
-    {"ENTER", VK_RETURN},
-    {"SPACE", VK_SPACE},
-    {"CONTROL", VK_CONTROL},
-    {"SHIFT", VK_SHIFT},
-    {"TAB", VK_TAB},
-    {"ESCAPE", VK_ESCAPE},
+    {"NUM0", VK_NUMPAD0},
+    {"DECIMAL", VK_DECIMAL},
+    //ENTER is already defined
+    
 };
 
 struct {
