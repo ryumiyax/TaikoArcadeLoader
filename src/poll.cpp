@@ -27,7 +27,7 @@ struct {
     {"PAUSE", VK_PAUSE},
     
     //Row 2
-    {"GRAVE", VK_OEM_3},
+    {"`", VK_OEM_3},
     {"1", '1'},
     {"2", '2'},
     {"3", '3'},
