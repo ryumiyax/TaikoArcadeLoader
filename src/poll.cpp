@@ -200,6 +200,7 @@ SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings *cards
         toml_table_t* card_obj = toml_table_at(top_array, i);
         if (card_obj) {
             CardKeybindings cardInfo = cards[i] = {};
+            memset(&cardInfo.keybindings, 0, sizeof(cardInfo.keybindings));
             cardInfo.card = readConfigString(card_obj, "CARD", "");
 
             toml_array_t *array = toml_array_in (card_obj, "READ_KEY");
