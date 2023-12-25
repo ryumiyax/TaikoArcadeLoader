@@ -160,6 +160,7 @@ Update () {
 			        gState = State::CopyWait;
 			        gMode  = Mode::MultiCard;
                     card_number = QRCODE_CARDS[i].card;
+                    break;
                 }
             }
         }
