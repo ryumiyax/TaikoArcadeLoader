@@ -130,6 +130,7 @@ SDL_GameController *controllers[255];
 
 void
 SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
+    std::cout << "Name: " << key << std::endl;
 	toml_array_t *array = toml_array_in (table, key);
 	if (!array) {
 		printWarning ("%s (%s): Cannot find array\n", __func__, key);
@@ -143,6 +144,7 @@ SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
 	for (size_t i = 0;; i++) {
 		toml_datum_t bind = toml_string_at (array, i);
 		if (!bind.ok) break;
+        std::cout << "Key: " << bind.u.s << std::endl;
 		ConfigValue value = StringToConfigEnum (bind.u.s);
 		free (bind.u.s);
 
@@ -185,22 +187,24 @@ SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
 }
 
 void
-SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings *cards, size_t *leng) {
+SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **cards, size_t *leng) {
 	toml_array_t *top_array = toml_array_in (table, key);
 	if (!top_array) {
 		printWarning ("%s (%s): Cannot find array\n", __func__, key);
 		return;
 	}
 
-    size_t length = toml_array_nelem(top_array);
-    *leng = length;
-    cards = new CardKeybindings[length];
+    *leng = toml_array_nelem(top_array);
+    *cards = (CardKeybindings*) calloc (*leng, sizeof(CardKeybindings));
 
-    for (size_t top_i = 0; top_i < length; ++top_i) {
+    for (size_t top_i = 0; top_i < *leng; ++top_i) {
         toml_table_t* card_obj = toml_table_at(top_array, top_i);
         if (card_obj) {
-            CardKeybindings cardInfo = cards[top_i] = {};
-            cardInfo.card = readConfigString(card_obj, "CARD", "");
+            std::string read_card = readConfigString (card_obj, "CARD", "");
+            (*cards)[top_i].card = (char*) calloc (read_card.size() + 1, sizeof(char));
+            strcpy((*cards)[top_i].card, read_card.c_str());
+
+            std::cout << "Card: " << (*cards)[top_i].card << std::endl;
 
             toml_array_t *array = toml_array_in (card_obj, "READ_KEY");
             if (!array) {
@@ -208,7 +212,7 @@ SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings *cards
                 return;
             }
 
-            Keybindings *keybind = &(cardInfo.keybindings);
+            Keybindings *keybind = &((*cards)[top_i].keybindings);
             memset (keybind, 0, sizeof (*keybind));
             for (size_t i = 0; i < COUNTOFARR (keybind->buttons); i++)
                 keybind->buttons[i] = SDL_CONTROLLER_BUTTON_INVALID;
@@ -216,6 +220,7 @@ SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings *cards
             for (size_t i = 0;; i++) {
                 toml_datum_t bind = toml_string_at (array, i);
                 if (!bind.ok) break;
+                std::cout << "Key: " << bind.u.s << std::endl;
                 ConfigValue value = StringToConfigEnum (bind.u.s);
                 free (bind.u.s);
 

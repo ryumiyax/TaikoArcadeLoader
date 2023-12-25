@@ -157,7 +157,7 @@ Update () {
 		} else if (QRCODE_CARDS != nullptr) {
             for (size_t i = 0; i < QRCODE_CARDS_LENG; i++) {
                 if (IsButtonTapped (QRCODE_CARDS[i].keybindings)) {
-                    std::cout << "Insert" << std::endl;
+                    std::cout << "Insert: " << QRCODE_CARDS[i].card << std::endl;
 			        gState      = State::CopyWait;
 			        gMode       = Mode::MultiCard;
                     gCardNumber = QRCODE_CARDS[i].card;
