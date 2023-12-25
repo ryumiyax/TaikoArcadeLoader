@@ -6,10 +6,13 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <queue>
 
 extern GameVersion gameVersion;
 extern Keybindings QR_CARD_READ;
 extern Keybindings QR_DATA_READ;
+extern CardKeybingings *QRCODE_CARDS;
+extern size_t QRCODE_CARDS_LENG;
 
 namespace patches::Qr {
 
@@ -17,6 +20,7 @@ enum class State { Ready, CopyWait, AfterCopy1, AfterCopy2 };
 enum class Mode { Card, Data };
 State gState = State::Ready;
 Mode gMode   = Mode::Card;
+std::string card_number = "";
 
 HOOK_DYNAMIC (char, __fastcall, qrInit, i64) { return 1; }
 HOOK_DYNAMIC (char, __fastcall, qrRead, i64 a1) {
@@ -73,6 +77,10 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			memcpy (dest, card.c_str (), card.size () + 1);
 			gState = State::AfterCopy1;
 			return card.size () + 1;
+        } else if (gMode == Mode::MultiCard) {
+            memcpy (dest, card_number.c_str (), card_number.size () + 1);
+			gState = State::AfterCopy1;
+			return card_number.size () + 1;
 		} else {
 			std::string serial = "";
 			u16 type           = 0;
@@ -145,7 +153,16 @@ Update () {
 			std::cout << "Insert" << std::endl;
 			gState = State::CopyWait;
 			gMode  = Mode::Data;
-		}
+		} else {
+            for (size_t i = 0; i < QRCODE_CARDS_LENG; i++) {
+                if (IsButtonTapped (QRCODE_CARDS[i].keybindings)) {
+                    std::cout << "Insert" << std::endl;
+			        gState = State::CopyWait;
+			        gMode  = Mode::MultiCard;
+                    card_number = QRCODE_CARDS[i].card;
+                }
+            }
+        }
 	}
 }
 

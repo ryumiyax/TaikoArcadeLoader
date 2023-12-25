@@ -39,6 +39,8 @@ Keybindings P2_LEFT_BLUE  = {};
 Keybindings P2_LEFT_RED   = {};
 Keybindings P2_RIGHT_RED  = {};
 Keybindings P2_RIGHT_BLUE = {};
+CardKeybingings* QRCODE_CARDS = {{.keybindings.keycodes = {'W'}, .card = "BNTTCNID1"}, {.keybindings.keycodes = {'E'}, .card = "BNTTCNID2"}};
+size_t QRCODE_CARDS_LENG = 2;
 
 namespace bnusio {
 #define RETURN_FALSE(returnType, functionName, ...) \
@@ -341,6 +343,8 @@ Init () {
 		SetConfigValue (keyconfig, "P2_LEFT_RED", &P2_LEFT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
+
+        SetCardConfigValue (keyconfig, "QRCODE_CARD", &QRCODE_CARDS, &QRCODE_CARDS_LENG);
 
 		toml_free (keyconfig);
 	}

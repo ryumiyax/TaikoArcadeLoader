@@ -21,6 +21,16 @@ P2_LEFT_RED = []
 P2_RIGHT_RED = []
 P2_RIGHT_BLUE = []
 
+# For First User's QRCode
+[[QRCODE_CARD]]
+READ_KEY = ["Q"]                 # Bind Keys
+CARD = "BNTTCNID1"          # Card Number
+
+# For Second User's QRCode
+[[QRCODE_CARD]]
+READ_KEY = ["W"]                 # Bind Keys
+CARD = "BNTTCNID2"          # Card Number
+
 # F1 through F12
 # NUM0 through NUM9
 # QWERTYUIOPASDFGHJKLZXCVBNM

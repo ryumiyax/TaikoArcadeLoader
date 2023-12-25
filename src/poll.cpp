@@ -184,6 +184,73 @@ SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
 	}
 }
 
+void
+SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **cards, size_t *leng) {
+	toml_array_t *array = toml_array_in (table, key);
+	if (!array) {
+		printWarning ("%s (%s): Cannot find array\n", __func__, key);
+		return;
+	}
+
+    size_t length = toml_array_nelem(array);
+    *leng = length;
+    cards = memset(*cards, 0, length * (sizeof (*cards)));
+
+    for (size_t i = 0; i < length; ++i) {
+        const toml_table_t* card_obj = toml_table_at(arr, i);
+        if (card_obj) {
+            memset (cards[i], 0, sizeof (**cards));
+            cards[i]->card = toml_string_in(obj, "CARD")
+
+            for (size_t i = 0; i < COUNTOFARR (keybind->buttons); i++)
+                cards[i]->keybindings.buttons[i] = SDL_CONTROLLER_BUTTON_INVALID;
+
+            for (size_t i = 0;; i++) {
+                toml_datum_t bind = toml_string_at (array, i);
+                if (!bind.ok) break;
+                ConfigValue value = StringToConfigEnum (bind.u.s);
+                free (bind.u.s);
+
+                switch (value.type) {
+                case keycode:
+                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.keycodes); i++) {
+                        if (cards[i]->keybindings.keycodes[i] == 0) {
+                            cards[i]->keybindings.keycodes[i] = value.keycode;
+                            break;
+                        }
+                    }
+                    break;
+                case button:
+                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.buttons); i++) {
+                        if (cards[i]->keybindings.buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) {
+                            cards[i]->keybindings.buttons[i] = value.button;
+                            break;
+                        }
+                    }
+                    break;
+                case axis:
+                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.axis); i++) {
+                        if (cards[i]->keybindings.axis[i] == 0) {
+                            cards[i]->keybindings.axis[i] = value.axis;
+                            break;
+                        }
+                    }
+                case scroll:
+                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.scroll); i++) {
+                        if (cards[i]->keybindings.scroll[i] == 0) {
+                            cards[i]->keybindings.scroll[i] = value.scroll;
+                            break;
+                        }
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+}
+
 bool
 InitializePoll (HWND windowHandle) {
 	bool hasRumble = true;
