@@ -78,6 +78,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			gState = State::AfterCopy1;
 			return card.size () + 1;
         } else if (gMode == Mode::MultiCard) {
+            if (config) toml_free (config);
             memcpy (dest, card_number.c_str (), card_number.size () + 1);
 			gState = State::AfterCopy1;
 			return card_number.size () + 1;
