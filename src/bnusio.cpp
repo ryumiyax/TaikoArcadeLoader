@@ -39,7 +39,7 @@ Keybindings P2_LEFT_BLUE  = {};
 Keybindings P2_LEFT_RED   = {};
 Keybindings P2_RIGHT_RED  = {};
 Keybindings P2_RIGHT_BLUE = {};
-CardKeybindings *QRCODE_CARDS = {};
+CardKeybindings *QRCODE_CARDS = new CardKeybindings[0];
 size_t QRCODE_CARDS_LENG = 0;
 
 namespace bnusio {
@@ -344,7 +344,7 @@ Init () {
 		SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
 
-        SetCardConfigValue (keyconfig, "QRCODE_CARD", &QRCODE_CARDS, &QRCODE_CARDS_LENG);
+        SetCardConfigValue (keyconfig, "QRCODE_CARD", QRCODE_CARDS, &QRCODE_CARDS_LENG);
 
 		toml_free (keyconfig);
 	}

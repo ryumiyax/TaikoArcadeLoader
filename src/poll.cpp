@@ -185,7 +185,7 @@ SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
 }
 
 void
-SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **cards, size_t *leng) {
+SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings *cards, size_t *leng) {
 	toml_array_t *top_array = toml_array_in (table, key);
 	if (!top_array) {
 		printWarning ("%s (%s): Cannot find array\n", __func__, key);
@@ -194,13 +194,13 @@ SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **card
 
     size_t length = toml_array_nelem(top_array);
     *leng = length;
-    memset(cards, 0, length * (sizeof (*cards)));
+    cards = new CardKeybindings[length];
 
     for (size_t i = 0; i < length; ++i) {
         toml_table_t* card_obj = toml_table_at(top_array, i);
         if (card_obj) {
-            memset (cards[i], 0, sizeof (**cards));
-            cards[i]->card = readConfigString(card_obj, "CARD", "");
+            CardKeybindings cardInfo = cards[i] = {};
+            cardInfo.card = readConfigString(card_obj, "CARD", "");
 
             toml_array_t *array = toml_array_in (card_obj, "READ_KEY");
             if (!array) {
@@ -208,8 +208,8 @@ SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **card
                 return;
             }
 
-            for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.buttons); i++)
-                cards[i]->keybindings.buttons[i] = SDL_CONTROLLER_BUTTON_INVALID;
+            for (size_t i = 0; i < COUNTOFARR (cardInfo.keybindings.buttons); i++)
+                cardInfo.keybindings.buttons[i] = SDL_CONTROLLER_BUTTON_INVALID;
 
             for (size_t i = 0;; i++) {
                 toml_datum_t bind = toml_string_at (array, i);
@@ -219,32 +219,32 @@ SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **card
 
                 switch (value.type) {
                 case keycode:
-                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.keycodes); i++) {
-                        if (cards[i]->keybindings.keycodes[i] == 0) {
-                            cards[i]->keybindings.keycodes[i] = value.keycode;
+                    for (size_t i = 0; i < COUNTOFARR (cardInfo.keybindings.keycodes); i++) {
+                        if (cardInfo.keybindings.keycodes[i] == 0) {
+                            cardInfo.keybindings.keycodes[i] = value.keycode;
                             break;
                         }
                     }
                     break;
                 case button:
-                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.buttons); i++) {
-                        if (cards[i]->keybindings.buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) {
-                            cards[i]->keybindings.buttons[i] = value.button;
+                    for (size_t i = 0; i < COUNTOFARR (cardInfo.keybindings.buttons); i++) {
+                        if (cardInfo.keybindings.buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) {
+                            cardInfo.keybindings.buttons[i] = value.button;
                             break;
                         }
                     }
                     break;
                 case axis:
-                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.axis); i++) {
-                        if (cards[i]->keybindings.axis[i] == 0) {
-                            cards[i]->keybindings.axis[i] = value.axis;
+                    for (size_t i = 0; i < COUNTOFARR (cardInfo.keybindings.axis); i++) {
+                        if (cardInfo.keybindings.axis[i] == 0) {
+                            cardInfo.keybindings.axis[i] = value.axis;
                             break;
                         }
                     }
                 case scroll:
-                    for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.scroll); i++) {
-                        if (cards[i]->keybindings.scroll[i] == 0) {
-                            cards[i]->keybindings.scroll[i] = value.scroll;
+                    for (size_t i = 0; i < COUNTOFARR (cardInfo.keybindings.scroll); i++) {
+                        if (cardInfo.keybindings.scroll[i] == 0) {
+                            cardInfo.keybindings.scroll[i] = value.scroll;
                             break;
                         }
                     }
