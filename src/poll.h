@@ -43,10 +43,10 @@ struct Keybindings {
 	Scroll scroll[2];
 };
 
-struct CardKeybingings {
+struct CardKeybindings {
     Keybindings keybindings;
     std::string card;
-}
+};
 
 enum EnumType { none, keycode, button, axis, scroll };
 
@@ -71,7 +71,7 @@ void UpdatePoll (HWND windowHandle);
 void DisposePoll ();
 ConfigValue StringToConfigEnum (const char *value);
 void SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind);
-void SetCardConfigValue (toml_table_t *table, const char *key, CardKeybingings **keybind, size_t *leng);
+void SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **keybind, size_t *leng);
 InternalButtonState GetInternalButtonState (Keybindings bindings);
 void SetRumble (int left, int right, int length);
 

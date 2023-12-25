@@ -186,23 +186,29 @@ SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
 
 void
 SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **cards, size_t *leng) {
-	toml_array_t *array = toml_array_in (table, key);
-	if (!array) {
+	toml_array_t *top_array = toml_array_in (table, key);
+	if (!top_array) {
 		printWarning ("%s (%s): Cannot find array\n", __func__, key);
 		return;
 	}
 
-    size_t length = toml_array_nelem(array);
+    size_t length = toml_array_nelem(top_array);
     *leng = length;
-    cards = memset(*cards, 0, length * (sizeof (*cards)));
+    memset(cards, 0, length * (sizeof (*cards)));
 
     for (size_t i = 0; i < length; ++i) {
-        const toml_table_t* card_obj = toml_table_at(arr, i);
+        toml_table_t* card_obj = toml_table_at(top_array, i);
         if (card_obj) {
             memset (cards[i], 0, sizeof (**cards));
-            cards[i]->card = toml_string_in(obj, "CARD")
+            cards[i]->card = readConfigString(card_obj, "CARD", "");
 
-            for (size_t i = 0; i < COUNTOFARR (keybind->buttons); i++)
+            toml_array_t *array = toml_array_in (card_obj, "READ_KEY");
+            if (!array) {
+                printWarning ("%s (%s): Cannot find READ_KEY in CARD_INFO\n", __func__, key);
+                return;
+            }
+
+            for (size_t i = 0; i < COUNTOFARR (cards[i]->keybindings.buttons); i++)
                 cards[i]->keybindings.buttons[i] = SDL_CONTROLLER_BUTTON_INVALID;
 
             for (size_t i = 0;; i++) {
