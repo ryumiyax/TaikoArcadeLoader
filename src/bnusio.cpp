@@ -102,48 +102,55 @@ u16 buttonWaitPeriodP2 = 0;
 std::queue<u8> buttonQueueP1;
 std::queue<u8> buttonQueueP2;
 
+bool useTaikoController;
+u8 analogBindings[] = {SDL_AXIS_LEFT_DOWN, SDL_AXIS_LEFT_RIGHT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN};
+
 u16
 bnusio_GetAnalogIn (u8 which) {
-	auto button = analogButtons[which];
-	if (which == 0) {
-		if (buttonWaitPeriodP1 > 0) buttonWaitPeriodP1--;
-		if (buttonWaitPeriodP2 > 0) buttonWaitPeriodP2--;
-	}
-	bool isP1 = which / 4 == 0;
-	if ((isP1 && !buttonQueueP1.empty ()) || (!isP1 && !buttonQueueP2.empty ())) {
-		if ((isP1 && buttonQueueP1.front () == which && buttonWaitPeriodP1 == 0) || (!isP1 && buttonQueueP2.front () == which && buttonWaitPeriodP2 == 0)) {
-			if (isP1) {
-				buttonQueueP1.pop ();
-				buttonWaitPeriodP1 = drumWaitPeriod;
-			} else {
-				buttonQueueP2.pop ();
-				buttonWaitPeriodP2 = drumWaitPeriod;
-			}
+	if (useTaikoController) {
+		return (int)(65535 * ControllerAxisIsDown (analogBindings[which]));
+	} else {
+		auto button = analogButtons[which];
+		if (which == 0) {
+			if (buttonWaitPeriodP1 > 0) buttonWaitPeriodP1--;
+			if (buttonWaitPeriodP2 > 0) buttonWaitPeriodP2--;
+		}
+		bool isP1 = which / 4 == 0;
+		if ((isP1 && !buttonQueueP1.empty ()) || (!isP1 && !buttonQueueP2.empty ())) {
+			if ((isP1 && buttonQueueP1.front () == which && buttonWaitPeriodP1 == 0) || (!isP1 && buttonQueueP2.front () == which && buttonWaitPeriodP2 == 0)) {
+				if (isP1) {
+					buttonQueueP1.pop ();
+					buttonWaitPeriodP1 = drumWaitPeriod;
+				} else {
+					buttonQueueP2.pop ();
+					buttonWaitPeriodP2 = drumWaitPeriod;
+				}
 
+				lastHitValue++;
+				if (lastHitValue >= drumMax) lastHitValue = drumMin;
+				return lastHitValue;
+			}
+			if (IsButtonTapped (*button)) {
+				if (isP1) buttonQueueP1.push (which);
+				else buttonQueueP2.push (which);
+			}
+			return 0;
+		} else if (IsButtonTapped (*button)) {
+			if (isP1 && buttonWaitPeriodP1 > 0) {
+				buttonQueueP1.push (which);
+				return 0;
+			} else if (!isP1 && buttonWaitPeriodP2 > 0) {
+				buttonQueueP2.push (which);
+				return 0;
+			}
+			if (isP1) buttonWaitPeriodP1 = drumWaitPeriod;
+			else buttonWaitPeriodP2 = drumWaitPeriod;
 			lastHitValue++;
 			if (lastHitValue >= drumMax) lastHitValue = drumMin;
 			return lastHitValue;
-		}
-		if (IsButtonTapped (*button)) {
-			if (isP1) buttonQueueP1.push (which);
-			else buttonQueueP2.push (which);
-		}
-		return 0;
-	} else if (IsButtonTapped (*button)) {
-		if (isP1 && buttonWaitPeriodP1 > 0) {
-			buttonQueueP1.push (which);
-			return 0;
-		} else if (!isP1 && buttonWaitPeriodP2 > 0) {
-			buttonQueueP2.push (which);
+		} else {
 			return 0;
 		}
-		if (isP1) buttonWaitPeriodP1 = drumWaitPeriod;
-		else buttonWaitPeriodP2 = drumWaitPeriod;
-		lastHitValue++;
-		if (lastHitValue >= drumMax) lastHitValue = drumMin;
-		return lastHitValue;
-	} else {
-		return 0;
 	}
 }
 
@@ -313,6 +320,8 @@ Init () {
 	if (config) {
 		auto drum = openConfigSection (config, "drum");
 		if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
+		auto taikoController = openConfigSection (config, "controller");
+		if (taikoController) useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
 		toml_free (config);
 	}
 
