@@ -328,7 +328,7 @@ Init () {
 		if (taikoController) {
 			useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
 			if (useTaikoController) {
-				printf("Using analog input mode. All other input has been disabled.\n");
+				printf("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
 			}
 		}
 		toml_free (config);
