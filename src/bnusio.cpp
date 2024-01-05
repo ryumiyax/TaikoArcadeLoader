@@ -103,7 +103,10 @@ std::queue<u8> buttonQueueP1;
 std::queue<u8> buttonQueueP2;
 
 bool useTaikoController;
-SDLAxis analogBindings[] = {SDL_AXIS_LEFT_DOWN, SDL_AXIS_LEFT_RIGHT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN};
+SDLAxis analogBindings[] = {
+	SDL_AXIS_LEFT_LEFT, SDL_AXIS_LEFT_RIGHT, SDL_AXIS_LEFT_DOWN, SDL_AXIS_LEFT_UP,     // P1: LB, LR, RR, RB
+	SDL_AXIS_RIGHT_LEFT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN, SDL_AXIS_RIGHT_UP, // P2: LB, LR, RR, RB
+};
 
 u16
 bnusio_GetAnalogIn (u8 which) {
