@@ -326,8 +326,10 @@ Init () {
 		if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
 		auto taikoController = openConfigSection (config, "controller");
 		if (taikoController) {
-			printf("Using analog input mode. All other input has been disabled.\n");
 			useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
+			if (useTaikoController) {
+				printf("Using analog input mode. All other input has been disabled.\n");
+			}
 		}
 		toml_free (config);
 	}
