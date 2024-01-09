@@ -31,10 +31,10 @@ Keybindings CARD_INSERT_1 = {};
 Keybindings CARD_INSERT_2 = {};
 Keybindings QR_CARD_READ  = {};
 Keybindings QR_DATA_READ  = {.keycodes = {'Q'}};
-Keybindings P1_LEFT_BLUE  = {.keycodes = {'D'}, .axis = {SDL_AXIS_LTRIGGER_DOWN}};
-Keybindings P1_LEFT_RED   = {.keycodes = {'F'}, .buttons = {SDL_CONTROLLER_BUTTON_LEFTSTICK}};
-Keybindings P1_RIGHT_RED  = {.keycodes = {'J'}, .buttons = {SDL_CONTROLLER_BUTTON_RIGHTSTICK}};
-Keybindings P1_RIGHT_BLUE = {.keycodes = {'K'}, .axis = {SDL_AXIS_RTRIGGER_DOWN}};
+Keybindings P1_LEFT_BLUE  = {.keycodes = {'D'}, .axis = {SDL_AXIS_LEFT_DOWN}};
+Keybindings P1_LEFT_RED   = {.keycodes = {'F'}, .axis = {SDL_AXIS_LEFT_RIGHT}};
+Keybindings P1_RIGHT_RED  = {.keycodes = {'J'}, .axis = {SDL_AXIS_RIGHT_RIGHT}};
+Keybindings P1_RIGHT_BLUE = {.keycodes = {'K'}, .axis = {SDL_AXIS_RIGHT_DOWN}};
 Keybindings P2_LEFT_BLUE  = {};
 Keybindings P2_LEFT_RED   = {};
 Keybindings P2_RIGHT_RED  = {};
@@ -95,8 +95,8 @@ bnusio_GetFirmwareVersion () {
 	return 126;
 }
 
-u16 drumMin        = 10000;
-u16 drumMax        = 20000;
+u16 drumMin        = 15000;
+u16 drumMax        = 30000;
 u16 drumWaitPeriod = 4;
 
 u16 lastHitValue             = drumMin;
@@ -107,8 +107,22 @@ u16 buttonWaitPeriodP2 = 0;
 std::queue<u8> buttonQueueP1;
 std::queue<u8> buttonQueueP2;
 
+bool useTaikoController;
+SDLAxis analogBindings[] = {
+	SDL_AXIS_LEFT_LEFT, SDL_AXIS_LEFT_RIGHT, SDL_AXIS_LEFT_DOWN, SDL_AXIS_LEFT_UP,     // P1: LB, LR, RR, RB
+	SDL_AXIS_RIGHT_LEFT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN, SDL_AXIS_RIGHT_UP, // P2: LB, LR, RR, RB
+};
+
 u16
 bnusio_GetAnalogIn (u8 which) {
+	u16 analogValue;
+	if (useTaikoController) {
+		analogValue = (u16)(32768 * ControllerAxisIsDown (analogBindings[which]));
+		if (analogValue > 100) {
+			return analogValue;
+		}
+		return 0;
+	}
 	auto button = analogButtons[which];
 	if (which == 0) {
 		if (buttonWaitPeriodP1 > 0) buttonWaitPeriodP1--;
@@ -318,6 +332,13 @@ Init () {
 	if (config) {
 		auto drum = openConfigSection (config, "drum");
 		if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
+		auto taikoController = openConfigSection (config, "controller");
+		if (taikoController) {
+			useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
+			if (useTaikoController) {
+				printf("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
+			}
+		}
 		toml_free (config);
 	}
 
