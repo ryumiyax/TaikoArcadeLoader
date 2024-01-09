@@ -247,6 +247,81 @@ SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
 	}
 }
 
+void
+SetCardConfigValue (toml_table_t *table, const char *key, CardKeybindings **cards, size_t *leng) {
+	toml_array_t *top_array = toml_array_in (table, key);
+	if (!top_array) {
+		printWarning ("%s (%s): Cannot find array\n", __func__, key);
+		return;
+	}
+
+    *leng = toml_array_nelem(top_array);
+    *cards = (CardKeybindings*) calloc (*leng, sizeof(CardKeybindings));
+
+    for (size_t top_i = 0; top_i < *leng; ++top_i) {
+        toml_table_t* card_obj = toml_table_at(top_array, top_i);
+        if (card_obj) {
+            std::string read_card = readConfigString (card_obj, "CARD", "");
+            (*cards)[top_i].card = (char*) calloc (read_card.size() + 1, sizeof(char));
+            strcpy((*cards)[top_i].card, read_card.c_str());
+
+            toml_array_t *array = toml_array_in (card_obj, "READ_KEY");
+            if (!array) {
+                printWarning ("%s (%s): Cannot find READ_KEY in CARD_INFO\n", __func__, key);
+                return;
+            }
+
+            Keybindings *keybind = &((*cards)[top_i].keybindings);
+            memset (keybind, 0, sizeof (*keybind));
+            for (size_t i = 0; i < COUNTOFARR (keybind->buttons); i++)
+                keybind->buttons[i] = SDL_CONTROLLER_BUTTON_INVALID;
+
+            for (size_t i = 0;; i++) {
+                toml_datum_t bind = toml_string_at (array, i);
+                if (!bind.ok) break;
+                ConfigValue value = StringToConfigEnum (bind.u.s);
+                free (bind.u.s);
+
+                switch (value.type) {
+                case keycode:
+                    for (size_t i = 0; i < COUNTOFARR (keybind->keycodes); i++) {
+                        if (keybind->keycodes[i] == 0) {
+                            keybind->keycodes[i] = value.keycode;
+                            break;
+                        }
+                    }
+                    break;
+                case button:
+                    for (size_t i = 0; i < COUNTOFARR (keybind->buttons); i++) {
+                        if (keybind->buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) {
+                            keybind->buttons[i] = value.button;
+                            break;
+                        }
+                    }
+                    break;
+                case axis:
+                    for (size_t i = 0; i < COUNTOFARR (keybind->axis); i++) {
+                        if (keybind->axis[i] == 0) {
+                            keybind->axis[i] = value.axis;
+                            break;
+                        }
+                    }
+                case scroll:
+                    for (size_t i = 0; i < COUNTOFARR (keybind->scroll); i++) {
+                        if (keybind->scroll[i] == 0) {
+                            keybind->scroll[i] = value.scroll;
+                            break;
+                        }
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+}
+
 bool
 InitializePoll (HWND windowHandle) {
 	bool hasRumble = true;

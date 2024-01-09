@@ -21,6 +21,16 @@ P2_LEFT_RED = []
 P2_RIGHT_RED = []
 P2_RIGHT_BLUE = []
 
+# For First User's QRCode
+[[QRCODE_CARD]]
+READ_KEY = ["W"]                 # Bind Keys
+CARD = "BNTTCNID1"          # Card Number
+
+# For Second User's QRCode
+[[QRCODE_CARD]]
+READ_KEY = ["E"]                 # Bind Keys
+CARD = "BNTTCNID2"          # Card Number
+
 # ESCAPE F1 through F12 
 # ` 1 through 0 -= BACKSPACE 
 # TAB QWERTYUIOP [ ] BACKSLASH
