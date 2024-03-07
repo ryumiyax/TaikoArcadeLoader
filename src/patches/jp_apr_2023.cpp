@@ -72,6 +72,7 @@ Init () {
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x42DE0));
 
+	patches::Qr::Init ();
 	patches::AmAuth::Init ();
 }
 } // namespace patches::JP_APR_2023

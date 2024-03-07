@@ -5,8 +5,8 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <vector>
 #include <queue>
+#include <vector>
 
 extern GameVersion gameVersion;
 extern Keybindings QR_CARD_READ;
@@ -77,9 +77,9 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			memcpy (dest, card.c_str (), card.size () + 1);
 			gState = State::AfterCopy1;
 			return card.size () + 1;
-        } else if (gMode == Mode::MultiCard) {
-            if (config) toml_free (config);
-            memcpy (dest, gCardNumber.c_str (), gCardNumber.size () + 1);
+		} else if (gMode == Mode::MultiCard) {
+			if (config) toml_free (config);
+			memcpy (dest, gCardNumber.c_str (), gCardNumber.size () + 1);
 			gState = State::AfterCopy1;
 			return gCardNumber.size () + 1;
 		} else {
@@ -155,16 +155,16 @@ Update () {
 			gState = State::CopyWait;
 			gMode  = Mode::Data;
 		} else if (QRCODE_CARDS != nullptr) {
-            for (size_t i = 0; i < QRCODE_CARDS_LENG; i++) {
-                if (IsButtonTapped (QRCODE_CARDS[i].keybindings)) {
-                    std::cout << "Insert: " << QRCODE_CARDS[i].card << std::endl;
-			        gState      = State::CopyWait;
-			        gMode       = Mode::MultiCard;
-                    gCardNumber = QRCODE_CARDS[i].card;
-                    break;
-                }
-            }
-        }
+			for (size_t i = 0; i < QRCODE_CARDS_LENG; i++) {
+				if (IsButtonTapped (QRCODE_CARDS[i].keybindings)) {
+					std::cout << "Insert: " << QRCODE_CARDS[i].card << std::endl;
+					gState      = State::CopyWait;
+					gMode       = Mode::MultiCard;
+					gCardNumber = QRCODE_CARDS[i].card;
+					break;
+				}
+			}
+		}
 	}
 }
 
@@ -194,6 +194,18 @@ Init () {
 		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x16990));
 		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x16940));
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x169D0));
+		break;
+	}
+	case GameVersion::JP_APR_2023: {
+		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1EDC0));
+		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1EFB0));
+		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x1EF60));
+		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0x11A70));
+		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x1F690));
+		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1F660));
+		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1F5F0));
+		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x1F5B0));
+		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1F630));
 		break;
 	}
 	default: {
