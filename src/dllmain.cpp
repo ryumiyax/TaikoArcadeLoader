@@ -7,11 +7,15 @@
 GameVersion gameVersion = GameVersion::UNKNOWN;
 std::vector<HMODULE> plugins;
 
-const char *server   = "127.0.0.1";
-char accessCode1[21] = "00000000000000000001";
-char accessCode2[21] = "00000000000000000002";
-char chipId1[33]     = "00000000000000000000000000000001";
-char chipId2[33]     = "00000000000000000000000000000002";
+const char *server     = "127.0.0.1";
+const char *port       = "54430";
+const char *chassisId  = "000000000000";
+const char *shopId     = "TAIKO ARCADE LOADER";
+const char *gameVerNum = "00.00";
+char accessCode1[21]   = "00000000000000000001";
+char accessCode2[21]   = "00000000000000000002";
+char chipId1[33]       = "00000000000000000000000000000001";
+char chipId2[33]       = "00000000000000000000000000000002";
 
 HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse (true); }
 HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) {
@@ -28,7 +32,7 @@ HOOK (i32, ssleay_Shutdown, PROC_ADDRESS ("ssleay32.dll", "SSL_shutdown")) { ret
 HOOK (i64, UsbFinderInitialize, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderInitialize")) { return 0; }
 HOOK (i64, UsbFinderRelease, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderRelease")) { return 0; }
 HOOK (i64, UsbFinderGetSerialNumber, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderGetSerialNumber"), i32 a1, char *a2) {
-	strcpy (a2, "284111080001");
+	strcpy (a2, chassisId);
 	return 0;
 }
 
@@ -65,7 +69,8 @@ GetGameVersion () {
 
 	switch (gameVersion) {
 	case GameVersion::JP_NOV_2020:
-	case GameVersion::CN_JUN_2023: break;
+	case GameVersion::CN_JUN_2023:
+	case GameVersion::JP_APR_2023: break;
 	default: MessageBoxA (0, "Unknown game version", 0, MB_OK); ExitProcess (0);
 	}
 }
@@ -97,7 +102,13 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		toml_table_t *config = openConfig (configPath);
 		if (config) {
 			auto amauth = openConfigSection (config, "amauth");
-			if (amauth) server = readConfigString (amauth, "server", server);
+			if (amauth) {
+				server     = readConfigString (amauth, "server", server);
+				port       = readConfigString (amauth, "port", port);
+				chassisId  = readConfigString (amauth, "chassis_id", chassisId);
+				shopId     = readConfigString (amauth, "shop_id", shopId);
+				gameVerNum = readConfigString (amauth, "game_ver", gameVerNum);
+			}
 			auto patches = openConfigSection (config, "patches");
 			if (patches) version = readConfigString (patches, "version", version);
 			toml_free (config);
@@ -109,6 +120,8 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 			gameVersion = GameVersion::JP_NOV_2020;
 		} else if (!strcmp (version, "cn_jun_2023")) {
 			gameVersion = GameVersion::CN_JUN_2023;
+		} else if (!strcmp (version, "jp_apr_2023")) {
+			gameVersion = GameVersion::JP_APR_2023;
 		} else {
 			MessageBoxA (0, "Unknown patch version", 0, MB_OK);
 			ExitProcess (0);
@@ -159,6 +172,7 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		case GameVersion::UNKNOWN: break;
 		case GameVersion::JP_NOV_2020: patches::JP_NOV_2020::Init (); break;
 		case GameVersion::CN_JUN_2023: patches::CN_JUN_2023::Init (); break;
+		case GameVersion::JP_APR_2023: patches::JP_APR_2023::Init (); break;
 		}
 	}
 	return true;

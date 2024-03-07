@@ -2,6 +2,8 @@
 #include "patches.h"
 #include <safetyhook.hpp>
 
+extern const char *chassisId;
+
 namespace patches::CN_JUN_2023 {
 
 u8 *haspBuffer;
@@ -107,7 +109,7 @@ Init () {
 
 	haspBuffer = (u8 *)malloc (0xD40);
 	memset (haspBuffer, 0, 0xD40);
-	strcpy ((char *)(haspBuffer + 0xD00), "284111080001");
+	strcpy ((char *)(haspBuffer + 0xD00), chassisId);
 	u8 crc = 0;
 	for (int i = 0; i < 62; i++)
 		crc += haspBuffer[0xD00 + i];
@@ -163,11 +165,11 @@ Init () {
 	WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
 
 	// Move various files to current dir
-	WRITE_MEMORY (ASLR (0x140C7B158), char, "./SettingChina1.bin");
-	WRITE_MEMORY (ASLR (0x140C7B2B8), char, "./SettingChina1.bin");
-	WRITE_MEMORY (ASLR (0x140C7B2A0), char, "./SettingChina2.bin");
 	WRITE_MEMORY (ASLR (0x140C33C40), char, "./");
 	WRITE_MEMORY (ASLR (0x140C33C44), char, "./");
+	WRITE_MEMORY (ASLR (0x140C7B158), char, ".\\SettingChina1.bin");
+	WRITE_MEMORY (ASLR (0x140C7B2B8), char, ".\\SettingChina1.bin");
+	WRITE_MEMORY (ASLR (0x140C7B2A0), char, ".\\SettingChina2.bin");
 
 	// Remove datatable size limit
 	{

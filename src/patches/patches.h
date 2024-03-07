@@ -5,6 +5,9 @@ void Init ();
 namespace CN_JUN_2023 {
 void Init ();
 } // namespace CN_JUN_2023
+namespace JP_APR_2023 {
+void Init ();
+} // namespace JP_APR_2023
 namespace AmAuth {
 void Init ();
 } // namespace AmAuth
