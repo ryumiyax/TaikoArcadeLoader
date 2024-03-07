@@ -25,3 +25,6 @@ data = { serial = "", type = 0, song_no = [] }
 
 [drum]
 wait_period = 4
+
+[controller]
+analog = false

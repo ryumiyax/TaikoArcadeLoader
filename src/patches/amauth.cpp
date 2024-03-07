@@ -21,6 +21,7 @@ extern const char *port;
 extern const char *chassisId;
 extern const char *shopId;
 extern const char *gameVerNum;
+extern char fullAddress[256];
 
 namespace patches::AmAuth {
 const GUID IID_CAuth{0x045A5150, 0xD2B3, 0x4590, {0xA3, 0x8B, 0xC1, 0x15, 0x86, 0x78, 0xE1, 0xAC}};
@@ -397,14 +398,14 @@ public:
 		// printf("IAuth_GetVersionInfo called\n");
 		memset (version, 0, sizeof (*version));
 		strcpy_s (version->game_rev, "1");
-		strcpy_s (version->auth_type, "CHARGE_NORMAL");
-		strcpy_s (version->game_id, "S122");
+		strcpy_s (version->auth_type, "ALL.NET");
+		strcpy_s (version->game_id, "SBWY");
 		strcpy_s (version->game_ver, "12.20");
-		strcpy_s (version->game_cd, "TAL0");
+		strcpy_s (version->game_cd, "S121");
 		strcpy_s (version->cacfg_game_ver, gameVerNum);
 		strcpy_s (version->game_board_type, "0");
 		strcpy_s (version->game_board_id, "PCB");
-		strcpy_s (version->auth_url, server);
+		strcpy_s (version->auth_url, fullAddress);
 		return 0;
 	}
 
@@ -421,8 +422,8 @@ public:
 	virtual int32_t IAuth_GetAuthServerResp (amcus_auth_server_resp_t *resp) {
 		// printf("IAuth_GetAuthServerResp called\n");
 		memset (resp, 0, sizeof (*resp));
-		strcpy_s (resp->uri, server);
-		strcpy_s (resp->host, server);
+		strcpy_s (resp->uri, fullAddress);
+		strcpy_s (resp->host, fullAddress);
 
 		strcpy_s (resp->shop_name, shopId);
 		strcpy_s (resp->shop_nickname, shopId);
@@ -460,12 +461,6 @@ public:
 		// printf("IAuth_GetMuchaAuthResponse called\n");
 
 		memset (arr, 0, sizeof (*arr));
-
-		char fullAddress[256] = {'\0'};
-		std::strcat (fullAddress, server);
-		std::strcat (fullAddress, ":");
-		std::strcat (fullAddress, port);
-
 		strcpy_s (arr->shop_name, sizeof (arr->shop_name), shopId);
 		strcpy_s (arr->shop_name_en, sizeof (arr->shop_name_en), shopId);
 		strcpy_s (arr->shop_nickname, sizeof (arr->shop_nickname), shopId);

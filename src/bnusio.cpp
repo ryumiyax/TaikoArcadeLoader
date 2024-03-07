@@ -20,26 +20,26 @@ u64 touchData;
 callbackAttach attachCallback;
 i32 *attachData;
 
-Keybindings EXIT          = {.keycodes = {VK_ESCAPE}};
-Keybindings TEST          = {.keycodes = {VK_F1}};
-Keybindings SERVICE       = {.keycodes = {VK_F2}};
-Keybindings DEBUG_UP      = {.keycodes = {VK_UP}};
-Keybindings DEBUG_DOWN    = {.keycodes = {VK_DOWN}};
-Keybindings DEBUG_ENTER   = {.keycodes = {VK_RETURN}};
-Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER_BUTTON_START}};
-Keybindings CARD_INSERT_1 = {};
-Keybindings CARD_INSERT_2 = {};
-Keybindings QR_CARD_READ  = {};
-Keybindings QR_DATA_READ  = {.keycodes = {'Q'}};
-Keybindings P1_LEFT_BLUE  = {.keycodes = {'D'}, .axis = {SDL_AXIS_LEFT_DOWN}};
-Keybindings P1_LEFT_RED   = {.keycodes = {'F'}, .axis = {SDL_AXIS_LEFT_RIGHT}};
-Keybindings P1_RIGHT_RED  = {.keycodes = {'J'}, .axis = {SDL_AXIS_RIGHT_RIGHT}};
-Keybindings P1_RIGHT_BLUE = {.keycodes = {'K'}, .axis = {SDL_AXIS_RIGHT_DOWN}};
-Keybindings P2_LEFT_BLUE  = {};
-Keybindings P2_LEFT_RED   = {};
-Keybindings P2_RIGHT_RED  = {};
-Keybindings P2_RIGHT_BLUE = {};
-CardKeybindings *QRCODE_CARDS = new CardKeybindings[] {
+Keybindings EXIT              = {.keycodes = {VK_ESCAPE}};
+Keybindings TEST              = {.keycodes = {VK_F1}};
+Keybindings SERVICE           = {.keycodes = {VK_F2}};
+Keybindings DEBUG_UP          = {.keycodes = {VK_UP}};
+Keybindings DEBUG_DOWN        = {.keycodes = {VK_DOWN}};
+Keybindings DEBUG_ENTER       = {.keycodes = {VK_RETURN}};
+Keybindings COIN_ADD          = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER_BUTTON_START}};
+Keybindings CARD_INSERT_1     = {};
+Keybindings CARD_INSERT_2     = {};
+Keybindings QR_CARD_READ      = {};
+Keybindings QR_DATA_READ      = {.keycodes = {'Q'}};
+Keybindings P1_LEFT_BLUE      = {.keycodes = {'D'}, .axis = {SDL_AXIS_LEFT_DOWN}};
+Keybindings P1_LEFT_RED       = {.keycodes = {'F'}, .axis = {SDL_AXIS_LEFT_RIGHT}};
+Keybindings P1_RIGHT_RED      = {.keycodes = {'J'}, .axis = {SDL_AXIS_RIGHT_RIGHT}};
+Keybindings P1_RIGHT_BLUE     = {.keycodes = {'K'}, .axis = {SDL_AXIS_RIGHT_DOWN}};
+Keybindings P2_LEFT_BLUE      = {};
+Keybindings P2_LEFT_RED       = {};
+Keybindings P2_RIGHT_RED      = {};
+Keybindings P2_RIGHT_BLUE     = {};
+CardKeybindings *QRCODE_CARDS = new CardKeybindings[]{
     {.keybindings = {.keycodes = {'W'}}, .card = "BNTTCNID1"},
     {.keybindings = {.keycodes = {'E'}}, .card = "BNTTCNID2"},
 };
@@ -109,8 +109,8 @@ std::queue<u8> buttonQueueP2;
 
 bool useTaikoController;
 SDLAxis analogBindings[] = {
-	SDL_AXIS_LEFT_LEFT, SDL_AXIS_LEFT_RIGHT, SDL_AXIS_LEFT_DOWN, SDL_AXIS_LEFT_UP,     // P1: LB, LR, RR, RB
-	SDL_AXIS_RIGHT_LEFT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN, SDL_AXIS_RIGHT_UP, // P2: LB, LR, RR, RB
+    SDL_AXIS_LEFT_LEFT,  SDL_AXIS_LEFT_RIGHT,  SDL_AXIS_LEFT_DOWN,  SDL_AXIS_LEFT_UP,  // P1: LB, LR, RR, RB
+    SDL_AXIS_RIGHT_LEFT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN, SDL_AXIS_RIGHT_UP, // P2: LB, LR, RR, RB
 };
 
 u16
@@ -118,9 +118,7 @@ bnusio_GetAnalogIn (u8 which) {
 	u16 analogValue;
 	if (useTaikoController) {
 		analogValue = (u16)(32768 * ControllerAxisIsDown (analogBindings[which]));
-		if (analogValue > 100) {
-			return analogValue;
-		}
+		if (analogValue > 100) return analogValue;
 		return 0;
 	}
 	auto button = analogButtons[which];
@@ -243,6 +241,7 @@ u16 __fastcall bnusio_GetCoin (i32 a1) {
 
 	patches::Qr::Update ();
 
+	if (attachCallback) attachCallback (0, 0, attachData);
 	return coin_count;
 }
 
@@ -335,9 +334,7 @@ Init () {
 		auto taikoController = openConfigSection (config, "controller");
 		if (taikoController) {
 			useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
-			if (useTaikoController) {
-				printf("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
-			}
+			if (useTaikoController) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
 		}
 		toml_free (config);
 	}
@@ -368,7 +365,7 @@ Init () {
 		SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
 
-        SetCardConfigValue (keyconfig, "QRCODE_CARD", &QRCODE_CARDS, &QRCODE_CARDS_LENG);
+		SetCardConfigValue (keyconfig, "QRCODE_CARD", &QRCODE_CARDS, &QRCODE_CARDS_LENG);
 
 		toml_free (keyconfig);
 	}

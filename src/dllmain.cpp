@@ -9,9 +9,10 @@ std::vector<HMODULE> plugins;
 
 const char *server     = "127.0.0.1";
 const char *port       = "54430";
-const char *chassisId  = "000000000000";
+const char *chassisId  = "284111080000";
 const char *shopId     = "TAIKO ARCADE LOADER";
 const char *gameVerNum = "00.00";
+char fullAddress[256]  = {'\0'};
 char accessCode1[21]   = "00000000000000000001";
 char accessCode2[21]   = "00000000000000000002";
 char chipId1[33]       = "00000000000000000000000000000001";
@@ -108,6 +109,10 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 				chassisId  = readConfigString (amauth, "chassis_id", chassisId);
 				shopId     = readConfigString (amauth, "shop_id", shopId);
 				gameVerNum = readConfigString (amauth, "game_ver", gameVerNum);
+
+				std::strcat (fullAddress, server);
+				std::strcat (fullAddress, ":");
+				std::strcat (fullAddress, port);
 			}
 			auto patches = openConfigSection (config, "patches");
 			if (patches) version = readConfigString (patches, "version", version);

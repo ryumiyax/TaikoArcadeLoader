@@ -5,6 +5,13 @@ namespace patches::JP_APR_2023 {
 
 HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
 
+HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
+	// printf ("garmc curl_easy_setopt\n");
+	originalcurl_easy_setopt (a1, 64, 0, 0, 0);
+	originalcurl_easy_setopt (a1, 81, 0, 0, 0);
+	return originalcurl_easy_setopt (a1, a2, a3, a4, a5);
+}
+
 void
 Init () {
 	i32 xRes         = 1920;
@@ -52,7 +59,7 @@ Init () {
 	WRITE_MEMORY (ASLR (0x140CD4DC0), char, ".\\Setting1.bin");
 	WRITE_MEMORY (ASLR (0x140CD4DB0), char, ".\\Setting2.bin");
 	WRITE_MEMORY (ASLR (0x140C95B40), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
-	WRITE_MEMORY (ASLR (0x140CD4DC0), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
+	WRITE_MEMORY (ASLR (0x140C95BB0), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
 	WRITE_MEMORY (ASLR (0x140CC0508), char, ".\\Garmc\\BillingData\\GarmcBillingData.dat");
 	WRITE_MEMORY (ASLR (0x140CC0580), char, ".\\Garmc\\ErrorLogData\\GarmcOErrorLogData.dat");
 	WRITE_MEMORY (ASLR (0x140CC05E0), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcBillingNetIdLocationId.dat");
@@ -71,6 +78,10 @@ Init () {
 	// Disable live check
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x42DE0));
+
+	// Redirect garmc requests
+	auto garmcHandle = (u64)GetModuleHandle ("garmc.dll");
+	INSTALL_HOOK_DYNAMIC (curl_easy_setopt, (void *)(garmcHandle + 0x1FBBB0));
 
 	patches::Qr::Init ();
 	patches::AmAuth::Init ();
