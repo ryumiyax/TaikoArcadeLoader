@@ -1,5 +1,6 @@
 #include "helpers.h"
 #include "patches.h"
+#include <safetyhook.hpp>
 
 namespace patches::JP_APR_2023 {
 
@@ -10,6 +11,33 @@ HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4,
 	originalcurl_easy_setopt (a1, 64, 0, 0, 0);
 	originalcurl_easy_setopt (a1, 81, 0, 0, 0);
 	return originalcurl_easy_setopt (a1, a2, a3, a4, a5);
+}
+
+const i32 datatableBufferSize = 1024 * 1024 * 12;
+safetyhook::Allocation datatableBuffer1;
+safetyhook::Allocation datatableBuffer2;
+safetyhook::Allocation datatableBuffer3;
+const std::vector<uintptr_t> datatableBuffer1Addresses = {0x1400ABE40, 0x1400ABEB1, 0x1400ABEDB, 0x1400ABF4C};
+const std::vector<uintptr_t> datatableBuffer2Addresses = {0x1400ABE2C, 0x1400ABF5B, 0x1400ABF8E};
+const std::vector<uintptr_t> datatableBuffer3Addresses = {0x1400ABF7F, 0x1400ABF95, 0x1400ABFBF};
+const std::vector<uintptr_t> memsetSizeAddresses       = {0x1400ABE26, 0x1400ABE3A, 0x1400ABF79};
+
+void
+AllocateStaticBufferNear (void *target_address, size_t size, safetyhook::Allocation *newBuffer) {
+	auto allocator                = safetyhook::Allocator::global ();
+	std::vector desired_addresses = {(uint8_t *)target_address};
+	auto allocation_result        = allocator->allocate_near (desired_addresses, size);
+	if (allocation_result.has_value ()) *newBuffer = std::move (*allocation_result);
+}
+
+void
+ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *newBufferAddress) {
+	for (auto bufferAddress : bufferAddresses) {
+		uintptr_t lea_instruction_dst = ASLR (bufferAddress) + 3;
+		uintptr_t lea_instruction_end = ASLR (bufferAddress) + 7;
+		intptr_t offset               = (intptr_t)newBufferAddress - lea_instruction_end;
+		WRITE_MEMORY (lea_instruction_dst, i32, (i32)offset);
+	}
 }
 
 void
@@ -74,6 +102,23 @@ Init () {
 	WRITE_MEMORY (ASLR (0x140CC0690), char, ".\\Garmc\\BillingData\\GarmcOBillingData.dat");
 	WRITE_MEMORY (ASLR (0x140CC06F0), char, ".\\Garmc\\ErrorLogData\\GarmcErrorLogData.dat");
 	WRITE_MEMORY (ASLR (0x140CC0880), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcOBillingNetIdLocationId.dat");
+
+	// Remove datatable size limit
+	{
+		for (auto address : memsetSizeAddresses)
+			WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
+
+		auto bufferBase = MODULE_HANDLE - 0x03000000;
+		AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer1);
+		bufferBase += datatableBufferSize;
+		AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer2);
+		bufferBase += datatableBufferSize;
+		AllocateStaticBufferNear ((void *)bufferBase, datatableBufferSize, &datatableBuffer3);
+
+		ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
+		ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
+		ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
+	}
 
 	// Disable live check
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
