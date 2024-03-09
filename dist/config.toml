@@ -1,7 +1,7 @@
 [amauth]
 server = "127.0.0.1"
 port = "54430"
-chassis_id = "000000000000"
+chassis_id = "284111080000"
 shop_id = "TAIKO ARCADE LOADER"
 game_ver = "00.00"
 
