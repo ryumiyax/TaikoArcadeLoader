@@ -5,22 +5,22 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <queue>
 #include <vector>
 
 extern GameVersion gameVersion;
-extern Keybindings QR_CARD_READ;
+extern Keybindings CARD_INSERT_1;
+extern Keybindings CARD_INSERT_2;
 extern Keybindings QR_DATA_READ;
-extern CardKeybindings *QRCODE_CARDS;
-extern size_t QRCODE_CARDS_LENG;
+extern char accessCode1[21];
+extern char accessCode2[21];
 
 namespace patches::Qr {
 
 enum class State { Ready, CopyWait };
-enum class Mode { Card, Data, MultiCard };
-State gState            = State::Ready;
-Mode gMode              = Mode::Card;
-std::string gCardNumber = "";
+enum class Mode { Card, Data };
+State gState = State::Ready;
+Mode gMode   = Mode::Card;
+std::string accessCode;
 
 HOOK_DYNAMIC (char, __fastcall, qrInit, i64) { return 1; }
 HOOK_DYNAMIC (char, __fastcall, qrRead, i64 a1) {
@@ -52,21 +52,11 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 		toml_table_t *config = openConfig (configPath);
 
 		if (gMode == Mode::Card) {
-			std::string card = "";
-			if (config) {
-				auto qr = openConfigSection (config, "qr");
-				if (qr) card = readConfigString (qr, "card", "");
-				toml_free (config);
-			}
-
-			memcpy (dest, card.c_str (), card.size () + 1);
-			gState = State::Ready;
-			return card.size () + 1;
-		} else if (gMode == Mode::MultiCard) {
 			if (config) toml_free (config);
-			memcpy (dest, gCardNumber.c_str (), gCardNumber.size () + 1);
+
+			memcpy (dest, accessCode.c_str (), accessCode.size () + 1);
 			gState = State::Ready;
-			return gCardNumber.size () + 1;
+			return accessCode.size () + 1;
 		} else {
 			std::string serial = "";
 			u16 type           = 0;
@@ -122,24 +112,26 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 void
 Update () {
 	if (gState == State::Ready) {
-		if (IsButtonTapped (QR_CARD_READ)) {
+		if (IsButtonTapped (CARD_INSERT_1)) {
+			if (gameVersion != GameVersion::CN_JUN_2023) return;
+
 			std::cout << "Insert" << std::endl;
+			accessCode = "BNTTCNID";
+			accessCode += accessCode1;
+			gState = State::CopyWait;
+			gMode  = Mode::Card;
+		} else if (IsButtonTapped (CARD_INSERT_2)) {
+			if (gameVersion != GameVersion::CN_JUN_2023) return;
+
+			std::cout << "Insert" << std::endl;
+			accessCode = "BNTTCNID";
+			accessCode += accessCode2;
 			gState = State::CopyWait;
 			gMode  = Mode::Card;
 		} else if (IsButtonTapped (QR_DATA_READ)) {
 			std::cout << "Insert" << std::endl;
 			gState = State::CopyWait;
 			gMode  = Mode::Data;
-		} else if (QRCODE_CARDS != nullptr) {
-			for (size_t i = 0; i < QRCODE_CARDS_LENG; i++) {
-				if (IsButtonTapped (QRCODE_CARDS[i].keybindings)) {
-					std::cout << "Insert: " << QRCODE_CARDS[i].card << std::endl;
-					gState      = State::CopyWait;
-					gMode       = Mode::MultiCard;
-					gCardNumber = QRCODE_CARDS[i].card;
-					break;
-				}
-			}
 		}
 	}
 }

@@ -20,30 +20,24 @@ u64 touchData;
 callbackAttach attachCallback;
 i32 *attachData;
 
-Keybindings EXIT              = {.keycodes = {VK_ESCAPE}};
-Keybindings TEST              = {.keycodes = {VK_F1}};
-Keybindings SERVICE           = {.keycodes = {VK_F2}};
-Keybindings DEBUG_UP          = {.keycodes = {VK_UP}};
-Keybindings DEBUG_DOWN        = {.keycodes = {VK_DOWN}};
-Keybindings DEBUG_ENTER       = {.keycodes = {VK_RETURN}};
-Keybindings COIN_ADD          = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER_BUTTON_START}};
-Keybindings CARD_INSERT_1     = {};
-Keybindings CARD_INSERT_2     = {};
-Keybindings QR_CARD_READ      = {};
-Keybindings QR_DATA_READ      = {.keycodes = {'Q'}};
-Keybindings P1_LEFT_BLUE      = {.keycodes = {'D'}, .axis = {SDL_AXIS_LEFT_DOWN}};
-Keybindings P1_LEFT_RED       = {.keycodes = {'F'}, .axis = {SDL_AXIS_LEFT_RIGHT}};
-Keybindings P1_RIGHT_RED      = {.keycodes = {'J'}, .axis = {SDL_AXIS_RIGHT_RIGHT}};
-Keybindings P1_RIGHT_BLUE     = {.keycodes = {'K'}, .axis = {SDL_AXIS_RIGHT_DOWN}};
-Keybindings P2_LEFT_BLUE      = {};
-Keybindings P2_LEFT_RED       = {};
-Keybindings P2_RIGHT_RED      = {};
-Keybindings P2_RIGHT_BLUE     = {};
-CardKeybindings *QRCODE_CARDS = new CardKeybindings[]{
-    {.keybindings = {.keycodes = {'W'}}, .card = "BNTTCNID1"},
-    {.keybindings = {.keycodes = {'E'}}, .card = "BNTTCNID2"},
-};
-size_t QRCODE_CARDS_LENG = 2;
+Keybindings EXIT          = {.keycodes = {VK_ESCAPE}};
+Keybindings TEST          = {.keycodes = {VK_F1}};
+Keybindings SERVICE       = {.keycodes = {VK_F2}};
+Keybindings DEBUG_UP      = {.keycodes = {VK_UP}};
+Keybindings DEBUG_DOWN    = {.keycodes = {VK_DOWN}};
+Keybindings DEBUG_ENTER   = {.keycodes = {VK_RETURN}};
+Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER_BUTTON_START}};
+Keybindings CARD_INSERT_1 = {.keycodes = {'P'}};
+Keybindings CARD_INSERT_2 = {};
+Keybindings QR_DATA_READ  = {.keycodes = {'Q'}};
+Keybindings P1_LEFT_BLUE  = {.keycodes = {'D'}, .axis = {SDL_AXIS_LEFT_DOWN}};
+Keybindings P1_LEFT_RED   = {.keycodes = {'F'}, .axis = {SDL_AXIS_LEFT_RIGHT}};
+Keybindings P1_RIGHT_RED  = {.keycodes = {'J'}, .axis = {SDL_AXIS_RIGHT_RIGHT}};
+Keybindings P1_RIGHT_BLUE = {.keycodes = {'K'}, .axis = {SDL_AXIS_RIGHT_DOWN}};
+Keybindings P2_LEFT_BLUE  = {};
+Keybindings P2_LEFT_RED   = {};
+Keybindings P2_RIGHT_RED  = {};
+Keybindings P2_RIGHT_BLUE = {};
 
 namespace bnusio {
 #define RETURN_FALSE(returnType, functionName, ...) \
@@ -353,7 +347,6 @@ Init () {
 		SetConfigValue (keyconfig, "COIN_ADD", &COIN_ADD);
 		SetConfigValue (keyconfig, "CARD_INSERT_1", &CARD_INSERT_1);
 		SetConfigValue (keyconfig, "CARD_INSERT_2", &CARD_INSERT_2);
-		SetConfigValue (keyconfig, "QR_CARD_READ", &QR_CARD_READ);
 		SetConfigValue (keyconfig, "QR_DATA_READ", &QR_DATA_READ);
 
 		SetConfigValue (keyconfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE);
@@ -364,8 +357,6 @@ Init () {
 		SetConfigValue (keyconfig, "P2_LEFT_RED", &P2_LEFT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
-
-		SetCardConfigValue (keyconfig, "QRCODE_CARD", &QRCODE_CARDS, &QRCODE_CARDS_LENG);
 
 		toml_free (keyconfig);
 	}
