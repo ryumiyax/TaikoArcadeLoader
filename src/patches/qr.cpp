@@ -16,7 +16,7 @@ extern size_t QRCODE_CARDS_LENG;
 
 namespace patches::Qr {
 
-enum class State { Ready, CopyWait, AfterCopy1, AfterCopy2 };
+enum class State { Ready, CopyWait };
 enum class Mode { Card, Data, MultiCard };
 State gState            = State::Ready;
 Mode gMode              = Mode::Card;
@@ -30,22 +30,7 @@ HOOK_DYNAMIC (char, __fastcall, qrRead, i64 a1) {
 	return 1;
 }
 HOOK_DYNAMIC (char, __fastcall, qrClose, i64) { return 1; }
-HOOK_DYNAMIC (i64, __fastcall, callQrUnknown, i64) {
-	switch (gState) {
-	case State::Ready:
-	case State::CopyWait: {
-		return 1;
-	}
-	case State::AfterCopy1: {
-		gState = State::AfterCopy2;
-		return 1;
-	}
-	case State::AfterCopy2: {
-		return 1;
-	}
-	default: return 0;
-	}
-}
+HOOK_DYNAMIC (i64, __fastcall, callQrUnknown, i64) { return 1; }
 HOOK_DYNAMIC (bool, __fastcall, Send1, i64, const void *, i64) { return true; }
 HOOK_DYNAMIC (bool, __fastcall, Send2, i64, char) { return true; }
 HOOK_DYNAMIC (bool, __fastcall, Send3, i64 a1) {
@@ -75,12 +60,12 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			}
 
 			memcpy (dest, card.c_str (), card.size () + 1);
-			gState = State::AfterCopy1;
+			gState = State::Ready;
 			return card.size () + 1;
 		} else if (gMode == Mode::MultiCard) {
 			if (config) toml_free (config);
 			memcpy (dest, gCardNumber.c_str (), gCardNumber.size () + 1);
-			gState = State::AfterCopy1;
+			gState = State::Ready;
 			return gCardNumber.size () + 1;
 		} else {
 			std::string serial = "";
@@ -127,24 +112,15 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			byteBuffer.push_back (0xFF);
 
 			memcpy (dest, byteBuffer.data (), byteBuffer.size ());
-			gState = State::AfterCopy1;
+			gState = State::Ready;
 			return byteBuffer.size ();
 		}
 	}
 	return 0;
 }
 
-int gCount = 0;
-
 void
 Update () {
-	if (gState == State::AfterCopy2) {
-		gCount++;
-		if (gCount > 10) {
-			gCount = 0;
-			gState = State::Ready;
-		}
-	}
 	if (gState == State::Ready) {
 		if (IsButtonTapped (QR_CARD_READ)) {
 			std::cout << "Insert" << std::endl;
