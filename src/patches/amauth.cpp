@@ -21,7 +21,9 @@ extern const char *port;
 extern const char *chassisId;
 extern const char *shopId;
 extern const char *gameVerNum;
+extern const char *countryCode;
 extern char fullAddress[256];
+extern char placeId[16];
 
 namespace patches::AmAuth {
 const GUID IID_CAuth{0x045A5150, 0xD2B3, 0x4590, {0xA3, 0x8B, 0xC1, 0x15, 0x86, 0x78, 0xE1, 0xAC}};
@@ -434,9 +436,9 @@ public:
 		strcpy_s (resp->region_name1, "X");
 		strcpy_s (resp->region_name2, "Y");
 		strcpy_s (resp->region_name3, "Z");
-		strcpy_s (resp->place_id, "JPN0FFF0");
+		strcpy_s (resp->place_id, placeId);
 		strcpy_s (resp->setting, "");
-		strcpy_s (resp->country, "JPN");
+		strcpy_s (resp->country, countryCode);
 		strcpy_s (resp->timezone, "+0900");
 		strcpy_s (resp->res_class, "PowerOnResponseVer3");
 		return 0;
@@ -465,8 +467,8 @@ public:
 		strcpy_s (arr->shop_name_en, sizeof (arr->shop_name_en), shopId);
 		strcpy_s (arr->shop_nickname, sizeof (arr->shop_nickname), shopId);
 		strcpy_s (arr->shop_nickname_en, sizeof (arr->shop_nickname_en), shopId);
-		strcpy_s (arr->place_id, sizeof (arr->place_id), "JPN0FFF0");
-		strcpy_s (arr->country_cd, sizeof (arr->country_cd), "JPN");
+		strcpy_s (arr->place_id, sizeof (arr->place_id), placeId);
+		strcpy_s (arr->country_cd, sizeof (arr->country_cd), countryCode);
 
 		strcpy_s (arr->area0, sizeof (arr->area0), "008");
 		strcpy_s (arr->area0_en, sizeof (arr->area0_en), "008");

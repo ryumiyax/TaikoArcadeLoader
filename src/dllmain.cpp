@@ -7,16 +7,18 @@
 GameVersion gameVersion = GameVersion::UNKNOWN;
 std::vector<HMODULE> plugins;
 
-const char *server     = "127.0.0.1";
-const char *port       = "54430";
-const char *chassisId  = "284111080000";
-const char *shopId     = "TAIKO ARCADE LOADER";
-const char *gameVerNum = "00.00";
-char fullAddress[256]  = {'\0'};
-char accessCode1[21]   = "00000000000000000001";
-char accessCode2[21]   = "00000000000000000002";
-char chipId1[33]       = "00000000000000000000000000000001";
-char chipId2[33]       = "00000000000000000000000000000002";
+const char *server      = "127.0.0.1";
+const char *port        = "54430";
+const char *chassisId   = "284111080000";
+const char *shopId      = "TAIKO ARCADE LOADER";
+const char *gameVerNum  = "00.00";
+const char *countryCode = "JPN";
+char fullAddress[256]   = {'\0'};
+char placeId[16]        = {'\0'};
+char accessCode1[21]    = "00000000000000000001";
+char accessCode2[21]    = "00000000000000000002";
+char chipId1[33]        = "00000000000000000000000000000001";
+char chipId2[33]        = "00000000000000000000000000000002";
 
 HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse (true); }
 HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) {
@@ -104,15 +106,19 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		if (config) {
 			auto amauth = openConfigSection (config, "amauth");
 			if (amauth) {
-				server     = readConfigString (amauth, "server", server);
-				port       = readConfigString (amauth, "port", port);
-				chassisId  = readConfigString (amauth, "chassis_id", chassisId);
-				shopId     = readConfigString (amauth, "shop_id", shopId);
-				gameVerNum = readConfigString (amauth, "game_ver", gameVerNum);
+				server      = readConfigString (amauth, "server", server);
+				port        = readConfigString (amauth, "port", port);
+				chassisId   = readConfigString (amauth, "chassis_id", chassisId);
+				shopId      = readConfigString (amauth, "shop_id", shopId);
+				gameVerNum  = readConfigString (amauth, "game_ver", gameVerNum);
+				countryCode = readConfigString (amauth, "country_code", countryCode);
 
 				std::strcat (fullAddress, server);
 				std::strcat (fullAddress, ":");
 				std::strcat (fullAddress, port);
+
+				std::strcat (placeId, countryCode);
+				std::strcat (placeId, "0FF0");
 			}
 			auto patches = openConfigSection (config, "patches");
 			if (patches) version = readConfigString (patches, "version", version);

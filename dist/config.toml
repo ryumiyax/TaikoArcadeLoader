@@ -4,6 +4,7 @@ port = "54430"
 chassis_id = "284111080000"
 shop_id = "TAIKO ARCADE LOADER"
 game_ver = "00.00"
+country_code = "JPN"
 
 [patches]
 version = "auto"
