@@ -30,6 +30,7 @@ Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER
 Keybindings CARD_INSERT_1 = {.keycodes = {'P'}};
 Keybindings CARD_INSERT_2 = {};
 Keybindings QR_DATA_READ  = {.keycodes = {'Q'}};
+Keybindings QR_IMAGE_READ = {.keycodes = {'W'}};
 Keybindings P1_LEFT_BLUE  = {.keycodes = {'D'}, .axis = {SDL_AXIS_LEFT_DOWN}};
 Keybindings P1_LEFT_RED   = {.keycodes = {'F'}, .axis = {SDL_AXIS_LEFT_RIGHT}};
 Keybindings P1_RIGHT_RED  = {.keycodes = {'J'}, .axis = {SDL_AXIS_RIGHT_RIGHT}};
@@ -348,6 +349,7 @@ Init () {
 		SetConfigValue (keyconfig, "CARD_INSERT_1", &CARD_INSERT_1);
 		SetConfigValue (keyconfig, "CARD_INSERT_2", &CARD_INSERT_2);
 		SetConfigValue (keyconfig, "QR_DATA_READ", &QR_DATA_READ);
+		SetConfigValue (keyconfig, "QR_IMAGE_READ", &QR_IMAGE_READ);
 
 		SetConfigValue (keyconfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE);
 		SetConfigValue (keyconfig, "P1_LEFT_RED", &P1_LEFT_RED);

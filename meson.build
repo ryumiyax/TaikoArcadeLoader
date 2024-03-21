@@ -31,6 +31,8 @@ tomlc99 = subproject('tomlc99')
 sdl2 = subproject('sdl2', default_options: ['default_library=static', 'test=false', 'use_render=disabled'])
 xxhash = subproject('xxhash', default_options: ['default_library=static', 'cli=false'])
 safetyhook = subproject('safetyhook')
+stb = subproject('stb')
+zxing_dep = dependency('ZXing')
 
 library(
 	'bnusio',
@@ -48,6 +50,9 @@ library(
 		sdl2.get_variable('core_inc'),
 		xxhash.get_variable('inc'),
 		safetyhook.get_variable('safetyhook_inc'),
+	],
+	dependencies: [stb.get_variable('stb_dep'),
+		zxing_dep,
 	],
 	sources : [
 		'src/dllmain.cpp',

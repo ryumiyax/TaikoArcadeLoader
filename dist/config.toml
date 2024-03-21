@@ -22,6 +22,7 @@ unlock_songs = true
 
 [qr]
 data = { serial = "", type = 0, song_no = [] }
+image_path = ""
 
 [drum]
 wait_period = 4

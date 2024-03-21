@@ -1,23 +1,27 @@
 #include "constants.h"
 #include "helpers.h"
 #include "poll.h"
+#include <ReadBarcode.h>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <vector>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 extern GameVersion gameVersion;
 extern Keybindings CARD_INSERT_1;
 extern Keybindings CARD_INSERT_2;
 extern Keybindings QR_DATA_READ;
+extern Keybindings QR_IMAGE_READ;
 extern char accessCode1[21];
 extern char accessCode2[21];
 
 namespace patches::Qr {
 
 enum class State { Ready, CopyWait };
-enum class Mode { Card, Data };
+enum class Mode { Card, Data, Image };
 State gState = State::Ready;
 Mode gMode   = Mode::Card;
 std::string accessCode;
@@ -48,16 +52,15 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 	if (gState == State::CopyWait) {
 		std::cout << "Copy data, length: " << length << std::endl;
 
-		auto configPath      = std::filesystem::current_path () / "config.toml";
-		toml_table_t *config = openConfig (configPath);
+		auto configPath = std::filesystem::current_path () / "config.toml";
+		std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
+		toml_table_t *config = config_ptr.get ();
 
 		if (gMode == Mode::Card) {
-			if (config) toml_free (config);
-
 			memcpy (dest, accessCode.c_str (), accessCode.size () + 1);
 			gState = State::Ready;
 			return accessCode.size () + 1;
-		} else {
+		} else if (gMode == Mode::Data) {
 			std::string serial = "";
 			u16 type           = 0;
 			std::vector<i64> songNoes;
@@ -72,7 +75,6 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 						songNoes = readConfigIntArray (data, "song_no", songNoes);
 					}
 				}
-				toml_free (config);
 			}
 
 			BYTE serial_length           = (BYTE)serial.size ();
@@ -104,6 +106,47 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			memcpy (dest, byteBuffer.data (), byteBuffer.size ());
 			gState = State::Ready;
 			return byteBuffer.size ();
+		} else {
+			const char *imagePath = "";
+
+			if (config) {
+				auto qr = openConfigSection (config, "qr");
+				if (qr) imagePath = readConfigString (qr, "image_path", imagePath);
+			}
+
+			if (!std::filesystem::is_regular_file (imagePath)) {
+				std::cerr << "Failed to open image: " << imagePath << " (file not found)"
+				          << "\n";
+				gState = State::Ready;
+				return 0;
+			}
+
+			int width, height, channels;
+			std::unique_ptr<stbi_uc, void (*) (void *)> buffer (stbi_load (imagePath, &width, &height, &channels, 3), stbi_image_free);
+			if (!buffer) {
+				std::cerr << "Failed to read image: " << imagePath << " (" << stbi_failure_reason () << ")"
+				          << "\n";
+				gState = State::Ready;
+				return 0;
+			}
+
+			ZXing::ImageView image{buffer.get (), width, height, ZXing::ImageFormat::RGB};
+			auto result = ReadBarcode (image);
+			if (!result.isValid ()) {
+				std::cerr << "Failed to read qr: " << imagePath << " (" << ToString (result.error ()) << ")"
+				          << "\n";
+				gState = State::Ready;
+				return 0;
+			}
+
+			std::cout << "Valid" << std::endl;
+			auto byteData = result.bytes ();
+			std::cout << ZXing::ToHex (byteData) << std::endl;
+			auto dataSize = byteData.size ();
+
+			memcpy (dest, byteData.data (), dataSize);
+			gState = State::Ready;
+			return dataSize;
 		}
 	}
 	return 0;
@@ -132,6 +175,10 @@ Update () {
 			std::cout << "Insert" << std::endl;
 			gState = State::CopyWait;
 			gMode  = Mode::Data;
+		} else if (IsButtonTapped (QR_IMAGE_READ)) {
+			std::cout << "Insert" << std::endl;
+			gState = State::CopyWait;
+			gMode  = Mode::Image;
 		}
 	}
 }
