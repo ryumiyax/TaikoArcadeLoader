@@ -16,12 +16,11 @@
  * https://github.com/BroGamer4256/TaikoArcadeLoader/blob/master/plugins/amauth/dllmain.cpp
  */
 
-extern const char *server;
-extern const char *port;
-extern const char *chassisId;
-extern const char *shopId;
-extern const char *gameVerNum;
-extern const char *countryCode;
+extern std::string server;
+extern std::string chassisId;
+extern std::string shopId;
+extern std::string gameVerNum;
+extern std::string countryCode;
 extern char fullAddress[256];
 extern char placeId[16];
 
@@ -321,7 +320,7 @@ public:
 		// printf("IAuth_GetUpdaterState called\n");
 		memset (arr, 0, sizeof (*arr));
 		// Convert gameVerNum from string to double
-		double ver_d = std::stod (gameVerNum);
+		double ver_d = std::stod (gameVerNum.c_str ());
 
 		int ver_top = (int)ver_d;
 		int ver_btm = (int)(ver_d * 100);
@@ -379,8 +378,8 @@ public:
 		memset (state, 0, sizeof (*state));
 		strcpy_s (state->mode, "STANDALONE");
 		strcpy_s (state->pcbid, "ABLN1080001");
-		strcpy_s (state->dongle_serial, chassisId);
-		strcpy_s (state->auth_server_ip, server);
+		strcpy_s (state->dongle_serial, chassisId.c_str ());
+		strcpy_s (state->auth_server_ip, server.c_str ());
 		strcpy_s (state->local_ip, "127.0.0.1");
 		strcpy_s (state->shop_router_ip, "127.0.0.1");
 		strcpy_s (state->subnet_mask, "***.***.***.***");
@@ -404,7 +403,7 @@ public:
 		strcpy_s (version->game_id, "SBWY");
 		strcpy_s (version->game_ver, "12.20");
 		strcpy_s (version->game_cd, "S121");
-		strcpy_s (version->cacfg_game_ver, gameVerNum);
+		strcpy_s (version->cacfg_game_ver, gameVerNum.c_str ());
 		strcpy_s (version->game_board_type, "0");
 		strcpy_s (version->game_board_id, "PCB");
 		strcpy_s (version->auth_url, fullAddress);
@@ -427,8 +426,8 @@ public:
 		strcpy_s (resp->uri, fullAddress);
 		strcpy_s (resp->host, fullAddress);
 
-		strcpy_s (resp->shop_name, shopId);
-		strcpy_s (resp->shop_nickname, shopId);
+		strcpy_s (resp->shop_name, shopId.c_str ());
+		strcpy_s (resp->shop_nickname, shopId.c_str ());
 
 		strcpy_s (resp->region0, "01035");
 
@@ -438,7 +437,7 @@ public:
 		strcpy_s (resp->region_name3, "Z");
 		strcpy_s (resp->place_id, placeId);
 		strcpy_s (resp->setting, "");
-		strcpy_s (resp->country, countryCode);
+		strcpy_s (resp->country, countryCode.c_str ());
 		strcpy_s (resp->timezone, "+0900");
 		strcpy_s (resp->res_class, "PowerOnResponseVer3");
 		return 0;
@@ -463,12 +462,12 @@ public:
 		// printf("IAuth_GetMuchaAuthResponse called\n");
 
 		memset (arr, 0, sizeof (*arr));
-		strcpy_s (arr->shop_name, sizeof (arr->shop_name), shopId);
-		strcpy_s (arr->shop_name_en, sizeof (arr->shop_name_en), shopId);
-		strcpy_s (arr->shop_nickname, sizeof (arr->shop_nickname), shopId);
-		strcpy_s (arr->shop_nickname_en, sizeof (arr->shop_nickname_en), shopId);
+		strcpy_s (arr->shop_name, sizeof (arr->shop_name), shopId.c_str ());
+		strcpy_s (arr->shop_name_en, sizeof (arr->shop_name_en), shopId.c_str ());
+		strcpy_s (arr->shop_nickname, sizeof (arr->shop_nickname), shopId.c_str ());
+		strcpy_s (arr->shop_nickname_en, sizeof (arr->shop_nickname_en), shopId.c_str ());
 		strcpy_s (arr->place_id, sizeof (arr->place_id), placeId);
-		strcpy_s (arr->country_cd, sizeof (arr->country_cd), countryCode);
+		strcpy_s (arr->country_cd, sizeof (arr->country_cd), countryCode.c_str ());
 
 		strcpy_s (arr->area0, sizeof (arr->area0), "008");
 		strcpy_s (arr->area0_en, sizeof (arr->area0_en), "008");

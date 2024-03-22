@@ -2,7 +2,7 @@
 #include "patches.h"
 #include <safetyhook.hpp>
 
-extern const char *chassisId;
+extern std::string chassisId;
 
 namespace patches::CN_JUN_2023 {
 
@@ -109,7 +109,7 @@ Init () {
 
 	haspBuffer = (u8 *)malloc (0xD40);
 	memset (haspBuffer, 0, 0xD40);
-	strcpy ((char *)(haspBuffer + 0xD00), chassisId);
+	strcpy ((char *)(haspBuffer + 0xD00), chassisId.c_str ());
 	u8 crc = 0;
 	for (int i = 0; i < 62; i++)
 		crc += haspBuffer[0xD00 + i];

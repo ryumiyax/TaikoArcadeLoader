@@ -115,9 +115,9 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 #define printError(format, ...)   printColour (ERROR_COLOUR, format, __VA_ARGS__)
 
 toml_table_t *openConfig (std::filesystem::path path);
-toml_table_t *openConfigSection (toml_table_t *config, const char *sectionName);
-bool readConfigBool (toml_table_t *table, const char *key, bool notFoundValue);
-int64_t readConfigInt (toml_table_t *table, const char *key, int64_t notFoundValue);
-const char *readConfigString (toml_table_t *table, const char *key, const char *notFoundValue);
-std::vector<int64_t> readConfigIntArray (toml_table_t *table, const char *key, std::vector<int64_t> notFoundValue);
+toml_table_t *openConfigSection (toml_table_t *config, const std::string &sectionName);
+bool readConfigBool (toml_table_t *table, const std::string &key, bool notFoundValue);
+int64_t readConfigInt (toml_table_t *table, const std::string &key, int64_t notFoundValue);
+const std::string readConfigString (toml_table_t *table, const std::string &key, const std::string &notFoundValue);
+std::vector<int64_t> readConfigIntArray (toml_table_t *table, const std::string &key, std::vector<int64_t> notFoundValue);
 void printColour (int colour, const char *format, ...);

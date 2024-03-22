@@ -7,12 +7,12 @@
 GameVersion gameVersion = GameVersion::UNKNOWN;
 std::vector<HMODULE> plugins;
 
-const char *server      = "127.0.0.1";
-const char *port        = "54430";
-const char *chassisId   = "284111080000";
-const char *shopId      = "TAIKO ARCADE LOADER";
-const char *gameVerNum  = "00.00";
-const char *countryCode = "JPN";
+std::string server      = "127.0.0.1";
+std::string port        = "54430";
+std::string chassisId   = "284111080000";
+std::string shopId      = "TAIKO ARCADE LOADER";
+std::string gameVerNum  = "00.00";
+std::string countryCode = "JPN";
 char fullAddress[256]   = {'\0'};
 char placeId[16]        = {'\0'};
 char accessCode1[21]    = "00000000000000000001";
@@ -35,11 +35,13 @@ HOOK (i32, ssleay_Shutdown, PROC_ADDRESS ("ssleay32.dll", "SSL_shutdown")) { ret
 HOOK (i64, UsbFinderInitialize, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderInitialize")) { return 0; }
 HOOK (i64, UsbFinderRelease, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderRelease")) { return 0; }
 HOOK (i64, UsbFinderGetSerialNumber, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderGetSerialNumber"), i32 a1, char *a2) {
-	strcpy (a2, chassisId);
+	strcpy (a2, chassisId.c_str ());
 	return 0;
 }
 
-HOOK (i32, ws2_getaddrinfo, PROC_ADDRESS ("ws2_32.dll", "getaddrinfo"), const char *node, char *service, void *hints, void *out) { return originalws2_getaddrinfo (server, service, hints, out); }
+HOOK (i32, ws2_getaddrinfo, PROC_ADDRESS ("ws2_32.dll", "getaddrinfo"), const char *node, char *service, void *hints, void *out) {
+	return originalws2_getaddrinfo (server.c_str (), service, hints, out);
+}
 
 void
 GetGameVersion () {
@@ -100,7 +102,7 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		// This is bad, dont do this
 		// I/O in DllMain can easily cause a deadlock
 
-		const char *version = "auto";
+		std::string version = "auto";
 		auto configPath     = std::filesystem::current_path () / "config.toml";
 		std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
 		toml_table_t *config = config_ptr.get ();
@@ -114,24 +116,24 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 				gameVerNum  = readConfigString (amauth, "game_ver", gameVerNum);
 				countryCode = readConfigString (amauth, "country_code", countryCode);
 
-				std::strcat (fullAddress, server);
+				std::strcat (fullAddress, server.c_str ());
 				std::strcat (fullAddress, ":");
-				std::strcat (fullAddress, port);
+				std::strcat (fullAddress, port.c_str ());
 
-				std::strcat (placeId, countryCode);
+				std::strcat (placeId, countryCode.c_str ());
 				std::strcat (placeId, "0FF0");
 			}
 			auto patches = openConfigSection (config, "patches");
 			if (patches) version = readConfigString (patches, "version", version);
 		}
 
-		if (!strcmp (version, "auto")) {
+		if (version == "auto") {
 			GetGameVersion ();
-		} else if (!strcmp (version, "jp_nov_2020")) {
+		} else if (version == "jp_nov_2020") {
 			gameVersion = GameVersion::JP_NOV_2020;
-		} else if (!strcmp (version, "cn_jun_2023")) {
+		} else if (version == "cn_jun_2023") {
 			gameVersion = GameVersion::CN_JUN_2023;
-		} else if (!strcmp (version, "jp_apr_2023")) {
+		} else if (version == "jp_apr_2023") {
 			gameVersion = GameVersion::JP_APR_2023;
 		} else {
 			MessageBoxA (0, "Unknown patch version", 0, MB_OK);

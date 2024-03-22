@@ -3,6 +3,14 @@
 
 void *consoleHandle = 0;
 
+static void
+toml_myfree (void *p) {
+	if (p) {
+		char *pp = (char *)p;
+		delete[] pp;
+	}
+}
+
 toml_table_t *
 openConfig (std::filesystem::path path) {
 	if (!std::filesystem::exists (path) || !path.has_filename ()) {
@@ -37,10 +45,10 @@ openConfig (std::filesystem::path path) {
 }
 
 toml_table_t *
-openConfigSection (toml_table_t *config, const char *sectionName) {
-	toml_table_t *section = toml_table_in (config, sectionName);
+openConfigSection (toml_table_t *config, const std::string &sectionName) {
+	toml_table_t *section = toml_table_in (config, sectionName.c_str ());
 	if (!section) {
-		printWarning ("%s (%s): cannot find section\n", __func__, sectionName);
+		printWarning ("%s (%s): cannot find section\n", __func__, sectionName.c_str ());
 		return 0;
 	}
 
@@ -48,32 +56,34 @@ openConfigSection (toml_table_t *config, const char *sectionName) {
 }
 
 bool
-readConfigBool (toml_table_t *table, const char *key, bool notFoundValue) {
-	toml_datum_t data = toml_bool_in (table, key);
+readConfigBool (toml_table_t *table, const std::string &key, bool notFoundValue) {
+	toml_datum_t data = toml_bool_in (table, key.c_str ());
 	if (!data.ok) return notFoundValue;
 
 	return (bool)data.u.b;
 }
 
 int64_t
-readConfigInt (toml_table_t *table, const char *key, int64_t notFoundValue) {
-	toml_datum_t data = toml_int_in (table, key);
+readConfigInt (toml_table_t *table, const std::string &key, int64_t notFoundValue) {
+	toml_datum_t data = toml_int_in (table, key.c_str ());
 	if (!data.ok) return notFoundValue;
 
 	return data.u.i;
 }
 
-const char *
-readConfigString (toml_table_t *table, const char *key, const char *notFoundValue) {
-	toml_datum_t data = toml_string_in (table, key);
+const std::string
+readConfigString (toml_table_t *table, const std::string &key, const std::string &notFoundValue) {
+	toml_datum_t data = toml_string_in (table, key.c_str ());
 	if (!data.ok) return notFoundValue;
+	std::string str = data.u.s;
+	toml_myfree (data.u.s);
 
-	return data.u.s;
+	return str;
 }
 
 std::vector<int64_t>
-readConfigIntArray (toml_table_t *table, const char *key, std::vector<int64_t> notFoundValue) {
-	toml_array_t *array = toml_array_in (table, key);
+readConfigIntArray (toml_table_t *table, const std::string &key, std::vector<int64_t> notFoundValue) {
+	toml_array_t *array = toml_array_in (table, key.c_str ());
 	if (!array) return notFoundValue;
 
 	std::vector<int64_t> datas;
