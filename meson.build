@@ -23,7 +23,7 @@ add_project_link_arguments(
 		#'-s',
 		'-lws2_32',
 		'-lssp',
-		'-lntdll'
+		'-lntdll',
 	),
 	language: 'cpp',
 )
@@ -35,7 +35,9 @@ xxhash = subproject('xxhash', default_options: ['default_library=static', 'cli=f
 opt_var.add_cmake_defines({'SAFETYHOOK_FETCH_ZYDIS': true})
 safetyhook_proj = cmake.subproject('safetyhook', options: opt_var)
 safetyhook_dep = safetyhook_proj.dependency('safetyhook')
+zydis_dep = safetyhook_proj.dependency('Zydis')
 stb = subproject('stb')
+opt_var.add_cmake_defines({'BUILD_EXAMPLES': false})
 zxing_proj = cmake.subproject('zxing', options: opt_var)
 zxing_dep = zxing_proj.dependency('ZXing')
 
@@ -56,7 +58,8 @@ library(
 	],
 	dependencies: [stb.get_variable('stb_dep'),
 		zxing_dep,
-                safetyhook_dep,
+		safetyhook_dep,
+		zydis_dep,
 	],
 	sources : [
 		'src/dllmain.cpp',
