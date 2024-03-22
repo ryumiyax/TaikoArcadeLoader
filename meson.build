@@ -4,6 +4,9 @@ debug = true
 optimization = 3
 b_lto = true
 b_pgo = 'use'
+cmake = import('cmake')
+opt_var = cmake.subproject_options()
+opt_var.set_override_option('cpp_std', 'c++23')
 
 cpp = meson.get_compiler('cpp')
 
@@ -20,8 +23,7 @@ add_project_link_arguments(
 		#'-s',
 		'-lws2_32',
 		'-lssp',
-		'-lntdll',
-		'-Wl,--allow-multiple-definition'
+		'-lntdll'
 	),
 	language: 'cpp',
 )
@@ -30,9 +32,12 @@ minhook = subproject('minhook')
 tomlc99 = subproject('tomlc99')
 sdl2 = subproject('sdl2', default_options: ['default_library=static', 'test=false', 'use_render=disabled'])
 xxhash = subproject('xxhash', default_options: ['default_library=static', 'cli=false'])
-safetyhook = subproject('safetyhook')
+opt_var.add_cmake_defines({'SAFETYHOOK_FETCH_ZYDIS': true})
+safetyhook_proj = cmake.subproject('safetyhook', options: opt_var)
+safetyhook_dep = safetyhook_proj.dependency('safetyhook')
 stb = subproject('stb')
-zxing_dep = dependency('ZXing')
+zxing_proj = cmake.subproject('zxing', options: opt_var)
+zxing_dep = zxing_proj.dependency('ZXing')
 
 library(
 	'bnusio',
@@ -41,7 +46,6 @@ library(
 		tomlc99.get_variable('tomlc99_lib'),
 		sdl2.get_variable('sdl2'),
 		xxhash.get_variable('xxhash'),
-		safetyhook.get_variable('safetyhook_lib'),
 	],
 	include_directories: [
 		'src',
@@ -49,10 +53,10 @@ library(
 		tomlc99.get_variable('tomlc99_inc'),
 		sdl2.get_variable('core_inc'),
 		xxhash.get_variable('inc'),
-		safetyhook.get_variable('safetyhook_inc'),
 	],
 	dependencies: [stb.get_variable('stb_dep'),
 		zxing_dep,
+                safetyhook_dep,
 	],
 	sources : [
 		'src/dllmain.cpp',

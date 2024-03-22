@@ -13,3 +13,4 @@ subprojects/zxing-cpp-2.2.1
 subprojects/stb
 dist.7z
 .vscode
+out/

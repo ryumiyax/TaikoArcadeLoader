@@ -1,10 +1,7 @@
-[wrap-file]
-directory = safetyhook
-source_url = https://github.com/cursey/safetyhook/releases/download/v0.3.0/safetyhook-amalgamated-zydis.zip
-source_filename = safetyhook-amalgamated-zydis.zip
-source_hash = 274450d7baf6caee459752235d783ec24bd699b221b10c3df0fcce2a4e8e2ac8
-lead_directory_missing = yes
-diff_files = safetyhook.patch
+[wrap-git]
+url = https://github.com/cursey/safetyhook.git
+revision = v0.4.1
+method = cmake
 
 [provide]
-libsafetyhook = safetyhook_dep
+safetyhook = safetyhook_dep

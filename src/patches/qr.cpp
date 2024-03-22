@@ -8,6 +8,7 @@
 #include <iostream>
 #include <vector>
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_WINDOWS_UTF8
 #include "stb_image.h"
 
 extern GameVersion gameVersion;
@@ -107,24 +108,26 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			gState = State::Ready;
 			return byteBuffer.size ();
 		} else {
-			const char *imagePath = "";
+			std::string imagePath = "";
 
 			if (config) {
 				auto qr = openConfigSection (config, "qr");
-				if (qr) imagePath = readConfigString (qr, "image_path", imagePath);
+				if (qr) imagePath = readConfigString (qr, "image_path", "");
 			}
 
-			if (!std::filesystem::is_regular_file (imagePath)) {
-				std::cerr << "Failed to open image: " << imagePath << " (file not found)"
+			std::u8string u8PathStr (imagePath.begin (), imagePath.end ());
+			std::filesystem::path u8Path (u8PathStr);
+			if (!std::filesystem::is_regular_file (u8Path)) {
+				std::cerr << "Failed to open image: " << u8Path.string () << " (file not found)"
 				          << "\n";
 				gState = State::Ready;
 				return 0;
 			}
 
 			int width, height, channels;
-			std::unique_ptr<stbi_uc, void (*) (void *)> buffer (stbi_load (imagePath, &width, &height, &channels, 3), stbi_image_free);
+			std::unique_ptr<stbi_uc, void (*) (void *)> buffer (stbi_load (u8Path.string ().c_str (), &width, &height, &channels, 3), stbi_image_free);
 			if (!buffer) {
-				std::cerr << "Failed to read image: " << imagePath << " (" << stbi_failure_reason () << ")"
+				std::cerr << "Failed to read image: " << u8Path << " (" << stbi_failure_reason () << ")"
 				          << "\n";
 				gState = State::Ready;
 				return 0;
@@ -185,6 +188,7 @@ Update () {
 
 void
 Init () {
+	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {
 	case GameVersion::JP_NOV_2020: {
