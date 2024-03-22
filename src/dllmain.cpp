@@ -100,9 +100,10 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		// This is bad, dont do this
 		// I/O in DllMain can easily cause a deadlock
 
-		const char *version  = "auto";
-		auto configPath      = std::filesystem::current_path () / "config.toml";
-		toml_table_t *config = openConfig (configPath);
+		const char *version = "auto";
+		auto configPath     = std::filesystem::current_path () / "config.toml";
+		std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
+		toml_table_t *config = config_ptr.get ();
 		if (config) {
 			auto amauth = openConfigSection (config, "amauth");
 			if (amauth) {
@@ -122,7 +123,6 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 			}
 			auto patches = openConfigSection (config, "patches");
 			if (patches) version = readConfigString (patches, "version", version);
-			toml_free (config);
 		}
 
 		if (!strcmp (version, "auto")) {

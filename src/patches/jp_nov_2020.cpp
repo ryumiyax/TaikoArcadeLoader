@@ -52,8 +52,9 @@ Init () {
 	bool sharedAudio = true;
 	bool unlockSongs = true;
 
-	auto configPath      = std::filesystem::current_path () / "config.toml";
-	toml_table_t *config = openConfig (configPath);
+	auto configPath = std::filesystem::current_path () / "config.toml";
+	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
+	toml_table_t *config = config_ptr.get ();
 	if (config) {
 		auto patches = openConfigSection (config, "patches");
 		if (patches) {
@@ -66,7 +67,6 @@ Init () {
 			sharedAudio = readConfigBool (patches, "shared_audio", sharedAudio);
 			unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
 		}
-		toml_free (config);
 	}
 
 	// Apply common config patch

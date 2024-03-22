@@ -321,8 +321,9 @@ Init () {
 	INSTALL_HOOK (bngrw_attach);
 	INSTALL_HOOK (bngrw_reqWaitTouch);
 
-	auto configPath      = std::filesystem::current_path () / "config.toml";
-	toml_table_t *config = openConfig (configPath);
+	auto configPath = std::filesystem::current_path () / "config.toml";
+	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
+	toml_table_t *config = config_ptr.get ();
 	if (config) {
 		auto drum = openConfigSection (config, "drum");
 		if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
@@ -331,11 +332,11 @@ Init () {
 			useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
 			if (useTaikoController) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
 		}
-		toml_free (config);
 	}
 
-	auto keyconfigPath      = std::filesystem::current_path () / "keyconfig.toml";
-	toml_table_t *keyconfig = openConfig (keyconfigPath);
+	auto keyconfigPath = std::filesystem::current_path () / "keyconfig.toml";
+	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyconfig_ptr (openConfig (keyconfigPath), toml_free);
+	toml_table_t *keyconfig = keyconfig_ptr.get ();
 	if (keyconfig) {
 		SetConfigValue (keyconfig, "EXIT", &EXIT);
 
@@ -359,8 +360,6 @@ Init () {
 		SetConfigValue (keyconfig, "P2_LEFT_RED", &P2_LEFT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
 		SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
-
-		toml_free (keyconfig);
 	}
 }
 } // namespace bnusio
