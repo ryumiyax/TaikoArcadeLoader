@@ -6,9 +6,9 @@ struct {
 	const char *string;
 	uint8_t keycode;
 } ConfigKeyboardButtons[] = {
-	//Reference:https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-	//Wayback Machine:https://web.archive.org/web/20231223135232/https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-    //Row 1
+    // Reference:https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    // Wayback Machine:https://web.archive.org/web/20231223135232/https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    // Row 1
     {"ESCAPE", VK_ESCAPE},
     {"F1", VK_F1},
     {"F2", VK_F2},
@@ -22,8 +22,8 @@ struct {
     {"F10", VK_F10},
     {"F11", VK_F11},
     {"F12", VK_F12},
-   
-    //Row 2
+
+    // Row 2
     {"`", VK_OEM_3},
     {"1", '1'},
     {"2", '2'},
@@ -38,8 +38,8 @@ struct {
     {"-", VK_OEM_MINUS},
     {"=", VK_OEM_PLUS},
     {"BACKSPACE", VK_BACK},
-    
-    //Row 3
+
+    // Row 3
     {"TAB", VK_TAB},
     {"Q", 'Q'},
     {"W", 'W'},
@@ -54,8 +54,8 @@ struct {
     {"[", VK_OEM_4},
     {"]", VK_OEM_6},
     {"BACKSLASH", VK_OEM_5},
-    
-    //Row 4
+
+    // Row 4
     {"CAPS_LOCK", VK_CAPITAL},
     {"A", 'A'},
     {"S", 'S'},
@@ -69,8 +69,8 @@ struct {
     {";", VK_OEM_1},
     {"'", VK_OEM_7},
     {"ENTER", VK_RETURN},
-    
-    //Row 5
+
+    // Row 5
     {"SHIFT", VK_SHIFT},
     {"Z", 'Z'},
     {"X", 'X'},
@@ -82,34 +82,34 @@ struct {
     {",", VK_OEM_COMMA},
     {".", VK_OEM_PERIOD},
     {"SLASH", VK_OEM_2},
-    
-    //Row 6
+
+    // Row 6
     {"CONTROL", VK_CONTROL},
     {"L_WIN", VK_LWIN},
     {"ALT", VK_MENU},
     {"SPACE", VK_SPACE},
     {"R_WIN", VK_RWIN},
     {"MENU", VK_APPS},
-    
-    //Other Keys
-    //PrtSc is more important when making snapshots, therefore comment it as reserved
+
+    // Other Keys
+    // PrtSc is more important when making snapshots, therefore comment it as reserved
     //{"PRINT_SCREEN", VK_SNAPSHOT},
     {"SCROLL_LOCK", VK_SCROLL},
     {"PAUSE", VK_PAUSE},
     {"INSERT", VK_INSERT},
-	{"DELETE", VK_DELETE},
-	{"HOME", VK_HOME},
+    {"DELETE", VK_DELETE},
+    {"HOME", VK_HOME},
     {"END", VK_END},
     {"PAGE_UP", VK_PRIOR},
     {"PAGE_DOWN", VK_NEXT},
-    
-    //Arrow Keys
+
+    // Arrow Keys
     {"UPARROW", VK_UP},
     {"LEFTARROW", VK_LEFT},
     {"DOWNARROW", VK_DOWN},
     {"RIGHTARROW", VK_RIGHT},
-    
-    //NUMPAD Keys
+
+    // NUMPAD Keys
     {"NUM_LOCK", VK_NUMLOCK},
     {"DIVIDE", VK_DIVIDE},
     {"MULTIPLY", VK_MULTIPLY},
@@ -125,8 +125,8 @@ struct {
     {"NUM2", VK_NUMPAD2},
     {"NUM3", VK_NUMPAD3},
     {"NUM0", VK_NUMPAD0},
-    {"DECIMAL", VK_DECIMAL}, 
-    
+    {"DECIMAL", VK_DECIMAL},
+
 };
 
 struct {
