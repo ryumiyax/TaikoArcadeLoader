@@ -74,8 +74,8 @@ GetGameVersion () {
 
 	switch (gameVersion) {
 	case GameVersion::JP_NOV_2020:
-	case GameVersion::CN_JUN_2023:
-	case GameVersion::JP_APR_2023: break;
+	case GameVersion::JP_APR_2023:
+	case GameVersion::CN_JUN_2023: break;
 	default: MessageBoxA (0, "Unknown game version", 0, MB_OK); ExitProcess (0);
 	}
 }
@@ -131,10 +131,10 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 			GetGameVersion ();
 		} else if (version == "jp_nov_2020") {
 			gameVersion = GameVersion::JP_NOV_2020;
-		} else if (version == "cn_jun_2023") {
-			gameVersion = GameVersion::CN_JUN_2023;
 		} else if (version == "jp_apr_2023") {
 			gameVersion = GameVersion::JP_APR_2023;
+		} else if (version == "cn_jun_2023") {
+			gameVersion = GameVersion::CN_JUN_2023;
 		} else {
 			MessageBoxA (0, "Unknown patch version", 0, MB_OK);
 			ExitProcess (0);
@@ -184,8 +184,8 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		switch (gameVersion) {
 		case GameVersion::UNKNOWN: break;
 		case GameVersion::JP_NOV_2020: patches::JP_NOV_2020::Init (); break;
-		case GameVersion::CN_JUN_2023: patches::CN_JUN_2023::Init (); break;
 		case GameVersion::JP_APR_2023: patches::JP_APR_2023::Init (); break;
+		case GameVersion::CN_JUN_2023: patches::CN_JUN_2023::Init (); break;
 		}
 	}
 	return true;
