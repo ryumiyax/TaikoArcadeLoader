@@ -203,18 +203,6 @@ Init () {
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1C2A0));
 		break;
 	}
-	case GameVersion::CN_JUN_2023: {
-		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x161B0));
-		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x163A0));
-		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x16350));
-		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0x8F60));
-		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x16A30));
-		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x16A00));
-		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x16990));
-		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x16940));
-		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x169D0));
-		break;
-	}
 	case GameVersion::JP_APR_2023: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1EDC0));
 		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1EFB0));
@@ -225,6 +213,18 @@ Init () {
 		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1F5F0));
 		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x1F5B0));
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1F630));
+		break;
+	}
+	case GameVersion::CN_JUN_2023: {
+		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x161B0));
+		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x163A0));
+		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x16350));
+		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0x8F60));
+		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x16A30));
+		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x16A00));
+		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x16990));
+		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x16940));
+		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x169D0));
 		break;
 	}
 	default: {
