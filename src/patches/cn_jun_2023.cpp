@@ -170,6 +170,10 @@ Init () {
 	WRITE_MEMORY (ASLR (0x140C7B158), char, ".\\SettingChina1.bin");
 	WRITE_MEMORY (ASLR (0x140C7B2B8), char, ".\\SettingChina1.bin");
 	WRITE_MEMORY (ASLR (0x140C7B2A0), char, ".\\SettingChina2.bin");
+	WRITE_MEMORY (ASLR (0x140C3CF58), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
+	WRITE_MEMORY (ASLR (0x140C3CF90), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
+	WRITE_MEMORY (ASLR (0x140C3CFC8), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
+	WRITE_MEMORY (ASLR (0x140C3D000), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
 
 	// Remove datatable size limit
 	{
@@ -206,6 +210,16 @@ Init () {
 	// Disable live check
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x25A00));
+
+	// Move various files to current directory
+	WRITE_MEMORY (amHandle + 0xC652, u8, 0xEB);                          // CreditLogPathA
+	WRITE_MEMORY (amHandle + 0xC819, u8, 0xEB);                          // CreditLogPathB
+	WRITE_MEMORY (amHandle + 0x243BA, u8, 0xEB);                         // ErrorLogPathA
+	WRITE_MEMORY (amHandle + 0x24539, u8, 0xEB);                         // ErrorLogPathB
+	WRITE_MEMORY (amHandle + 0x24901, u8, 0xEB);                         // CommonLogPathA
+	WRITE_MEMORY (amHandle + 0x24A85, u8, 0xEB);                         // CommonLogPathB
+	WRITE_MEMORY (amHandle + 0x24DD1, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathA
+	WRITE_MEMORY (amHandle + 0x24E47, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathB
 
 	patches::Qr::Init ();
 }
