@@ -21,8 +21,12 @@ unlock_songs = true
   mode_collabo026 = false
 
 [qr]
-data = { serial = "", type = 0, song_no = [] }
 image_path = ""
+
+  [qr.data]
+  serial = ""
+  type = 0
+  song_no = []
 
 [drum]
 wait_period = 4
