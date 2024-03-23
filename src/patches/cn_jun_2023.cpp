@@ -164,7 +164,7 @@ Init () {
 	// Disable SSLVerify
 	WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
 
-	// Move various files to current dir
+	// Move various files to current directory
 	WRITE_MEMORY (ASLR (0x140C33C40), char, "./");
 	WRITE_MEMORY (ASLR (0x140C33C44), char, "./");
 	WRITE_MEMORY (ASLR (0x140C7B158), char, ".\\SettingChina1.bin");
