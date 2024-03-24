@@ -11,8 +11,12 @@ version = "auto"
 res = { x = 1920, y = 1080 }
 windowed = false
 vsync = false
-shared_audio = true
 unlock_songs = true
+
+  [patches.audio]
+  wasapi_shared = true
+  asio = false
+  asio_driver = ""
 
   [patches.cn_jun_2023]
   fix_language = false

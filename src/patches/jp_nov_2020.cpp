@@ -13,6 +13,25 @@ void *song_data;
 
 namespace patches::JP_NOV_2020 {
 
+bool wasapiShared      = true;
+bool asio              = false;
+std::string asioDriver = "";
+HOOK (i64, NUSCDeviceInit, ASLR (0x140692E00), void *a1, void *a2, void *a3, void *a4) {
+	*(u32 *)((u8 *)a2 + 0x8)          = asio;
+	*(const char **)((u8 *)a2 + 0x10) = asio ? asioDriver.c_str () : "";
+	*(u16 *)((u8 *)a2 + 0x18)         = (!asio && wasapiShared) ? 0 : 256;
+	*(u16 *)((u8 *)a2 + 0x1C)         = (!asio && wasapiShared) ? 0 : 256;
+	return originalNUSCDeviceInit (a1, a2, a3, a4);
+}
+HOOK (bool, LoadASIODriver, ASLR (0x14069B750), void *a1, const char *a2) {
+	auto result = originalLoadASIODriver (a1, a2);
+	if (!result) {
+		MessageBoxA (0, "Failed to load ASIO driver", 0, MB_OK);
+		ExitProcess (0);
+	}
+	return result;
+}
+
 HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
 
 const i32 datatableBufferSize = 1024 * 1024 * 12;
@@ -49,7 +68,6 @@ Init () {
 	i32 xRes         = 1920;
 	i32 yRes         = 1080;
 	bool vsync       = false;
-	bool sharedAudio = true;
 	bool unlockSongs = true;
 
 	auto configPath = std::filesystem::current_path () / "config.toml";
@@ -64,8 +82,13 @@ Init () {
 				yRes = readConfigInt (res, "y", yRes);
 			}
 			vsync       = readConfigBool (patches, "vsync", vsync);
-			sharedAudio = readConfigBool (patches, "shared_audio", sharedAudio);
 			unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+			auto audio  = openConfigSection (patches, "audio");
+			if (audio) {
+				wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
+				asio         = readConfigBool (audio, "asio", asio);
+				asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
+			}
 		}
 	}
 
@@ -73,8 +96,11 @@ Init () {
 	WRITE_MEMORY (ASLR (0x14035FC5B), i32, xRes);
 	WRITE_MEMORY (ASLR (0x14035FC62), i32, yRes);
 	if (!vsync) WRITE_MEMORY (ASLR (0x140517339), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
-	if (sharedAudio) WRITE_MEMORY (ASLR (0x140692E17), u8, 0xEB);
 	if (unlockSongs) WRITE_MEMORY (ASLR (0x140314E8D), u8, 0xB0, 0x01);
+
+	// Setting audio device
+	INSTALL_HOOK (NUSCDeviceInit);
+	INSTALL_HOOK (LoadASIODriver);
 
 	// Bypass errors
 	WRITE_MEMORY (ASLR (0x1400239C0), u8, 0xC3);

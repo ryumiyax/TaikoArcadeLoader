@@ -24,6 +24,25 @@ HOOK (i32, HaspRead, PROC_ADDRESS ("hasp_windows_x64.dll", "hasp_read"), i32, i3
 	return 0;
 }
 
+bool wasapiShared      = true;
+bool asio              = false;
+std::string asioDriver = "";
+HOOK (i64, NUSCDeviceInit, ASLR (0x140777F70), void *a1, void *a2, void *a3, void *a4) {
+	*(u32 *)((u8 *)a2 + 0x8)          = asio;
+	*(const char **)((u8 *)a2 + 0x10) = asio ? asioDriver.c_str () : "";
+	*(u16 *)((u8 *)a2 + 0x18)         = (!asio && wasapiShared) ? 0 : 256;
+	*(u16 *)((u8 *)a2 + 0x1C)         = (!asio && wasapiShared) ? 0 : 256;
+	return originalNUSCDeviceInit (a1, a2, a3, a4);
+}
+HOOK (bool, LoadASIODriver, ASLR (0x1407808C0), void *a1, const char *a2) {
+	auto result = originalLoadASIODriver (a1, a2);
+	if (!result) {
+		MessageBoxA (0, "Failed to load ASIO driver", 0, MB_OK);
+		ExitProcess (0);
+	}
+	return result;
+}
+
 i64 (__fastcall *lua_settop) (u64, u64)      = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_settop");
 i64 (__fastcall *lua_pushboolean) (u64, u64) = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushboolean");
 i64 (__fastcall *lua_pushstring) (u64, u64)  = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushstring");
@@ -100,7 +119,6 @@ Init () {
 	i32 xRes            = 1920;
 	i32 yRes            = 1080;
 	bool vsync          = false;
-	bool sharedAudio    = true;
 	bool unlockSongs    = true;
 	bool fixLanguage    = false;
 	bool demoMovie      = true;
@@ -135,9 +153,14 @@ Init () {
 				xRes = readConfigInt (res, "x", xRes);
 				yRes = readConfigInt (res, "y", yRes);
 			}
-			vsync            = readConfigBool (patches, "vsync", vsync);
-			sharedAudio      = readConfigBool (patches, "shared_audio", sharedAudio);
-			unlockSongs      = readConfigBool (patches, "unlock_songs", unlockSongs);
+			vsync       = readConfigBool (patches, "vsync", vsync);
+			unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+			auto audio  = openConfigSection (patches, "audio");
+			if (audio) {
+				wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
+				asio         = readConfigBool (audio, "asio", asio);
+				asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
+			}
 			auto cn_jun_2023 = openConfigSection (patches, "cn_jun_2023");
 			if (cn_jun_2023) {
 				fixLanguage    = readConfigBool (cn_jun_2023, "fix_language", fixLanguage);
@@ -152,8 +175,11 @@ Init () {
 	WRITE_MEMORY (ASLR (0x1404A4ED3), i32, xRes);
 	WRITE_MEMORY (ASLR (0x1404A4EDA), i32, yRes);
 	if (!vsync) WRITE_MEMORY (ASLR (0x1405FC5B9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
-	if (sharedAudio) WRITE_MEMORY (ASLR (0x140777F87), u8, 0xEB);
 	if (unlockSongs) WRITE_MEMORY (ASLR (0x140425BCD), u8, 0xB0, 0x01);
+
+	// Setting audio device
+	INSTALL_HOOK (NUSCDeviceInit);
+	INSTALL_HOOK (LoadASIODriver);
 
 	// Bypass errors
 	WRITE_MEMORY (ASLR (0x14003F690), u8, 0xC3);
