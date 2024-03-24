@@ -26,7 +26,7 @@ HOOK (i64, NUSCDeviceInit, ASLR (0x140692E00), void *a1, void *a2, void *a3, voi
 HOOK (bool, LoadASIODriver, ASLR (0x14069B750), void *a1, const char *a2) {
 	auto result = originalLoadASIODriver (a1, a2);
 	if (!result) {
-		MessageBoxA (0, "Failed to load ASIO driver", 0, MB_OK);
+		MessageBoxA (nullptr, "Failed to load ASIO driver", nullptr, MB_OK);
 		ExitProcess (0);
 	}
 	return result;
@@ -72,9 +72,8 @@ Init () {
 
 	auto configPath = std::filesystem::current_path () / "config.toml";
 	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-	toml_table_t *config = config_ptr.get ();
-	if (config) {
-		auto patches = openConfigSection (config, "patches");
+	if (config_ptr) {
+		auto patches = openConfigSection (config_ptr.get (), "patches");
 		if (patches) {
 			auto res = openConfigSection (patches, "res");
 			if (res) {

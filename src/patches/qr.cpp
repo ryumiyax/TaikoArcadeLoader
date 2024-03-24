@@ -18,6 +18,7 @@ extern Keybindings QR_DATA_READ;
 extern Keybindings QR_IMAGE_READ;
 extern char accessCode1[21];
 extern char accessCode2[21];
+bool qrEnabled = true;
 
 namespace patches::Qr {
 
@@ -55,7 +56,6 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 
 		auto configPath = std::filesystem::current_path () / "config.toml";
 		std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-		toml_table_t *config = config_ptr.get ();
 
 		if (gMode == Mode::Card) {
 			memcpy (dest, accessCode.c_str (), accessCode.size () + 1);
@@ -66,8 +66,8 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			u16 type           = 0;
 			std::vector<i64> songNoes;
 
-			if (config) {
-				auto qr = openConfigSection (config, "qr");
+			if (config_ptr) {
+				auto qr = openConfigSection (config_ptr.get (), "qr");
 				if (qr) {
 					auto data = openConfigSection (qr, "data");
 					if (data) {
@@ -110,8 +110,8 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 		} else {
 			std::string imagePath = "";
 
-			if (config) {
-				auto qr = openConfigSection (config, "qr");
+			if (config_ptr) {
+				auto qr = openConfigSection (config_ptr.get (), "qr");
 				if (qr) imagePath = readConfigString (qr, "image_path", "");
 			}
 
@@ -157,6 +157,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 
 void
 Update () {
+	if (!qrEnabled) return;
 	if (gState == State::Ready) {
 		if (IsButtonTapped (CARD_INSERT_1)) {
 			if (gameVersion != GameVersion::CN_JUN_2023) return;
@@ -188,6 +189,23 @@ Update () {
 
 void
 Init () {
+	auto configPath = std::filesystem::current_path () / "config.toml";
+	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
+	if (!config_ptr) {
+		std::cerr << "[Init] Config file not found" << std::endl;
+		return;
+	}
+	auto qr = openConfigSection (config_ptr.get (), "qr");
+	if (!qr) {
+		std::cerr << "[Init] QR config section not found! QR emulation disabled" << std::endl;
+		qrEnabled = false;
+		return;
+	}
+	qrEnabled = readConfigBool (qr, "enabled", true);
+	if (!qrEnabled) {
+		std::cout << "[Init] QR emulation disabled" << std::endl;
+		return;
+	}
 	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {

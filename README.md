@@ -56,8 +56,14 @@ unlock_songs = true
   mode_collabo025 = false
   # enable ai soshina mode
   mode_collabo026 = false
+  
+[card_reader]
+# enable card reader emulation
+enabled = true
 
 [qr]
+# enable qr emulation
+enabled = true
 # qr image path
 image_path = ""
 

@@ -24,7 +24,11 @@ unlock_songs = true
   mode_collabo025 = false
   mode_collabo026 = false
 
+[card_reader]
+enabled = true
+
 [qr]
+enabled = true
 image_path = ""
 
   [qr.data]

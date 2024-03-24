@@ -21,10 +21,7 @@ char chipId1[33]        = "00000000000000000000000000000001";
 char chipId2[33]        = "00000000000000000000000000000002";
 
 HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse (true); }
-HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) {
-	ExitProcess (0);
-	return true;
-}
+HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) { ExitProcess (0); }
 
 HOOK (i32, XinputGetState, PROC_ADDRESS ("xinput9_1_0.dll", "XInputGetState")) { return ERROR_DEVICE_NOT_CONNECTED; }
 HOOK (i32, XinputSetState, PROC_ADDRESS ("xinput9_1_0.dll", "XInputSetState")) { return ERROR_DEVICE_NOT_CONNECTED; }
@@ -46,23 +43,23 @@ HOOK (i32, ws2_getaddrinfo, PROC_ADDRESS ("ws2_32.dll", "getaddrinfo"), const ch
 void
 GetGameVersion () {
 	wchar_t w_path[MAX_PATH];
-	GetModuleFileNameW (0, w_path, MAX_PATH);
+	GetModuleFileNameW (nullptr, w_path, MAX_PATH);
 	std::filesystem::path path (w_path);
 
 	if (!std::filesystem::exists (path) || !path.has_filename ()) {
-		MessageBoxA (0, "Failed to find executable", 0, MB_OK);
+		MessageBoxA (nullptr, "Failed to find executable", nullptr, MB_OK);
 		ExitProcess (0);
 	}
 
 	std::ifstream stream (path, std::ios::binary);
 	if (!stream.is_open ()) {
-		MessageBoxA (0, "Failed to read executable", 0, MB_OK);
+		MessageBoxA (nullptr, "Failed to read executable", nullptr, MB_OK);
 		ExitProcess (0);
 	}
 
-	stream.seekg (0, stream.end);
+	stream.seekg (0, std::ifstream::end);
 	size_t length = stream.tellg ();
-	stream.seekg (0, stream.beg);
+	stream.seekg (0, std::ifstream::beg);
 
 	char *buf = (char *)calloc (length + 1, sizeof (char));
 	stream.read (buf, length);
@@ -76,7 +73,7 @@ GetGameVersion () {
 	case GameVersion::JP_NOV_2020:
 	case GameVersion::JP_APR_2023:
 	case GameVersion::CN_JUN_2023: break;
-	default: MessageBoxA (0, "Unknown game version", 0, MB_OK); ExitProcess (0);
+	default: MessageBoxA (nullptr, "Unknown game version", nullptr, MB_OK); ExitProcess (0);
 	}
 }
 
@@ -84,7 +81,7 @@ void
 createCard () {
 	const char hexCharacterTable[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
 	char buf[64]                   = {0};
-	srand (time (0));
+	srand (time (nullptr));
 
 	std::generate (buf, buf + 20, [&] () { return hexCharacterTable[rand () % 10]; });
 	WritePrivateProfileStringA ("card", "accessCode1", buf, ".\\card.ini");
@@ -105,9 +102,9 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		std::string version = "auto";
 		auto configPath     = std::filesystem::current_path () / "config.toml";
 		std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-		toml_table_t *config = config_ptr.get ();
-		if (config) {
-			auto amauth = openConfigSection (config, "amauth");
+		if (config_ptr) {
+			toml_table_t *config = config_ptr.get ();
+			auto amauth          = openConfigSection (config, "amauth");
 			if (amauth) {
 				server      = readConfigString (amauth, "server", server);
 				port        = readConfigString (amauth, "port", port);
@@ -136,14 +133,14 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 		} else if (version == "cn_jun_2023") {
 			gameVersion = GameVersion::CN_JUN_2023;
 		} else {
-			MessageBoxA (0, "Unknown patch version", 0, MB_OK);
+			MessageBoxA (nullptr, "Unknown patch version", nullptr, MB_OK);
 			ExitProcess (0);
 		}
 
 		auto pluginPath = std::filesystem::current_path () / "plugins";
 
 		if (std::filesystem::exists (pluginPath)) {
-			for (auto entry : std::filesystem::directory_iterator (pluginPath)) {
+			for (const auto &entry : std::filesystem::directory_iterator (pluginPath)) {
 				if (entry.path ().extension () == ".dll") {
 					auto name       = entry.path ().wstring ();
 					HMODULE hModule = LoadLibraryW (name.c_str ());

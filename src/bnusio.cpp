@@ -299,45 +299,52 @@ HOOK (u64, bngrw_reqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), 
 
 void
 Init () {
-	INSTALL_HOOK (bngrw_DevReset);
-	INSTALL_HOOK (bngrw_ReadMifare);
-	INSTALL_HOOK (bngrw_fin);
-	INSTALL_HOOK (bngrw_GetFwVersion);
-	INSTALL_HOOK (bngrw_GetStationID);
-	INSTALL_HOOK (bngrw_GetRetryCount);
-	INSTALL_HOOK (bngrw_IsCmdExec);
-	INSTALL_HOOK (bngrw_ReqAction);
-	INSTALL_HOOK (bngrw_ReqAiccAuth);
-	INSTALL_HOOK (bngrw_ReqBeep);
-	INSTALL_HOOK (bngrw_ReqFwCleanup);
-	INSTALL_HOOK (bngrw_ReqFwVersionUp);
-	INSTALL_HOOK (bngrw_ReqLatchID);
-	INSTALL_HOOK (bngrw_ReqLed);
-	INSTALL_HOOK (bngrw_ReqSendMail);
-	INSTALL_HOOK (bngrw_ReqSendUrl);
-	INSTALL_HOOK (bngrw_ReqSetLedPower);
-	INSTALL_HOOK (bngrw_reqCancel);
-	INSTALL_HOOK (bngrw_Init)
-	INSTALL_HOOK (bngrw_attach);
-	INSTALL_HOOK (bngrw_reqWaitTouch);
-
 	auto configPath = std::filesystem::current_path () / "config.toml";
 	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-	toml_table_t *config = config_ptr.get ();
-	if (config) {
-		auto drum = openConfigSection (config, "drum");
+	if (config_ptr) {
+		toml_table_t *config = config_ptr.get ();
+		auto drum            = openConfigSection (config, "drum");
 		if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
 		auto taikoController = openConfigSection (config, "controller");
 		if (taikoController) {
 			useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
 			if (useTaikoController) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
 		}
+		auto card = openConfigSection (config, "card_reader");
+		if (card) {
+			bool cardEnabled = readConfigBool (card, "enabled", true);
+			if (cardEnabled) {
+				INSTALL_HOOK (bngrw_DevReset);
+				INSTALL_HOOK (bngrw_ReadMifare);
+				INSTALL_HOOK (bngrw_fin);
+				INSTALL_HOOK (bngrw_GetFwVersion);
+				INSTALL_HOOK (bngrw_GetStationID);
+				INSTALL_HOOK (bngrw_GetRetryCount);
+				INSTALL_HOOK (bngrw_IsCmdExec);
+				INSTALL_HOOK (bngrw_ReqAction);
+				INSTALL_HOOK (bngrw_ReqAiccAuth);
+				INSTALL_HOOK (bngrw_ReqBeep);
+				INSTALL_HOOK (bngrw_ReqFwCleanup);
+				INSTALL_HOOK (bngrw_ReqFwVersionUp);
+				INSTALL_HOOK (bngrw_ReqLatchID);
+				INSTALL_HOOK (bngrw_ReqLed);
+				INSTALL_HOOK (bngrw_ReqSendMail);
+				INSTALL_HOOK (bngrw_ReqSendUrl);
+				INSTALL_HOOK (bngrw_ReqSetLedPower);
+				INSTALL_HOOK (bngrw_reqCancel);
+				INSTALL_HOOK (bngrw_Init)
+				INSTALL_HOOK (bngrw_attach);
+				INSTALL_HOOK (bngrw_reqWaitTouch);
+			} else {
+				std::cout << "[Init] Card reader emulation disabled" << std::endl;
+			}
+		}
 	}
 
 	auto keyconfigPath = std::filesystem::current_path () / "keyconfig.toml";
 	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyconfig_ptr (openConfig (keyconfigPath), toml_free);
-	toml_table_t *keyconfig = keyconfig_ptr.get ();
-	if (keyconfig) {
+	if (keyconfig_ptr) {
+		toml_table_t *keyconfig = keyconfig_ptr.get ();
 		SetConfigValue (keyconfig, "EXIT", &EXIT);
 
 		SetConfigValue (keyconfig, "TEST", &TEST);
