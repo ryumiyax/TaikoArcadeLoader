@@ -11,6 +11,7 @@ version = "auto"
 res = { x = 1920, y = 1080 }
 windowed = false
 vsync = false
+auto_ime = false
 unlock_songs = true
 
   [patches.audio]

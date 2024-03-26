@@ -3,12 +3,13 @@
 #include "patches/patches.h"
 #include "poll.h"
 
+extern GameVersion version;
 extern std::vector<HMODULE> plugins;
 extern char accessCode1[21];
-extern char chipId1[33];
 extern char accessCode2[21];
+extern char chipId1[33];
 extern char chipId2[33];
-extern GameVersion version;
+extern bool autoIME;
 
 typedef i32 (*callbackAttach) (i32, i32, i32 *);
 typedef void (*callbackTouch) (i32, i32, u8[168], u64);
@@ -162,14 +163,20 @@ bnusio_GetAnalogIn (u8 which) {
 bool testEnabled  = false;
 int coin_count    = 0;
 bool inited       = false;
-HWND windowHandle = 0;
+HWND windowHandle = nullptr;
+HKL currentLayout;
 
 u16 __fastcall bnusio_GetCoin (i32 a1) {
 	if (a1 != 1) return coin_count;
 
 	if (!inited) {
-		windowHandle = FindWindowA ("nuFoundation.Window", 0);
+		windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
 		InitializePoll (windowHandle);
+		if (autoIME) {
+			currentLayout  = GetKeyboardLayout (0);
+			auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
+			ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
+		}
 
 		for (auto plugin : plugins) {
 			auto initEvent = GetProcAddress (plugin, "Init");
@@ -253,6 +260,7 @@ bnusio_GetSwIn () {
 
 i64
 bnusio_Close () {
+	if (autoIME) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);
 	for (auto plugin : plugins) {
 		FARPROC exitEvent = GetProcAddress (plugin, "Exit");
 		if (exitEvent) ((event *)exitEvent) ();

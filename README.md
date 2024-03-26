@@ -36,6 +36,8 @@ res = { x = 1920, y = 1080 }
 windowed = false
 # vertical sync
 vsync = false
+# auto change to english ime mode
+auto_ime = false
 # unlock all songs
 unlock_songs = true
 
