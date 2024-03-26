@@ -158,11 +158,18 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 		} else if (gMode == Mode::Plugin) {
 			FARPROC getQrEvent = GetProcAddress (gPlugin, "getQr");
 			if (getQrEvent) {
-				auto byteData = ((GetQrEvent*) getQrEvent) ();
-				std::cout << "Plugin QR: " << ZXing::ToHex (byteData) << std::endl;
-				auto dataSize = byteData.size ();
+				std::vector<BYTE> byteBuffer = ((GetQrEvent*) getQrEvent) ();
 
-				memcpy (dest, byteData.data (), dataSize);
+				std::stringstream ss;
+				ss << std::hex << std::setfill('0');
+				for (const auto& byte : bytes) {
+					ss << std::setw(2) << static_cast<int>(byte);
+				}
+
+				std::cout << "Plugin QR: " << ss.str() << std::endl;
+				auto dataSize = byteBuffer.size();
+
+				memcpy (dest, byteBuffer.data(), dataSize);
 				gState = State::Ready;
 				gMode  = Mode::Card;
 				return dataSize;
