@@ -162,7 +162,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 
 				std::stringstream ss;
 				ss << std::hex << std::setfill('0');
-				for (const auto& byte : bytes) {
+				for (const auto& byte : byteBuffer) {
 					ss << std::setw(2) << static_cast<int>(byte);
 				}
 
