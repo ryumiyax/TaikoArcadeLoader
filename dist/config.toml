@@ -14,16 +14,16 @@ vsync = false
 auto_ime = false
 unlock_songs = true
 
-  [patches.audio]
-  wasapi_shared = true
-  asio = false
-  asio_driver = ""
-
   [patches.cn_jun_2023]
   fix_language = false
   demo_movie = true
   mode_collabo025 = false
   mode_collabo026 = false
+
+[audio]
+wasapi_shared = true
+asio = false
+asio_driver = ""
 
 [card_reader]
 enabled = true

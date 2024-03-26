@@ -41,14 +41,6 @@ auto_ime = false
 # unlock all songs
 unlock_songs = true
 
-  [patches.audio]
-  # wasapi shared mode
-  wasapi_shared = true
-  # use asio
-  asio = false
-  # asio driver name
-  asio_driver = ""
-
   [patches.cn_jun_2023]
   # sync test mode language to attract etc.
   fix_language = false
@@ -58,7 +50,15 @@ unlock_songs = true
   mode_collabo025 = false
   # enable ai soshina mode
   mode_collabo026 = false
-  
+
+[audio]
+# wasapi shared mode
+wasapi_shared = true
+# use asio
+asio = false
+# asio driver name
+asio_driver = ""
+
 [card_reader]
 # enable card reader emulation
 enabled = true
