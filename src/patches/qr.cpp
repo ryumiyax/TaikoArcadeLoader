@@ -29,7 +29,7 @@ enum class State { Ready, CopyWait };
 enum class Mode { Card, Data, Image, Plugin };
 State 	gState 	= State::Ready;
 Mode 	gMode   = Mode::Card;
-HMOULDE gPlugin;
+HMODULE gPlugin;
 std::string accessCode;
 bool qrEnabled = true;
 
