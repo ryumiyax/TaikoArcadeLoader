@@ -18,13 +18,18 @@ extern Keybindings QR_DATA_READ;
 extern Keybindings QR_IMAGE_READ;
 extern char accessCode1[21];
 extern char accessCode2[21];
+extern std::vector<HMODULE> plugins;
+
+typedef bool CheckQrEvent();
+typedef std::vector<BYTE> GetQrEvent();
 
 namespace patches::Qr {
 
 enum class State { Ready, CopyWait };
-enum class Mode { Card, Data, Image };
-State gState = State::Ready;
-Mode gMode   = Mode::Card;
+enum class Mode { Card, Data, Image, Plugin };
+State 	gState 	= State::Ready;
+Mode 	gMode   = Mode::Card;
+HMOULDE gPlugin;
 std::string accessCode;
 bool qrEnabled = true;
 
@@ -107,7 +112,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			memcpy (dest, byteBuffer.data (), byteBuffer.size ());
 			gState = State::Ready;
 			return byteBuffer.size ();
-		} else {
+		} else if (gMode == Mode::Data) {
 			std::string imagePath = "";
 
 			if (config_ptr) {
@@ -150,6 +155,22 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			memcpy (dest, byteData.data (), dataSize);
 			gState = State::Ready;
 			return dataSize;
+		} else if (gMode == Mode::Plugin) {
+			FARPROC getQrEvent = GetProcAddress (gPlugin, "getQr");
+			if (getQrEvent) {
+				auto byteData = ((GetQrEvent*) getQrEvent) ();
+				std::cout << "Plugin QR: " << ZXing::ToHex (byteData) << std::endl;
+				auto dataSize = byteData.size ();
+
+				memcpy (dest, byteData.data (), dataSize);
+				gState = State::Ready;
+				gMode  = Mode::Card;
+				return dataSize;
+			} else {
+				gState = State::Ready;
+				gMode  = Mode::Card;
+				return 0;
+			}
 		}
 	}
 	return 0;
@@ -183,6 +204,17 @@ Update () {
 			std::cout << "Insert" << std::endl;
 			gState = State::CopyWait;
 			gMode  = Mode::Image;
+		} else {
+			for (auto plugin : plugins) {
+				FARPROC checkQrEvent = GetProcAddress (plugin, "checkQr");
+				if (checkQrEvent && ((CheckQrEvent*) checkQrEvent) ()) {
+					std::cout << "Insert" << std::endl;
+					gState 	= State::CopyWait;
+					gMode  	= Mode::Plugin;
+					gPlugin = plugin;
+					break;
+				}
+			}
 		}
 	}
 }
