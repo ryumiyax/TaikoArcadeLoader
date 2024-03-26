@@ -18,7 +18,6 @@ extern Keybindings QR_DATA_READ;
 extern Keybindings QR_IMAGE_READ;
 extern char accessCode1[21];
 extern char accessCode2[21];
-bool qrEnabled = true;
 
 namespace patches::Qr {
 
@@ -27,6 +26,7 @@ enum class Mode { Card, Data, Image };
 State gState = State::Ready;
 Mode gMode   = Mode::Card;
 std::string accessCode;
+bool qrEnabled = true;
 
 HOOK_DYNAMIC (char, __fastcall, qrInit, i64) { return 1; }
 HOOK_DYNAMIC (char, __fastcall, qrRead, i64 a1) {

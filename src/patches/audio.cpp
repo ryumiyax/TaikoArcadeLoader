@@ -1,0 +1,77 @@
+#include "constants.h"
+#include "helpers.h"
+#include "patches.h"
+
+extern GameVersion gameVersion;
+
+namespace patches::Audio {
+
+typedef struct nusc_init_config {
+	uint32_t sample_rate;
+	uint32_t buffer_size;
+	uint32_t device_mode;
+	uint32_t channel_count;
+	const char *asio_driver_name;
+	bool wasapi_disable_com;
+	bool wasapi_exclusive;
+	uint32_t wasapi_exclusive_buffer_size;
+	void *wasapi_audioses;
+} nusc_init_config_t;
+
+bool wasapiShared      = true;
+bool asio              = false;
+std::string asioDriver = "";
+
+HOOK_DYNAMIC (i64, __fastcall, NUSCDeviceInit, void *a1, nusc_init_config_t *a2, nusc_init_config_t *a3, void *a4) {
+	a2->device_mode      = asio;
+	a2->asio_driver_name = asio ? asioDriver.c_str () : "";
+	a2->wasapi_exclusive = asio ? 1 : wasapiShared ? 0 : 1;
+	return originalNUSCDeviceInit (a1, a2, a3, a4);
+}
+HOOK_DYNAMIC (bool, __fastcall, LoadASIODriver, void *a1, const char *a2) {
+	auto result = originalLoadASIODriver (a1, a2);
+	if (!result) {
+		MessageBoxA (nullptr, "Failed to load ASIO driver", nullptr, MB_OK);
+		ExitProcess (0);
+	}
+	return result;
+}
+
+void
+Init () {
+	auto configPath = std::filesystem::current_path () / "config.toml";
+	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
+	if (config_ptr) {
+		auto patches = openConfigSection (config_ptr.get (), "patches");
+		if (patches) {
+			auto audio = openConfigSection (patches, "audio");
+			if (audio) {
+				wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
+				asio         = readConfigBool (audio, "asio", asio);
+				asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
+			}
+		}
+	}
+
+	switch (gameVersion) {
+	case GameVersion::JP_NOV_2020: {
+		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x140692E00));
+		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x14069B750));
+		break;
+	}
+	case GameVersion::JP_APR_2023: {
+		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x1407C8620));
+		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x1407D0F70));
+		break;
+	}
+	case GameVersion::CN_JUN_2023: {
+		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x140777F70));
+		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x1407808C0));
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+}
+} // namespace patches::Audio

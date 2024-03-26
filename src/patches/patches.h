@@ -8,11 +8,14 @@ void Init ();
 namespace CN_JUN_2023 {
 void Init ();
 } // namespace CN_JUN_2023
-namespace AmAuth {
+namespace Audio {
 void Init ();
-} // namespace AmAuth
+} // namespace Audio
 namespace Qr {
 void Init ();
 void Update ();
 } // namespace Qr
+namespace AmAuth {
+void Init ();
+} // namespace AmAuth
 } // namespace patches

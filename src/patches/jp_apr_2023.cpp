@@ -4,25 +4,6 @@
 
 namespace patches::JP_APR_2023 {
 
-bool wasapiShared      = true;
-bool asio              = false;
-std::string asioDriver = "";
-HOOK (i64, NUSCDeviceInit, ASLR (0x1407C8620), void *a1, void *a2, void *a3, void *a4) {
-	*(u32 *)((u8 *)a2 + 0x8)          = asio;
-	*(const char **)((u8 *)a2 + 0x10) = asio ? asioDriver.c_str () : "";
-	*(u16 *)((u8 *)a2 + 0x18)         = (!asio && wasapiShared) ? 0 : 256;
-	*(u16 *)((u8 *)a2 + 0x1C)         = (!asio && wasapiShared) ? 0 : 256;
-	return originalNUSCDeviceInit (a1, a2, a3, a4);
-}
-HOOK (bool, LoadASIODriver, ASLR (0x1407D0F70), void *a1, const char *a2) {
-	auto result = originalLoadASIODriver (a1, a2);
-	if (!result) {
-		MessageBoxA (nullptr, "Failed to load ASIO driver", nullptr, MB_OK);
-		ExitProcess (0);
-	}
-	return result;
-}
-
 HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
 
 HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
@@ -78,12 +59,6 @@ Init () {
 			}
 			vsync       = readConfigBool (patches, "vsync", vsync);
 			unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-			auto audio  = openConfigSection (patches, "audio");
-			if (audio) {
-				wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
-				asio         = readConfigBool (audio, "asio", asio);
-				asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
-			}
 		}
 	}
 
@@ -92,10 +67,6 @@ Init () {
 	WRITE_MEMORY (ASLR (0x14049453A), i32, yRes);
 	if (!vsync) WRITE_MEMORY (ASLR (0x14064C7E9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
 	if (unlockSongs) WRITE_MEMORY (ASLR (0x1403F45CF), u8, 0xB0, 0x01);
-
-	// Setting audio device
-	INSTALL_HOOK (NUSCDeviceInit);
-	INSTALL_HOOK (LoadASIODriver);
 
 	// Bypass errors
 	WRITE_MEMORY (ASLR (0x140041A00), u8, 0xC3);
@@ -163,6 +134,7 @@ Init () {
 	auto garmcHandle = (u64)GetModuleHandle ("garmc.dll");
 	INSTALL_HOOK_DYNAMIC (curl_easy_setopt, (void *)(garmcHandle + 0x1FBBB0));
 
+	patches::Audio::Init ();
 	patches::Qr::Init ();
 	patches::AmAuth::Init ();
 }

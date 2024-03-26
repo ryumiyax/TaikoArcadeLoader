@@ -69,8 +69,9 @@ library(
 		'src/patches/jp_nov_2020.cpp',
 		'src/patches/jp_apr_2023.cpp',
 		'src/patches/cn_jun_2023.cpp',
-		'src/patches/amauth.cpp',
+		'src/patches/audio.cpp',
 		'src/patches/qr.cpp',
+		'src/patches/amauth.cpp',
 	],
 	name_prefix: ''
 )
