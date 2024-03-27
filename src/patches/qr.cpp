@@ -20,6 +20,7 @@ extern char accessCode1[21];
 extern char accessCode2[21];
 extern std::vector<HMODULE> plugins;
 
+typedef void event ();
 typedef bool CheckQrEvent();
 typedef std::vector<BYTE> GetQrEvent();
 
@@ -180,6 +181,11 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 				gMode  = Mode::Card;
 				return 0;
 			}
+		}
+	} else {
+		for (auto plugin : plugins) {
+			FARPROC usingQrEvent = GetProcAddress (plugin, "usingQr");
+			if (usingQrEvent) ((event*) usingQrEvent) ();
 		}
 	}
 	return 0;
