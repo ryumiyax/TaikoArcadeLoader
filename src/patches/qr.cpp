@@ -34,6 +34,9 @@ HMODULE gPlugin;
 std::string accessCode;
 bool qrEnabled = true;
 
+std::vector<HMODULE> qrPlugins;
+bool qrPluginRegistered = false;
+
 HOOK_DYNAMIC (char, __fastcall, qrInit, i64) { return 1; }
 HOOK_DYNAMIC (char, __fastcall, qrRead, i64 a1) {
 	*(DWORD *)(a1 + 40) = 1;
@@ -182,8 +185,8 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 				return 0;
 			}
 		}
-	} else {
-		for (auto plugin : plugins) {
+	} else if (qrPluginRegistered) {
+		for (auto plugin : qrPlugins) {
 			FARPROC usingQrEvent = GetProcAddress (plugin, "usingQr");
 			if (usingQrEvent) ((event*) usingQrEvent) ();
 		}
@@ -219,8 +222,8 @@ Update () {
 			std::cout << "Insert" << std::endl;
 			gState = State::CopyWait;
 			gMode  = Mode::Image;
-		} else {
-			for (auto plugin : plugins) {
+		} else if (qrPluginRegistered) {
+			for (auto plugin : qrPlugins) {
 				FARPROC checkQrEvent = GetProcAddress (plugin, "checkQr");
 				if (checkQrEvent && ((CheckQrEvent*) checkQrEvent) ()) {
 					std::cout << "Insert" << std::endl;
@@ -253,6 +256,11 @@ Init () {
 		std::cout << "[Init] QR emulation disabled" << std::endl;
 		return;
 	}
+	for (auto plugin : plugins) {
+		FARPROC usingQrEvent = GetProcAddress (plugin, "usingQr");
+		if (usingQrEvent) qrPlugins.push_back(plugin);
+	}
+	if (qrPlugins.size() > 0) qrPluginRegistered = true;
 	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {
