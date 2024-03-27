@@ -149,10 +149,11 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 
 			std::cout << "Valid" << std::endl;
 			auto byteData = result.bytes ();
-			std::cout << ZXing::ToHex (byteData) << std::endl;
+			std::cout << "Image  QR: " << ZXing::ToHex (byteData) << std::endl;
 			auto dataSize = byteData.size ();
 
 			memcpy (dest, byteData.data (), dataSize);
+			std::cout << "Data consumed! len = " << dataSize << std::endl;
 			gState = State::Ready;
 			return dataSize;
 		} else if (gMode == Mode::Plugin) {
@@ -161,9 +162,9 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 				std::vector<BYTE> byteBuffer = ((GetQrEvent*) getQrEvent) ();
 
 				std::stringstream ss;
-				ss << std::hex << std::setfill('0');
+				ss << std::hex << std::uppercase << std::setfill('0');
 				for (const auto& byte : byteBuffer) {
-					ss << std::setw(2) << static_cast<int>(byte);
+					ss << std::setw(2) << static_cast<int>(byte) << " ";
 				}
 
 				std::cout << "Plugin QR: " << ss.str() << std::endl;
