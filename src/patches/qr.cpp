@@ -112,7 +112,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			memcpy (dest, byteBuffer.data (), byteBuffer.size ());
 			gState = State::Ready;
 			return byteBuffer.size ();
-		} else if (gMode == Mode::Data) {
+		} else if (gMode == Mode::Image) {
 			std::string imagePath = "";
 
 			if (config_ptr) {
@@ -170,6 +170,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 				auto dataSize = byteBuffer.size();
 
 				memcpy (dest, byteBuffer.data(), dataSize);
+				std::cout << "Data consumed! len = " << dataSize << std::endl;
 				gState = State::Ready;
 				gMode  = Mode::Card;
 				return dataSize;
