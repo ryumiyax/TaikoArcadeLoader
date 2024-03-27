@@ -42,14 +42,11 @@ Init () {
 	auto configPath = std::filesystem::current_path () / "config.toml";
 	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
 	if (config_ptr) {
-		auto patches = openConfigSection (config_ptr.get (), "patches");
-		if (patches) {
-			auto audio = openConfigSection (patches, "audio");
-			if (audio) {
-				wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
-				asio         = readConfigBool (audio, "asio", asio);
-				asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
-			}
+		auto audio = openConfigSection (config_ptr.get (), "audio");
+		if (audio) {
+			wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
+			asio         = readConfigBool (audio, "asio", asio);
+			asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
 		}
 	}
 
