@@ -153,11 +153,10 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 
 			std::cout << "Valid" << std::endl;
 			auto byteData = result.bytes ();
-			std::cout << "Image  QR: " << ZXing::ToHex (byteData) << std::endl;
+			std::cout << ZXing::ToHex (byteData) << std::endl;
 			auto dataSize = byteData.size ();
 
 			memcpy (dest, byteData.data (), dataSize);
-			std::cout << "Data consumed! len = " << dataSize << std::endl;
 			gState = State::Ready;
 			return dataSize;
 		} else if (gMode == Mode::Plugin) {
