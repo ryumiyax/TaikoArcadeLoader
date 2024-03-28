@@ -22,7 +22,7 @@ extern std::vector<HMODULE> plugins;
 
 typedef void event ();
 typedef bool CheckQrEvent();
-typedef int GetQrEvent(char *buf_);
+typedef int GetQrEvent(unsigned char *buf_);
 
 namespace patches::Qr {
 
