@@ -22,7 +22,7 @@ extern std::vector<HMODULE> plugins;
 
 typedef void event ();
 typedef bool CheckQrEvent();
-typedef std::vector<uint8_t> GetQrEvent();
+typedef int GetQrEvent(char *buf_);
 
 namespace patches::Qr {
 
@@ -163,14 +163,12 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 		} else if (gMode == Mode::Plugin) {
 			FARPROC getQrEvent = GetProcAddress (gPlugin, "getQr");
 			if (getQrEvent) {
-				// std::vector<uint8_t> byteBuffer = ((GetQrEvent*) getQrEvent) ();
-       			 unsigned char tmp_data[37] = {0x53, 0x31, 0x32, 0x00, 0x01, 0x26, 0x7d, 0xa4, 0x3c, 0x34, 0xec, 0x3e, 0x7f, 0xa9, 0x52, 0x34, 0xff, 0xaf, 0x94, 0xa4, 0x99, 0xfe, 0xdd, 0x47, 0x22, 0xb3, 0xdf, 0xa4, 0x4c, 0x9d, 0xab, 0x10, 0x22, 0x91, 0xda, 0x16, 0xf1};
-       			 
-
-				memcpy (dest, tmp_data, 37);
+				 unsigned char plugin_data[10086] ;
+				int buf_len = ((GetQrEvent*) getQrEvent) (plugin_data);
+				memcpy (dest, plugin_data, buf_len);
 				gState = State::Ready;
 				gMode  = Mode::Card;
-				return 37;
+				return buf_len;
 			} else {
 				gState = State::Ready;
 				gMode  = Mode::Card;
