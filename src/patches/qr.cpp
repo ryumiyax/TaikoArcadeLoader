@@ -163,23 +163,15 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 		} else if (gMode == Mode::Plugin) {
 			FARPROC getQrEvent = GetProcAddress (gPlugin, "getQr");
 			if (getQrEvent) {
-				std::vector<uint8_t> byteBuffer = ((GetQrEvent*) getQrEvent) ();
-				// std::vector<uint8_t> byteBuffer = {0x53, 0x31, 0x32, 0x00, 0x01, 0x26, 0x7D, 0xA4, 0x3C, 0x34, 0xEC, 0x3E, 0x7F, 0xA9, 0x52, 0x34, 0xFF, 0xAF, 0x94, 0xA4, 0x99, 0xFE, 0xDD, 0x47, 0x22, 0xB3, 0xDF, 0xA4, 0x4C, 0x9D, 0xAB, 0x10, 0x22, 0x91, 0xDA, 0x16, 0xF1};
+				// std::vector<uint8_t> byteBuffer = ((GetQrEvent*) getQrEvent) ();
+       			 unsigned char tmp_data[37] = {0x53, 0x31, 0x32, 0x00, 0x01, 0x26, 0x7d, 0xa4, 0x3c, 0x34, 0xec, 0x3e, 0x7f, 0xa9, 0x52, 0x34, 0xff, 0xaf, 0x94, 0xa4, 0x99, 0xfe, 0xdd, 0x47, 0x22, 0xb3, 0xdf, 0xa4, 0x4c, 0x9d, 0xab, 0x10, 0x22, 0x91, 0xda, 0x16, 0xf1};
+       			 
 
-				std::stringstream ss;
-				ss << std::hex << std::uppercase << std::setfill('0');
-				for (const auto& byte : byteBuffer) {
-					ss << std::setw(2) << static_cast<int>(byte) << " ";
-				}
-
-				std::cout << "Plugin QR: " << ss.str() << std::endl;
-				auto dataSize = byteBuffer.size();
-
-				// memcpy (dest, byteBuffer.data(), dataSize);
+				memcpy (dest, tmp_data, 37);
 				std::cout << "Data consumed! len = " << dataSize << std::endl;
 				gState = State::Ready;
 				gMode  = Mode::Card;
-				return 0;
+				return 37;
 			} else {
 				gState = State::Ready;
 				gMode  = Mode::Card;
