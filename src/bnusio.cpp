@@ -5,6 +5,8 @@
 
 extern GameVersion version;
 extern std::vector<HMODULE> plugins;
+extern u64 song_data_size;
+extern void *song_data;
 extern char accessCode1[21];
 extern char accessCode2[21];
 extern char chipId1[33];
