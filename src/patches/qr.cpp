@@ -252,7 +252,10 @@ Init () {
 		FARPROC usingQrEvent = GetProcAddress (plugin, "usingQr");
 		if (usingQrEvent) qrPlugins.push_back(plugin);
 	}
-	if (qrPlugins.size() > 0) qrPluginRegistered = true;
+	if (qrPlugins.size() > 0) {
+		std::cout << "QR Plugin Found!" << std::endl;
+		qrPluginRegistered = true;
+	}
 	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {
