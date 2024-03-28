@@ -164,7 +164,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			if (getQrEvent) {
 				unsigned char plugin_data[length];
 				int buf_len = ((GetQrEvent*) getQrEvent) (length, plugin_data);
-				if (buf_len > 0) {
+				if (0 < buf_len && buf_len <= length) {
 					memcpy (dest, plugin_data, buf_len);
 				}
 				gState = State::Ready;
