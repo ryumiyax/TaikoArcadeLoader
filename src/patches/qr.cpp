@@ -22,7 +22,7 @@ extern std::vector<HMODULE> plugins;
 
 typedef void event ();
 typedef bool CheckQrEvent();
-typedef std::vector<uint8_t> GetQrEvent();
+typedef int GetQrEvent(unsigned char *buf_);
 
 namespace patches::Qr {
 
@@ -163,23 +163,12 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 		} else if (gMode == Mode::Plugin) {
 			FARPROC getQrEvent = GetProcAddress (gPlugin, "getQr");
 			if (getQrEvent) {
-				std::vector<uint8_t> byteBuffer = ((GetQrEvent*) getQrEvent) ();
-				// std::vector<uint8_t> byteBuffer = {0x53, 0x31, 0x32, 0x00, 0x01, 0x26, 0x7D, 0xA4, 0x3C, 0x34, 0xEC, 0x3E, 0x7F, 0xA9, 0x52, 0x34, 0xFF, 0xAF, 0x94, 0xA4, 0x99, 0xFE, 0xDD, 0x47, 0x22, 0xB3, 0xDF, 0xA4, 0x4C, 0x9D, 0xAB, 0x10, 0x22, 0x91, 0xDA, 0x16, 0xF1};
-
-				std::stringstream ss;
-				ss << std::hex << std::uppercase << std::setfill('0');
-				for (const auto& byte : byteBuffer) {
-					ss << std::setw(2) << static_cast<int>(byte) << " ";
-				}
-
-				std::cout << "Plugin QR: " << ss.str() << std::endl;
-				auto dataSize = byteBuffer.size();
-
-				// memcpy (dest, byteBuffer.data(), dataSize);
-				std::cout << "Data consumed! len = " << dataSize << std::endl;
+				 unsigned char plugin_data[10086] ;
+				int buf_len = ((GetQrEvent*) getQrEvent) (plugin_data);
+				memcpy (dest, plugin_data, buf_len);
 				gState = State::Ready;
 				gMode  = Mode::Card;
-				return 0;
+				return buf_len;
 			} else {
 				gState = State::Ready;
 				gMode  = Mode::Card;
