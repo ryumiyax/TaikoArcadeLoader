@@ -168,7 +168,6 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
        			 
 
 				memcpy (dest, tmp_data, 37);
-				std::cout << "Data consumed! len = " << dataSize << std::endl;
 				gState = State::Ready;
 				gMode  = Mode::Card;
 				return 37;
