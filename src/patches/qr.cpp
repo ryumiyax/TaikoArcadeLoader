@@ -166,6 +166,9 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 				int buf_len = ((GetQrEvent*) getQrEvent) (length, plugin_data);
 				if (0 < buf_len && buf_len <= length) {
 					memcpy (dest, plugin_data, buf_len);
+				} else {
+					std::cerr << "QR discard! Length invalid: " << buf_len << ", valid range: 0~" << length 
+							  << std::endl;
 				}
 				gState = State::Ready;
 				return buf_len;
