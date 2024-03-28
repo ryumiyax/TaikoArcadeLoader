@@ -25,6 +25,9 @@ extern char fullAddress[256];
 extern char placeId[16];
 
 namespace patches::AmAuth {
+
+char server_ip[16];
+
 const GUID IID_CAuth{0x045A5150, 0xD2B3, 0x4590, {0xA3, 0x8B, 0xC1, 0x15, 0x86, 0x78, 0xE1, 0xAC}};
 
 const GUID IID_CAuthFactory{0x4603BB03, 0x058D, 0x43D9, {0xB9, 0x6F, 0x63, 0x9B, 0xE9, 0x08, 0xC1, 0xED}};
@@ -379,7 +382,7 @@ public:
 		strcpy_s (state->mode, "STANDALONE");
 		strcpy_s (state->pcbid, "ABLN1080001");
 		strcpy_s (state->dongle_serial, chassisId.c_str ());
-		strcpy_s (state->auth_server_ip, server.c_str ());
+		strcpy_s (state->auth_server_ip, server_ip);
 		strcpy_s (state->local_ip, "127.0.0.1");
 		strcpy_s (state->shop_router_ip, "127.0.0.1");
 		strcpy_s (state->subnet_mask, "***.***.***.***");
@@ -638,5 +641,14 @@ Init () {
 	MH_Initialize ();
 	MH_CreateHookApi (L"ole32.dll", "CoCreateInstance", (LPVOID)CoCreateInstanceHook, (void **)&g_origCoCreateInstance); // NOLINT(clang-diagnostic-microsoft-cast)
 	MH_EnableHook (nullptr);
+
+	struct addrinfo *res = 0;
+	getaddrinfo (server.c_str (), "", 0, &res);
+	for (struct addrinfo *i = res; i != 0; i = i->ai_next) {
+		if (res->ai_addr->sa_family != AF_INET) continue;
+		struct sockaddr_in *p = (struct sockaddr_in *)res->ai_addr;
+		inet_ntop (AF_INET, &p->sin_addr, server_ip, 0x10);
+		break;
+	}
 }
 } // namespace patches::AmAuth
