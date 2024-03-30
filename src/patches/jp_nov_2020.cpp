@@ -2,8 +2,8 @@
 #include "patches.h"
 #include <safetyhook.hpp>
 
-const u64 song_data_size = 1024 * 1024 * 64;
-void *song_data;
+extern u64 song_data_size;
+extern void *song_data;
 
 #define RDX_MOV 0x48, 0xBA
 #define R8_MOV  0x49, 0xB8

@@ -6,6 +6,8 @@
 
 GameVersion gameVersion = GameVersion::UNKNOWN;
 std::vector<HMODULE> plugins;
+u64 song_data_size = 1024 * 1024 * 64;
+void *song_data;
 
 std::string server      = "127.0.0.1";
 std::string port        = "54430";
