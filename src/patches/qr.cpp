@@ -113,6 +113,11 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			byteBuffer.push_back (0xEE);
 			byteBuffer.push_back (0xFF);
 
+			for (auto byteData : byteBuffer) {
+				std::cout << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << static_cast<int>(byteData) << " ";
+			}
+			std::cout << std::endl;
+
 			memcpy (dest, byteBuffer.data (), byteBuffer.size ());
 			gState = State::Ready;
 			return byteBuffer.size ();
@@ -165,6 +170,10 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 				unsigned char plugin_data[length];
 				int buf_len = ((GetQrEvent*) getQrEvent) (length, plugin_data);
 				if (0 < buf_len && buf_len <= length) {
+					for (int i = 0; i < buf_len; i++) {
+						std::cout << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << static_cast<int>(plugin_data[i]) << " ";
+					}
+					std::cout << std::endl;
 					memcpy (dest, plugin_data, buf_len);
 				} else {
 					std::cerr << "QR discard! Length invalid: " << buf_len << ", valid range: 0~" << length 
