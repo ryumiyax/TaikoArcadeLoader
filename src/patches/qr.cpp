@@ -18,15 +18,24 @@ extern Keybindings QR_DATA_READ;
 extern Keybindings QR_IMAGE_READ;
 extern char accessCode1[21];
 extern char accessCode2[21];
+extern std::vector<HMODULE> plugins;
+
+typedef void event ();
+typedef bool checkQrEvent ();
+typedef int getQrEvent (int, unsigned char *);
 
 namespace patches::Qr {
 
 enum class State { Ready, CopyWait };
-enum class Mode { Card, Data, Image };
+enum class Mode { Card, Data, Image, Plugin };
 State gState = State::Ready;
 Mode gMode   = Mode::Card;
+HMODULE gPlugin;
 std::string accessCode;
 bool qrEnabled = true;
+
+std::vector<HMODULE> qrPlugins;
+bool qrPluginRegistered = false;
 
 HOOK_DYNAMIC (char, __fastcall, qrInit, i64) { return 1; }
 HOOK_DYNAMIC (char, __fastcall, qrRead, i64 a1) {
@@ -104,10 +113,14 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			byteBuffer.push_back (0xEE);
 			byteBuffer.push_back (0xFF);
 
+			for (auto byteData : byteBuffer)
+				std::cout << std::hex << std::uppercase << std::setfill ('0') << std::setw (2) << static_cast<int> (byteData) << " ";
+			std::cout << std::endl;
+
 			memcpy (dest, byteBuffer.data (), byteBuffer.size ());
 			gState = State::Ready;
 			return byteBuffer.size ();
-		} else {
+		} else if (gMode == Mode::Image) {
 			std::string imagePath = "";
 
 			if (config_ptr) {
@@ -150,6 +163,30 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			memcpy (dest, byteData.data (), dataSize);
 			gState = State::Ready;
 			return dataSize;
+		} else if (gMode == Mode::Plugin) {
+			FARPROC getEvent = GetProcAddress (gPlugin, "GetQr");
+			if (getEvent) {
+				unsigned char plugin_data[length];
+				int buf_len = ((getQrEvent *)getEvent) (length, plugin_data);
+				if (0 < buf_len && buf_len <= length) {
+					for (int i = 0; i < buf_len; i++)
+						std::cout << std::hex << std::uppercase << std::setfill ('0') << std::setw (2) << static_cast<int> (plugin_data[i]) << " ";
+					std::cout << std::endl;
+					memcpy (dest, plugin_data, buf_len);
+				} else {
+					std::cerr << "QR discard! Length invalid: " << buf_len << ", valid range: 0~" << length << std::endl;
+				}
+				gState = State::Ready;
+				return buf_len;
+			} else {
+				gState = State::Ready;
+				return 0;
+			}
+		}
+	} else if (qrPluginRegistered) {
+		for (auto plugin : qrPlugins) {
+			FARPROC usingQrEvent = GetProcAddress (plugin, "UsingQr");
+			if (usingQrEvent) ((event *)usingQrEvent) ();
 		}
 	}
 	return 0;
@@ -183,6 +220,17 @@ Update () {
 			std::cout << "Insert" << std::endl;
 			gState = State::CopyWait;
 			gMode  = Mode::Image;
+		} else if (qrPluginRegistered) {
+			for (auto plugin : qrPlugins) {
+				FARPROC checkEvent = GetProcAddress (plugin, "CheckQr");
+				if (checkEvent && ((checkQrEvent *)checkEvent) ()) {
+					std::cout << "Insert" << std::endl;
+					gState  = State::CopyWait;
+					gMode   = Mode::Plugin;
+					gPlugin = plugin;
+					break;
+				}
+			}
 		}
 	}
 }
@@ -206,6 +254,16 @@ Init () {
 		std::cout << "[Init] QR emulation disabled" << std::endl;
 		return;
 	}
+
+	for (auto plugin : plugins) {
+		FARPROC usingQrEvent = GetProcAddress (plugin, "UsingQr");
+		if (usingQrEvent) qrPlugins.push_back (plugin);
+	}
+	if (qrPlugins.size () > 0) {
+		std::cout << "QR plugin found!" << std::endl;
+		qrPluginRegistered = true;
+	}
+
 	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {
