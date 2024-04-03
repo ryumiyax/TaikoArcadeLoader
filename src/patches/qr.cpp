@@ -21,15 +21,15 @@ extern char accessCode2[21];
 extern std::vector<HMODULE> plugins;
 
 typedef void event ();
-typedef bool CheckQrEvent();
-typedef int GetQrEvent(int, unsigned char*);
+typedef bool checkQrEvent ();
+typedef int getQrEvent (int, unsigned char *);
 
 namespace patches::Qr {
 
 enum class State { Ready, CopyWait };
 enum class Mode { Card, Data, Image, Plugin };
-State 	gState 	= State::Ready;
-Mode 	gMode   = Mode::Card;
+State gState = State::Ready;
+Mode gMode   = Mode::Card;
 HMODULE gPlugin;
 std::string accessCode;
 bool qrEnabled = true;
@@ -113,9 +113,8 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			byteBuffer.push_back (0xEE);
 			byteBuffer.push_back (0xFF);
 
-			for (auto byteData : byteBuffer) {
-				std::cout << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << static_cast<int>(byteData) << " ";
-			}
+			for (auto byteData : byteBuffer)
+				std::cout << std::hex << std::uppercase << std::setfill ('0') << std::setw (2) << static_cast<int> (byteData) << " ";
 			std::cout << std::endl;
 
 			memcpy (dest, byteBuffer.data (), byteBuffer.size ());
@@ -165,19 +164,17 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 			gState = State::Ready;
 			return dataSize;
 		} else if (gMode == Mode::Plugin) {
-			FARPROC getQrEvent = GetProcAddress (gPlugin, "getQr");
-			if (getQrEvent) {
+			FARPROC getEvent = GetProcAddress (gPlugin, "GetQr");
+			if (getEvent) {
 				unsigned char plugin_data[length];
-				int buf_len = ((GetQrEvent*) getQrEvent) (length, plugin_data);
+				int buf_len = ((getQrEvent *)getEvent) (length, plugin_data);
 				if (0 < buf_len && buf_len <= length) {
-					for (int i = 0; i < buf_len; i++) {
-						std::cout << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << static_cast<int>(plugin_data[i]) << " ";
-					}
+					for (int i = 0; i < buf_len; i++)
+						std::cout << std::hex << std::uppercase << std::setfill ('0') << std::setw (2) << static_cast<int> (plugin_data[i]) << " ";
 					std::cout << std::endl;
 					memcpy (dest, plugin_data, buf_len);
 				} else {
-					std::cerr << "QR discard! Length invalid: " << buf_len << ", valid range: 0~" << length 
-							  << std::endl;
+					std::cerr << "QR discard! Length invalid: " << buf_len << ", valid range: 0~" << length << std::endl;
 				}
 				gState = State::Ready;
 				return buf_len;
@@ -188,8 +185,8 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 		}
 	} else if (qrPluginRegistered) {
 		for (auto plugin : qrPlugins) {
-			FARPROC usingQrEvent = GetProcAddress (plugin, "usingQr");
-			if (usingQrEvent) ((event*) usingQrEvent) ();
+			FARPROC usingQrEvent = GetProcAddress (plugin, "UsingQr");
+			if (usingQrEvent) ((event *)usingQrEvent) ();
 		}
 	}
 	return 0;
@@ -225,11 +222,11 @@ Update () {
 			gMode  = Mode::Image;
 		} else if (qrPluginRegistered) {
 			for (auto plugin : qrPlugins) {
-				FARPROC checkQrEvent = GetProcAddress (plugin, "checkQr");
-				if (checkQrEvent && ((CheckQrEvent*) checkQrEvent) ()) {
+				FARPROC checkEvent = GetProcAddress (plugin, "CheckQr");
+				if (checkEvent && ((checkQrEvent *)checkEvent) ()) {
 					std::cout << "Insert" << std::endl;
-					gState 	= State::CopyWait;
-					gMode  	= Mode::Plugin;
+					gState  = State::CopyWait;
+					gMode   = Mode::Plugin;
 					gPlugin = plugin;
 					break;
 				}
@@ -257,14 +254,16 @@ Init () {
 		std::cout << "[Init] QR emulation disabled" << std::endl;
 		return;
 	}
+
 	for (auto plugin : plugins) {
-		FARPROC usingQrEvent = GetProcAddress (plugin, "usingQr");
-		if (usingQrEvent) qrPlugins.push_back(plugin);
+		FARPROC usingQrEvent = GetProcAddress (plugin, "UsingQr");
+		if (usingQrEvent) qrPlugins.push_back (plugin);
 	}
-	if (qrPlugins.size() > 0) {
-		std::cout << "QR Plugin Found!" << std::endl;
+	if (qrPlugins.size () > 0) {
+		std::cout << "QR plugin found!" << std::endl;
 		qrPluginRegistered = true;
 	}
+
 	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {
