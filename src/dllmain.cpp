@@ -73,6 +73,7 @@ GetGameVersion () {
 	free (buf);
 
 	switch (gameVersion) {
+	case GameVersion::JPN00:
 	case GameVersion::JPN08:
 	case GameVersion::JPN39:
 	case GameVersion::CHN00: break;
@@ -132,6 +133,8 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 
 		if (version == "auto") {
 			GetGameVersion ();
+		} else if (version == "JPN00") {
+			gameVersion = GameVersion::JPN00;
 		} else if (version == "JPN08") {
 			gameVersion = GameVersion::JPN08;
 		} else if (version == "JPN39") {
@@ -186,6 +189,7 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
 
 		switch (gameVersion) {
 		case GameVersion::UNKNOWN: break;
+		case GameVersion::JPN00: patches::JPN00::Init (); break;
 		case GameVersion::JPN08: patches::JPN08::Init (); break;
 		case GameVersion::JPN39: patches::JPN39::Init (); break;
 		case GameVersion::CHN00: patches::CHN00::Init (); break;

@@ -1,4 +1,7 @@
 namespace patches {
+namespace JPN00 {
+void Init ();
+} // namespace JPN00
 namespace JPN08 {
 void Init ();
 } // namespace JPN08

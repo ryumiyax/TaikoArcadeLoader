@@ -51,6 +51,11 @@ Init () {
 	}
 
 	switch (gameVersion) {
+	case GameVersion::JPN00: {
+		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x140552160));
+		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x14055A950));
+		break;
+	}
 	case GameVersion::JPN08: {
 		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x140692E00));
 		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x14069B750));

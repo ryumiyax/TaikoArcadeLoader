@@ -267,6 +267,18 @@ Init () {
 	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {
+	case GameVersion::JPN00: {
+		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1b3e0));
+		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1b600));
+		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x1b5b0));
+		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0xfd40));
+		// 00.18 has no Send1
+		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1bc60));
+		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1bbf0));
+		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x1bbb0));
+		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1bc30));
+		break;
+	}
 	case GameVersion::JPN08: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1BA00));
 		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1BC20));

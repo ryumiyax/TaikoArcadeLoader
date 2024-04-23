@@ -69,6 +69,7 @@ library(
 		'src/patches/audio.cpp',
 		'src/patches/qr.cpp',
 		'src/patches/amauth.cpp',
+		'src/patches/versions/JPN00.cpp',
 		'src/patches/versions/JPN08.cpp',
 		'src/patches/versions/JPN39.cpp',
 		'src/patches/versions/CHN00.cpp',
