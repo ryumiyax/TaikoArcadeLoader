@@ -51,17 +51,17 @@ Init () {
 	}
 
 	switch (gameVersion) {
-	case GameVersion::JP_NOV_2020: {
+	case GameVersion::JPN08: {
 		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x140692E00));
 		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x14069B750));
 		break;
 	}
-	case GameVersion::JP_APR_2023: {
+	case GameVersion::JPN39: {
 		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x1407C8620));
 		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x1407D0F70));
 		break;
 	}
-	case GameVersion::CN_JUN_2023: {
+	case GameVersion::CHN00: {
 		INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x140777F70));
 		INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x1407808C0));
 		break;

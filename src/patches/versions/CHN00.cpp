@@ -1,10 +1,10 @@
+#include "../patches.h"
 #include "helpers.h"
-#include "patches.h"
 #include <safetyhook.hpp>
 
 extern std::string chassisId;
 
-namespace patches::CN_JUN_2023 {
+namespace patches::CHN00 {
 
 u8 *haspBuffer;
 HOOK (i32, HaspDecrypt, PROC_ADDRESS ("hasp_windows_x64.dll", "hasp_decrypt")) { return 0; }
@@ -133,8 +133,8 @@ Init () {
 				xRes = readConfigInt (res, "x", xRes);
 				yRes = readConfigInt (res, "y", yRes);
 			}
-			vsync       = readConfigBool (patches, "vsync", vsync);
-			unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+			vsync            = readConfigBool (patches, "vsync", vsync);
+			unlockSongs      = readConfigBool (patches, "unlock_songs", unlockSongs);
 			auto cn_jun_2023 = openConfigSection (patches, "cn_jun_2023");
 			if (cn_jun_2023) {
 				fixLanguage    = readConfigBool (cn_jun_2023, "fix_language", fixLanguage);
@@ -220,4 +220,4 @@ Init () {
 	patches::Audio::Init ();
 	patches::Qr::Init ();
 }
-} // namespace patches::CN_JUN_2023
+} // namespace patches::CHN00

@@ -197,7 +197,7 @@ Update () {
 	if (!qrEnabled) return;
 	if (gState == State::Ready) {
 		if (IsButtonTapped (CARD_INSERT_1)) {
-			if (gameVersion != GameVersion::CN_JUN_2023) return;
+			if (gameVersion != GameVersion::CHN00) return;
 
 			std::cout << "Insert" << std::endl;
 			accessCode = "BNTTCNID";
@@ -205,7 +205,7 @@ Update () {
 			gState = State::CopyWait;
 			gMode  = Mode::Card;
 		} else if (IsButtonTapped (CARD_INSERT_2)) {
-			if (gameVersion != GameVersion::CN_JUN_2023) return;
+			if (gameVersion != GameVersion::CHN00) return;
 
 			std::cout << "Insert" << std::endl;
 			accessCode = "BNTTCNID";
@@ -267,7 +267,7 @@ Init () {
 	SetConsoleOutputCP (CP_UTF8);
 	auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
 	switch (gameVersion) {
-	case GameVersion::JP_NOV_2020: {
+	case GameVersion::JPN08: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1BA00));
 		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1BC20));
 		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x1BBD0));
@@ -279,7 +279,7 @@ Init () {
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1C2A0));
 		break;
 	}
-	case GameVersion::JP_APR_2023: {
+	case GameVersion::JPN39: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1EDC0));
 		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1EFB0));
 		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x1EF60));
@@ -291,7 +291,7 @@ Init () {
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1F630));
 		break;
 	}
-	case GameVersion::CN_JUN_2023: {
+	case GameVersion::CHN00: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x161B0));
 		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x163A0));
 		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x16350));

@@ -1,5 +1,5 @@
+#include "../patches.h"
 #include "helpers.h"
-#include "patches.h"
 #include <safetyhook.hpp>
 
 extern u64 song_data_size;
@@ -11,7 +11,7 @@ extern void *song_data;
 	instruction, (u8)(u64)(location), (u8)((u64)(location) >> 8), (u8)((u64)(location) >> 16), (u8)((u64)(location) >> 24), (u8)((u64)(location) >> 32), (u8)((u64)(location) >> 40), \
 	    (u8)((u64)(location) >> 48), (u8)((u64)(location) >> 56)
 
-namespace patches::JP_NOV_2020 {
+namespace patches::JPN08 {
 
 HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
 
@@ -179,4 +179,4 @@ Init () {
 	patches::Qr::Init ();
 	patches::AmAuth::Init ();
 }
-} // namespace patches::JP_NOV_2020
+} // namespace patches::JPN08

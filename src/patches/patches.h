@@ -1,13 +1,13 @@
 namespace patches {
-namespace JP_NOV_2020 {
+namespace JPN08 {
 void Init ();
-} // namespace JP_NOV_2020
-namespace JP_APR_2023 {
+} // namespace JPN08
+namespace JPN39 {
 void Init ();
-} // namespace JP_APR_2023
-namespace CN_JUN_2023 {
+} // namespace JPN39
+namespace CHN00 {
 void Init ();
-} // namespace CN_JUN_2023
+} // namespace CHN00
 namespace Audio {
 void Init ();
 } // namespace Audio

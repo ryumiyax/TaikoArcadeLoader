@@ -1,8 +1,8 @@
+#include "../patches.h"
 #include "helpers.h"
-#include "patches.h"
 #include <safetyhook.hpp>
 
-namespace patches::JP_APR_2023 {
+namespace patches::JPN39 {
 
 HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
 
@@ -138,4 +138,4 @@ Init () {
 	patches::Qr::Init ();
 	patches::AmAuth::Init ();
 }
-} // namespace patches::JP_APR_2023
+} // namespace patches::JPN39
