@@ -26,9 +26,10 @@ country_code = "JPN"
 [patches]
 # patch version
 # auto: hash detection (you need to use the original exe)
-# jp_nov_2020: JPN 08.18
-# jp_apr_2023: JPN 39.06
-# cn_jun_2023: CHN 00.32 (JPN 32.09)
+# JPN00: JPN 00.18
+# JPN08: JPN 08.18
+# JPN39: JPN 39.06
+# CHN00: CHN 00.32 (based JPN 32.09)
 version = "auto"
 # window resolution
 res = { x = 1920, y = 1080 }
@@ -41,7 +42,7 @@ auto_ime = false
 # unlock all songs
 unlock_songs = true
 
-  [patches.cn_jun_2023]
+  [patches.chn00]
   # sync test mode language to attract etc.
   fix_language = false
   # show demo movie

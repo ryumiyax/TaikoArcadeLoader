@@ -14,7 +14,7 @@ vsync = false
 auto_ime = false
 unlock_songs = true
 
-  [patches.cn_jun_2023]
+  [patches.chn00]
   fix_language = false
   demo_movie = true
   mode_collabo025 = false

@@ -133,14 +133,14 @@ Init () {
 				xRes = readConfigInt (res, "x", xRes);
 				yRes = readConfigInt (res, "y", yRes);
 			}
-			vsync            = readConfigBool (patches, "vsync", vsync);
-			unlockSongs      = readConfigBool (patches, "unlock_songs", unlockSongs);
-			auto cn_jun_2023 = openConfigSection (patches, "cn_jun_2023");
-			if (cn_jun_2023) {
-				fixLanguage    = readConfigBool (cn_jun_2023, "fix_language", fixLanguage);
-				demoMovie      = readConfigBool (cn_jun_2023, "demo_movie", demoMovie);
-				modeCollabo025 = readConfigBool (cn_jun_2023, "mode_collabo025", modeCollabo025);
-				modeCollabo026 = readConfigBool (cn_jun_2023, "mode_collabo026", modeCollabo026);
+			vsync       = readConfigBool (patches, "vsync", vsync);
+			unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+			auto chn00  = openConfigSection (patches, "chn00");
+			if (chn00) {
+				fixLanguage    = readConfigBool (chn00, "fix_language", fixLanguage);
+				demoMovie      = readConfigBool (chn00, "demo_movie", demoMovie);
+				modeCollabo025 = readConfigBool (chn00, "mode_collabo025", modeCollabo025);
+				modeCollabo026 = readConfigBool (chn00, "mode_collabo026", modeCollabo026);
 			}
 		}
 	}
