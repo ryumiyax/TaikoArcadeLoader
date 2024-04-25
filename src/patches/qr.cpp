@@ -39,27 +39,27 @@ std::vector<HMODULE> qrPlugins;
 bool qrPluginRegistered = false;
 
 HOOK_DYNAMIC (char, __fastcall, qrInit, i64) { return 1; }
+HOOK_DYNAMIC (char, __fastcall, qrClose, i64) { return 1; }
 HOOK_DYNAMIC (char, __fastcall, qrRead, i64 a1) {
 	*(DWORD *)(a1 + 40) = 1;
 	*(DWORD *)(a1 + 16) = 1;
 	*(BYTE *)(a1 + 112) = 0;
 	return 1;
 }
-HOOK_DYNAMIC (char, __fastcall, qrClose, i64) { return 1; }
 HOOK_DYNAMIC (i64, __fastcall, callQrUnknown, i64) { return 1; }
-HOOK_DYNAMIC (bool, __fastcall, Send1, i64, const void *, i64) { return true; }
-HOOK_DYNAMIC (bool, __fastcall, Send2, i64, char) { return true; }
-HOOK_DYNAMIC (bool, __fastcall, Send3, i64 a1) {
-	*(WORD *)(a1 + 88) = 0;
-	*(BYTE *)(a1 + 90) = 0;
-	return true;
-}
-HOOK_DYNAMIC (bool, __fastcall, Send4, i64 a1) {
+HOOK_DYNAMIC (bool, __fastcall, Send1, i64 a1) {
 	*(BYTE *)(a1 + 88) = 1;
 	*(i64 *)(a1 + 32)  = *(i64 *)(a1 + 24);
 	*(WORD *)(a1 + 89) = 0;
 	return true;
 }
+HOOK_DYNAMIC (bool, __fastcall, Send2, i64 a1) {
+	*(WORD *)(a1 + 88) = 0;
+	*(BYTE *)(a1 + 90) = 0;
+	return true;
+}
+HOOK_DYNAMIC (bool, __fastcall, Send3, i64, char) { return true; }
+HOOK_DYNAMIC (bool, __fastcall, Send4, i64, const void *, i64) { return true; }
 HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 	if (gState == State::CopyWait) {
 		std::cout << "Copy data, length: " << length << std::endl;
@@ -273,49 +273,49 @@ Init () {
 	switch (gameVersion) {
 	case GameVersion::JPN00: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1b3e0));
-		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1b600));
 		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x1b5b0));
+		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1b600));
 		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0xfd40));
-		// 00.18 has no Send1
-		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1bc60));
-		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1bbf0));
-		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x1bbb0));
+		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x1bbb0));
+		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1bbf0));
+		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1bc60));
+		// JPN00 has no Send4
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1bc30));
 		break;
 	}
 	case GameVersion::JPN08: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1BA00));
-		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1BC20));
 		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x1BBD0));
+		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1BC20));
 		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0xFD40));
-		// 08.18 has no Send1
-		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1C2D0));
-		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1C260));
-		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x1C220));
+		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x1C220));
+		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1C260));
+		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1C2D0));
+		// JPN08 has no Send4
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1C2A0));
 		break;
 	}
 	case GameVersion::JPN39: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x1EDC0));
-		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1EFB0));
 		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x1EF60));
+		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x1EFB0));
 		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0x11A70));
-		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x1F690));
-		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1F660));
-		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1F5F0));
-		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x1F5B0));
+		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x1F5B0));
+		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x1F5F0));
+		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x1F660));
+		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x1F690));
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x1F630));
 		break;
 	}
 	case GameVersion::CHN00: {
 		INSTALL_HOOK_DYNAMIC (qrInit, (LPVOID)(amHandle + 0x161B0));
-		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x163A0));
 		INSTALL_HOOK_DYNAMIC (qrClose, (LPVOID)(amHandle + 0x16350));
+		INSTALL_HOOK_DYNAMIC (qrRead, (LPVOID)(amHandle + 0x163A0));
 		INSTALL_HOOK_DYNAMIC (callQrUnknown, (LPVOID)(amHandle + 0x8F60));
-		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x16A30));
-		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x16A00));
-		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x16990));
-		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x16940));
+		INSTALL_HOOK_DYNAMIC (Send1, (LPVOID)(amHandle + 0x16940));
+		INSTALL_HOOK_DYNAMIC (Send2, (LPVOID)(amHandle + 0x16990));
+		INSTALL_HOOK_DYNAMIC (Send3, (LPVOID)(amHandle + 0x16A00));
+		INSTALL_HOOK_DYNAMIC (Send4, (LPVOID)(amHandle + 0x16A30));
 		INSTALL_HOOK_DYNAMIC (copy_data, (LPVOID)(amHandle + 0x169D0));
 		break;
 	}
