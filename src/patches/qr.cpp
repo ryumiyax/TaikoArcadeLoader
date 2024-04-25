@@ -21,6 +21,7 @@ extern char accessCode2[21];
 extern std::vector<HMODULE> plugins;
 
 typedef void event ();
+typedef void initQrEvent (GameVersion gameVersion);
 typedef bool checkQrEvent ();
 typedef int getQrEvent (int, unsigned char *);
 
@@ -256,6 +257,9 @@ Init () {
 	}
 
 	for (auto plugin : plugins) {
+		FARPROC initEvent = GetProcAddress (plugin, "InitQr");
+		if (initEvent) ((initQrEvent *)initEvent) (gameVersion);
+
 		FARPROC usingQrEvent = GetProcAddress (plugin, "UsingQr");
 		if (usingQrEvent) qrPlugins.push_back (plugin);
 	}
