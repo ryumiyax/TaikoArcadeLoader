@@ -80,7 +80,7 @@ Init () {
 
     // Move various files to current dir
     WRITE_MEMORY (ASLR (0x140018351), u8, 0x02);
-    WRITE_MEMORY (ASLR (0x1409A7138), char, "./");
+    WRITE_MEMORY (ASLR (0x1409A7138), char, "./"); // F:/
     WRITE_MEMORY (ASLR (0x1409D23B8), char, ".\\Setting1.bin");
     WRITE_MEMORY (ASLR (0x1409D23C8), char, ".\\Setting2.bin");
 

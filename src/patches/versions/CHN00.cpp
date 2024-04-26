@@ -161,14 +161,14 @@ Init () {
     WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
 
     // Move various files to current directory
-    WRITE_MEMORY (ASLR (0x140C33C40), char, "./");
-    WRITE_MEMORY (ASLR (0x140C33C44), char, "./");
+    WRITE_MEMORY (ASLR (0x140C33C40), char, "./"); // F:/
+    WRITE_MEMORY (ASLR (0x140C33C44), char, "./"); // G:/
     WRITE_MEMORY (ASLR (0x140C7B158), char, ".\\SettingChina1.bin");
     WRITE_MEMORY (ASLR (0x140C7B2B8), char, ".\\SettingChina1.bin");
     WRITE_MEMORY (ASLR (0x140C7B2A0), char, ".\\SettingChina2.bin");
     WRITE_MEMORY (ASLR (0x140C3CF58), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
-    WRITE_MEMORY (ASLR (0x140C3CF90), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
     WRITE_MEMORY (ASLR (0x140C3CFC8), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
+    WRITE_MEMORY (ASLR (0x140C3CF90), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
     WRITE_MEMORY (ASLR (0x140C3D000), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
 
     // Remove datatable size limit
