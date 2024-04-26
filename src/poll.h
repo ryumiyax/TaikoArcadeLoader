@@ -6,58 +6,58 @@
 #include <windows.h>
 
 enum SDLAxis {
-	SDL_AXIS_NULL,
-	SDL_AXIS_LEFT_LEFT,
-	SDL_AXIS_LEFT_RIGHT,
-	SDL_AXIS_LEFT_UP,
-	SDL_AXIS_LEFT_DOWN,
-	SDL_AXIS_RIGHT_LEFT,
-	SDL_AXIS_RIGHT_RIGHT,
-	SDL_AXIS_RIGHT_UP,
-	SDL_AXIS_RIGHT_DOWN,
-	SDL_AXIS_LTRIGGER_DOWN,
-	SDL_AXIS_RTRIGGER_DOWN,
-	SDL_AXIS_MAX
+    SDL_AXIS_NULL,
+    SDL_AXIS_LEFT_LEFT,
+    SDL_AXIS_LEFT_RIGHT,
+    SDL_AXIS_LEFT_UP,
+    SDL_AXIS_LEFT_DOWN,
+    SDL_AXIS_RIGHT_LEFT,
+    SDL_AXIS_RIGHT_RIGHT,
+    SDL_AXIS_RIGHT_UP,
+    SDL_AXIS_RIGHT_DOWN,
+    SDL_AXIS_LTRIGGER_DOWN,
+    SDL_AXIS_RTRIGGER_DOWN,
+    SDL_AXIS_MAX
 };
 
 struct SDLAxisState {
-	float LeftLeft;
-	float LeftRight;
-	float LeftUp;
-	float LeftDown;
-	float RightLeft;
-	float RightRight;
-	float RightUp;
-	float RightDown;
-	float LTriggerDown;
-	float RTriggerDown;
+    float LeftLeft;
+    float LeftRight;
+    float LeftUp;
+    float LeftDown;
+    float RightLeft;
+    float RightRight;
+    float RightUp;
+    float RightDown;
+    float LTriggerDown;
+    float RTriggerDown;
 };
 
 enum Scroll { MOUSE_SCROLL_INVALID, MOUSE_SCROLL_UP, MOUSE_SCROLL_DOWN };
 
 struct Keybindings {
-	uint8_t keycodes[255];
-	SDL_GameControllerButton buttons[255];
-	SDLAxis axis[255];
-	Scroll scroll[2];
+    uint8_t keycodes[255];
+    SDL_GameControllerButton buttons[255];
+    SDLAxis axis[255];
+    Scroll scroll[2];
 };
 
 enum EnumType { none, keycode, button, axis, scroll };
 
 struct ConfigValue {
-	EnumType type;
-	union {
-		uint8_t keycode;
-		SDL_GameControllerButton button;
-		SDLAxis axis;
-		Scroll scroll;
-	};
+    EnumType type;
+    union {
+        uint8_t keycode;
+        SDL_GameControllerButton button;
+        SDLAxis axis;
+        Scroll scroll;
+    };
 };
 
 struct InternalButtonState {
-	float Down;
-	bool Released;
-	bool Tapped;
+    float Down;
+    bool Released;
+    bool Tapped;
 };
 
 bool InitializePoll (HWND windowHandle);

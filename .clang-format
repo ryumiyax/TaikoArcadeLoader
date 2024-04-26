@@ -1,10 +1,10 @@
-BasedOnStyle: LLVM
+BasedOnStyle: GNU
 IndentWidth: 4
 TabWidth: 4
-UseTab: ForIndentation
+UseTab: Never
 IndentCaseLabels: False
 BreakBeforeBraces: Attach
-ColumnLimit: 200
+ColumnLimit: 150
 AlignConsecutiveAssignments: Consecutive
 AlignConsecutiveMacros: Consecutive
 AllowShortBlocksOnASingleLine: Always
@@ -19,3 +19,4 @@ AlwaysBreakAfterReturnType: TopLevelDefinitions
 RemoveBracesLLVM: True
 AlignEscapedNewlines: Left
 AccessModifierOffset: -4
+Cpp11BracedListStyle: True

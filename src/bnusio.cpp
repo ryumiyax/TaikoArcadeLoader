@@ -45,7 +45,7 @@ Keybindings P2_RIGHT_BLUE = {};
 
 namespace bnusio {
 #define RETURN_FALSE(returnType, functionName, ...) \
-	returnType functionName (__VA_ARGS__) { return 0; }
+    returnType functionName (__VA_ARGS__) { return 0; }
 
 extern "C" {
 RETURN_FALSE (i64, bnusio_ClearSram);
@@ -90,15 +90,16 @@ RETURN_FALSE (i64, bnusio_ResetCoin);
 RETURN_FALSE (i64, bnusio_DecCoin, i32 a1, u16 a2);
 size_t
 bnusio_GetFirmwareVersion () {
-	return 126;
+    return 126;
 }
 
 u16 drumMin        = 15000;
 u16 drumMax        = 30000;
 u16 drumWaitPeriod = 4;
 
-u16 lastHitValue             = drumMin;
-Keybindings *analogButtons[] = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
+u16 lastHitValue = drumMin;
+Keybindings *analogButtons[]
+    = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
 
 u16 buttonWaitPeriodP1 = 0;
 u16 buttonWaitPeriodP2 = 0;
@@ -113,53 +114,54 @@ SDLAxis analogBindings[] = {
 
 u16
 bnusio_GetAnalogIn (u8 which) {
-	u16 analogValue;
-	if (useTaikoController) {
-		analogValue = (u16)(32768 * ControllerAxisIsDown (analogBindings[which]));
-		if (analogValue > 100) return analogValue;
-		return 0;
-	}
-	auto button = analogButtons[which];
-	if (which == 0) {
-		if (buttonWaitPeriodP1 > 0) buttonWaitPeriodP1--;
-		if (buttonWaitPeriodP2 > 0) buttonWaitPeriodP2--;
-	}
-	bool isP1 = which / 4 == 0;
-	if ((isP1 && !buttonQueueP1.empty ()) || (!isP1 && !buttonQueueP2.empty ())) {
-		if ((isP1 && buttonQueueP1.front () == which && buttonWaitPeriodP1 == 0) || (!isP1 && buttonQueueP2.front () == which && buttonWaitPeriodP2 == 0)) {
-			if (isP1) {
-				buttonQueueP1.pop ();
-				buttonWaitPeriodP1 = drumWaitPeriod;
-			} else {
-				buttonQueueP2.pop ();
-				buttonWaitPeriodP2 = drumWaitPeriod;
-			}
+    u16 analogValue;
+    if (useTaikoController) {
+        analogValue = (u16)(32768 * ControllerAxisIsDown (analogBindings[which]));
+        if (analogValue > 100) return analogValue;
+        return 0;
+    }
+    auto button = analogButtons[which];
+    if (which == 0) {
+        if (buttonWaitPeriodP1 > 0) buttonWaitPeriodP1--;
+        if (buttonWaitPeriodP2 > 0) buttonWaitPeriodP2--;
+    }
+    bool isP1 = which / 4 == 0;
+    if ((isP1 && !buttonQueueP1.empty ()) || (!isP1 && !buttonQueueP2.empty ())) {
+        if ((isP1 && buttonQueueP1.front () == which && buttonWaitPeriodP1 == 0)
+            || (!isP1 && buttonQueueP2.front () == which && buttonWaitPeriodP2 == 0)) {
+            if (isP1) {
+                buttonQueueP1.pop ();
+                buttonWaitPeriodP1 = drumWaitPeriod;
+            } else {
+                buttonQueueP2.pop ();
+                buttonWaitPeriodP2 = drumWaitPeriod;
+            }
 
-			lastHitValue++;
-			if (lastHitValue >= drumMax) lastHitValue = drumMin;
-			return lastHitValue;
-		}
-		if (IsButtonTapped (*button)) {
-			if (isP1) buttonQueueP1.push (which);
-			else buttonQueueP2.push (which);
-		}
-		return 0;
-	} else if (IsButtonTapped (*button)) {
-		if (isP1 && buttonWaitPeriodP1 > 0) {
-			buttonQueueP1.push (which);
-			return 0;
-		} else if (!isP1 && buttonWaitPeriodP2 > 0) {
-			buttonQueueP2.push (which);
-			return 0;
-		}
-		if (isP1) buttonWaitPeriodP1 = drumWaitPeriod;
-		else buttonWaitPeriodP2 = drumWaitPeriod;
-		lastHitValue++;
-		if (lastHitValue >= drumMax) lastHitValue = drumMin;
-		return lastHitValue;
-	} else {
-		return 0;
-	}
+            lastHitValue++;
+            if (lastHitValue >= drumMax) lastHitValue = drumMin;
+            return lastHitValue;
+        }
+        if (IsButtonTapped (*button)) {
+            if (isP1) buttonQueueP1.push (which);
+            else buttonQueueP2.push (which);
+        }
+        return 0;
+    } else if (IsButtonTapped (*button)) {
+        if (isP1 && buttonWaitPeriodP1 > 0) {
+            buttonQueueP1.push (which);
+            return 0;
+        } else if (!isP1 && buttonWaitPeriodP2 > 0) {
+            buttonQueueP2.push (which);
+            return 0;
+        }
+        if (isP1) buttonWaitPeriodP1 = drumWaitPeriod;
+        else buttonWaitPeriodP2 = drumWaitPeriod;
+        lastHitValue++;
+        if (lastHitValue >= drumMax) lastHitValue = drumMin;
+        return lastHitValue;
+    } else {
+        return 0;
+    }
 }
 
 bool testEnabled  = false;
@@ -169,105 +171,107 @@ HWND windowHandle = nullptr;
 HKL currentLayout;
 
 u16 __fastcall bnusio_GetCoin (i32 a1) {
-	if (a1 != 1) return coin_count;
+    if (a1 != 1) return coin_count;
 
-	if (!inited) {
-		windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
-		InitializePoll (windowHandle);
-		if (autoIME) {
-			currentLayout  = GetKeyboardLayout (0);
-			auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
-			ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
-		}
+    if (!inited) {
+        windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
+        InitializePoll (windowHandle);
+        if (autoIME) {
+            currentLayout  = GetKeyboardLayout (0);
+            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
+            ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
+        }
 
-		for (auto plugin : plugins) {
-			auto initEvent = GetProcAddress (plugin, "Init");
-			if (initEvent) initEvent ();
-		}
+        for (auto plugin : plugins) {
+            auto initEvent = GetProcAddress (plugin, "Init");
+            if (initEvent) initEvent ();
+        }
 
-		inited = true;
-	}
+        inited = true;
+    }
 
-	UpdatePoll (windowHandle);
-	if (IsButtonTapped (COIN_ADD) && !testEnabled) coin_count++;
-	if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-	if (IsButtonTapped (EXIT)) ExitProcess (0);
-	if (waitingForTouch) {
-		static u8 cardData[168] = {0x01, 0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x92, 0x2E, 0x58, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		                           0x00, 0x00, 0x00, 0x00, 0x7F, 0x5C, 0x97, 0x44, 0xF0, 0x88, 0x04, 0x00, 0x43, 0x26, 0x2C, 0x33, 0x00, 0x04, 0x06, 0x10, 0x30, 0x30, 0x30, 0x30,
-		                           0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-		                           0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-		                           0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		                           0x4E, 0x42, 0x47, 0x49, 0x43, 0x36, 0x00, 0x00, 0xFA, 0xE9, 0x69, 0x00, 0xF6, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		                           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-		bool hasInserted        = false;
-		if (IsButtonTapped (CARD_INSERT_1)) {
-			for (auto plugin : plugins) {
-				FARPROC insertEvent = GetProcAddress (plugin, "BeforeCard1Insert");
-				if (insertEvent) ((event *)insertEvent) ();
-			}
-			for (auto plugin : plugins) {
-				FARPROC insertEvent = GetProcAddress (plugin, "Card1Insert");
-				if (insertEvent) {
-					((event *)insertEvent) ();
-					hasInserted = true;
-				}
-			}
-			if (!hasInserted) {
-				memcpy (cardData + 0x2C, chipId1, 33);
-				memcpy (cardData + 0x50, accessCode1, 21);
-				touchCallback (0, 0, cardData, touchData);
-			}
-		} else if (IsButtonTapped (CARD_INSERT_2)) {
-			for (auto plugin : plugins) {
-				FARPROC insertEvent = GetProcAddress (plugin, "BeforeCard2Insert");
-				if (insertEvent) ((event *)insertEvent) ();
-			}
-			for (auto plugin : plugins) {
-				FARPROC insertEvent = GetProcAddress (plugin, "Card2Insert");
-				if (insertEvent) {
-					((event *)insertEvent) ();
-					hasInserted = true;
-				}
-			}
-			if (!hasInserted) {
-				memcpy (cardData + 0x2C, chipId2, 33);
-				memcpy (cardData + 0x50, accessCode2, 21);
-				touchCallback (0, 0, cardData, touchData);
-			}
-		}
-	}
+    UpdatePoll (windowHandle);
+    if (IsButtonTapped (COIN_ADD) && !testEnabled) coin_count++;
+    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
+    if (IsButtonTapped (EXIT)) ExitProcess (0);
+    if (waitingForTouch) {
+        static u8 cardData[168]
+            = {0x01, 0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x92, 0x2E, 0x58, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00,
+               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7F, 0x5C, 0x97, 0x44, 0xF0, 0x88, 0x04, 0x00, 0x43, 0x26, 0x2C, 0x33, 0x00, 0x04,
+               0x06, 0x10, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
+               0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x30, 0x30, 0x30, 0x30,
+               0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
+               0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4E, 0x42, 0x47, 0x49, 0x43, 0x36,
+               0x00, 0x00, 0xFA, 0xE9, 0x69, 0x00, 0xF6, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        bool hasInserted = false;
+        if (IsButtonTapped (CARD_INSERT_1)) {
+            for (auto plugin : plugins) {
+                FARPROC insertEvent = GetProcAddress (plugin, "BeforeCard1Insert");
+                if (insertEvent) ((event *)insertEvent) ();
+            }
+            for (auto plugin : plugins) {
+                FARPROC insertEvent = GetProcAddress (plugin, "Card1Insert");
+                if (insertEvent) {
+                    ((event *)insertEvent) ();
+                    hasInserted = true;
+                }
+            }
+            if (!hasInserted) {
+                memcpy (cardData + 0x2C, chipId1, 33);
+                memcpy (cardData + 0x50, accessCode1, 21);
+                touchCallback (0, 0, cardData, touchData);
+            }
+        } else if (IsButtonTapped (CARD_INSERT_2)) {
+            for (auto plugin : plugins) {
+                FARPROC insertEvent = GetProcAddress (plugin, "BeforeCard2Insert");
+                if (insertEvent) ((event *)insertEvent) ();
+            }
+            for (auto plugin : plugins) {
+                FARPROC insertEvent = GetProcAddress (plugin, "Card2Insert");
+                if (insertEvent) {
+                    ((event *)insertEvent) ();
+                    hasInserted = true;
+                }
+            }
+            if (!hasInserted) {
+                memcpy (cardData + 0x2C, chipId2, 33);
+                memcpy (cardData + 0x50, accessCode2, 21);
+                touchCallback (0, 0, cardData, touchData);
+            }
+        }
+    }
 
-	for (auto plugin : plugins) {
-		auto updateEvent = GetProcAddress (plugin, "Update");
-		if (updateEvent) updateEvent ();
-	}
+    for (auto plugin : plugins) {
+        auto updateEvent = GetProcAddress (plugin, "Update");
+        if (updateEvent) updateEvent ();
+    }
 
-	patches::Qr::Update ();
+    patches::Qr::Update ();
 
-	if (attachCallback) attachCallback (0, 0, attachData);
-	return coin_count;
+    if (attachCallback) attachCallback (0, 0, attachData);
+    return coin_count;
 }
 
 u32
 bnusio_GetSwIn () {
-	u32 sw = 0;
-	sw |= (u32)testEnabled << 7;
-	sw |= (u32)IsButtonDown (DEBUG_ENTER) << 9;
-	sw |= (u32)IsButtonDown (DEBUG_DOWN) << 12;
-	sw |= (u32)IsButtonDown (DEBUG_UP) << 13;
-	sw |= (u32)IsButtonDown (SERVICE) << 14;
-	return sw;
+    u32 sw = 0;
+    sw |= (u32)testEnabled << 7;
+    sw |= (u32)IsButtonDown (DEBUG_ENTER) << 9;
+    sw |= (u32)IsButtonDown (DEBUG_DOWN) << 12;
+    sw |= (u32)IsButtonDown (DEBUG_UP) << 13;
+    sw |= (u32)IsButtonDown (SERVICE) << 14;
+    return sw;
 }
 
 i64
 bnusio_Close () {
-	if (autoIME) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);
-	for (auto plugin : plugins) {
-		FARPROC exitEvent = GetProcAddress (plugin, "Exit");
-		if (exitEvent) ((event *)exitEvent) ();
-	}
-	return 0;
+    if (autoIME) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);
+    for (auto plugin : plugins) {
+        FARPROC exitEvent = GetProcAddress (plugin, "Exit");
+        if (exitEvent) ((event *)exitEvent) ();
+    }
+    return 0;
 }
 }
 
@@ -291,92 +295,93 @@ HOOK (u64, bngrw_ReqSetLedPower, PROC_ADDRESS ("bngrw.dll", "BngRwReqSetLedPower
 HOOK (i32, bngrw_reqCancel, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel")) { return 1; }
 HOOK (u64, bngrw_Init, PROC_ADDRESS ("bngrw.dll", "BngRwInit")) { return 0; }
 HOOK (u64, bngrw_attach, PROC_ADDRESS ("bngrw.dll", "BngRwAttach"), i32 a1, char *a2, i32 a3, i32 a4, i32 (*callback) (i32, i32, i32 *), i32 *a6) {
-	// This is way too fucking jank
-	attachCallback = callback;
-	attachData     = a6;
-	return 1;
+    // This is way too fucking jank
+    attachCallback = callback;
+    attachData     = a6;
+    return 1;
 }
-HOOK (u64, bngrw_reqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, void (*callback) (i32, i32, u8[168], u64), u64 a5) {
-	waitingForTouch = true;
-	touchCallback   = callback;
-	touchData       = a5;
-	for (auto plugin : plugins) {
-		FARPROC touchEvent = GetProcAddress (plugin, "WaitTouch");
-		if (touchEvent) ((waitTouchEvent *)touchEvent) (callback, a5);
-	}
-	return 1;
+HOOK (u64, bngrw_reqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, void (*callback) (i32, i32, u8[168], u64),
+      u64 a5) {
+    waitingForTouch = true;
+    touchCallback   = callback;
+    touchData       = a5;
+    for (auto plugin : plugins) {
+        FARPROC touchEvent = GetProcAddress (plugin, "WaitTouch");
+        if (touchEvent) ((waitTouchEvent *)touchEvent) (callback, a5);
+    }
+    return 1;
 }
 
 void
 Init () {
-	auto configPath = std::filesystem::current_path () / "config.toml";
-	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-	if (config_ptr) {
-		toml_table_t *config = config_ptr.get ();
-		auto drum            = openConfigSection (config, "drum");
-		if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
-		auto taikoController = openConfigSection (config, "controller");
-		if (taikoController) {
-			useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
-			if (useTaikoController) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
-		}
-		auto card = openConfigSection (config, "card_reader");
-		if (card) {
-			bool cardEnabled = readConfigBool (card, "enabled", true);
-			if (cardEnabled) {
-				INSTALL_HOOK (bngrw_DevReset);
-				INSTALL_HOOK (bngrw_ReadMifare);
-				INSTALL_HOOK (bngrw_fin);
-				INSTALL_HOOK (bngrw_GetFwVersion);
-				INSTALL_HOOK (bngrw_GetStationID);
-				INSTALL_HOOK (bngrw_GetRetryCount);
-				INSTALL_HOOK (bngrw_IsCmdExec);
-				INSTALL_HOOK (bngrw_ReqAction);
-				INSTALL_HOOK (bngrw_ReqAiccAuth);
-				INSTALL_HOOK (bngrw_ReqBeep);
-				INSTALL_HOOK (bngrw_ReqFwCleanup);
-				INSTALL_HOOK (bngrw_ReqFwVersionUp);
-				INSTALL_HOOK (bngrw_ReqLatchID);
-				INSTALL_HOOK (bngrw_ReqLed);
-				INSTALL_HOOK (bngrw_ReqSendMail);
-				INSTALL_HOOK (bngrw_ReqSendUrl);
-				INSTALL_HOOK (bngrw_ReqSetLedPower);
-				INSTALL_HOOK (bngrw_reqCancel);
-				INSTALL_HOOK (bngrw_Init)
-				INSTALL_HOOK (bngrw_attach);
-				INSTALL_HOOK (bngrw_reqWaitTouch);
-			} else {
-				std::cout << "[Init] Card reader emulation disabled" << std::endl;
-			}
-		}
-	}
+    auto configPath = std::filesystem::current_path () / "config.toml";
+    std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
+    if (config_ptr) {
+        toml_table_t *config = config_ptr.get ();
+        auto drum            = openConfigSection (config, "drum");
+        if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
+        auto taikoController = openConfigSection (config, "controller");
+        if (taikoController) {
+            useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
+            if (useTaikoController) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
+        }
+        auto card = openConfigSection (config, "card_reader");
+        if (card) {
+            bool cardEnabled = readConfigBool (card, "enabled", true);
+            if (cardEnabled) {
+                INSTALL_HOOK (bngrw_DevReset);
+                INSTALL_HOOK (bngrw_ReadMifare);
+                INSTALL_HOOK (bngrw_fin);
+                INSTALL_HOOK (bngrw_GetFwVersion);
+                INSTALL_HOOK (bngrw_GetStationID);
+                INSTALL_HOOK (bngrw_GetRetryCount);
+                INSTALL_HOOK (bngrw_IsCmdExec);
+                INSTALL_HOOK (bngrw_ReqAction);
+                INSTALL_HOOK (bngrw_ReqAiccAuth);
+                INSTALL_HOOK (bngrw_ReqBeep);
+                INSTALL_HOOK (bngrw_ReqFwCleanup);
+                INSTALL_HOOK (bngrw_ReqFwVersionUp);
+                INSTALL_HOOK (bngrw_ReqLatchID);
+                INSTALL_HOOK (bngrw_ReqLed);
+                INSTALL_HOOK (bngrw_ReqSendMail);
+                INSTALL_HOOK (bngrw_ReqSendUrl);
+                INSTALL_HOOK (bngrw_ReqSetLedPower);
+                INSTALL_HOOK (bngrw_reqCancel);
+                INSTALL_HOOK (bngrw_Init)
+                INSTALL_HOOK (bngrw_attach);
+                INSTALL_HOOK (bngrw_reqWaitTouch);
+            } else {
+                std::cout << "[Init] Card reader emulation disabled" << std::endl;
+            }
+        }
+    }
 
-	auto keyconfigPath = std::filesystem::current_path () / "keyconfig.toml";
-	std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyconfig_ptr (openConfig (keyconfigPath), toml_free);
-	if (keyconfig_ptr) {
-		toml_table_t *keyconfig = keyconfig_ptr.get ();
-		SetConfigValue (keyconfig, "EXIT", &EXIT);
+    auto keyconfigPath = std::filesystem::current_path () / "keyconfig.toml";
+    std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyconfig_ptr (openConfig (keyconfigPath), toml_free);
+    if (keyconfig_ptr) {
+        toml_table_t *keyconfig = keyconfig_ptr.get ();
+        SetConfigValue (keyconfig, "EXIT", &EXIT);
 
-		SetConfigValue (keyconfig, "TEST", &TEST);
-		SetConfigValue (keyconfig, "SERVICE", &SERVICE);
-		SetConfigValue (keyconfig, "DEBUG_UP", &DEBUG_UP);
-		SetConfigValue (keyconfig, "DEBUG_DOWN", &DEBUG_DOWN);
-		SetConfigValue (keyconfig, "DEBUG_ENTER", &DEBUG_ENTER);
+        SetConfigValue (keyconfig, "TEST", &TEST);
+        SetConfigValue (keyconfig, "SERVICE", &SERVICE);
+        SetConfigValue (keyconfig, "DEBUG_UP", &DEBUG_UP);
+        SetConfigValue (keyconfig, "DEBUG_DOWN", &DEBUG_DOWN);
+        SetConfigValue (keyconfig, "DEBUG_ENTER", &DEBUG_ENTER);
 
-		SetConfigValue (keyconfig, "COIN_ADD", &COIN_ADD);
-		SetConfigValue (keyconfig, "CARD_INSERT_1", &CARD_INSERT_1);
-		SetConfigValue (keyconfig, "CARD_INSERT_2", &CARD_INSERT_2);
-		SetConfigValue (keyconfig, "QR_DATA_READ", &QR_DATA_READ);
-		SetConfigValue (keyconfig, "QR_IMAGE_READ", &QR_IMAGE_READ);
+        SetConfigValue (keyconfig, "COIN_ADD", &COIN_ADD);
+        SetConfigValue (keyconfig, "CARD_INSERT_1", &CARD_INSERT_1);
+        SetConfigValue (keyconfig, "CARD_INSERT_2", &CARD_INSERT_2);
+        SetConfigValue (keyconfig, "QR_DATA_READ", &QR_DATA_READ);
+        SetConfigValue (keyconfig, "QR_IMAGE_READ", &QR_IMAGE_READ);
 
-		SetConfigValue (keyconfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE);
-		SetConfigValue (keyconfig, "P1_LEFT_RED", &P1_LEFT_RED);
-		SetConfigValue (keyconfig, "P1_RIGHT_RED", &P1_RIGHT_RED);
-		SetConfigValue (keyconfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE);
-		SetConfigValue (keyconfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE);
-		SetConfigValue (keyconfig, "P2_LEFT_RED", &P2_LEFT_RED);
-		SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
-		SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
-	}
+        SetConfigValue (keyconfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE);
+        SetConfigValue (keyconfig, "P1_LEFT_RED", &P1_LEFT_RED);
+        SetConfigValue (keyconfig, "P1_RIGHT_RED", &P1_RIGHT_RED);
+        SetConfigValue (keyconfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE);
+        SetConfigValue (keyconfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE);
+        SetConfigValue (keyconfig, "P2_LEFT_RED", &P2_LEFT_RED);
+        SetConfigValue (keyconfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
+        SetConfigValue (keyconfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
+    }
 }
 } // namespace bnusio
