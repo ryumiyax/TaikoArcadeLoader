@@ -63,6 +63,7 @@ struct InternalButtonState {
 bool InitializePoll (HWND windowHandle);
 void UpdatePoll (HWND windowHandle);
 void DisposePoll ();
+void SetKeyboardButtons ();
 ConfigValue StringToConfigEnum (const char *value);
 void SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind);
 InternalButtonState GetInternalButtonState (Keybindings bindings);

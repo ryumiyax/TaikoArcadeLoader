@@ -22,6 +22,7 @@ char accessCode2[21]    = "00000000000000000002";
 char chipId1[33]        = "00000000000000000000000000000001";
 char chipId2[33]        = "00000000000000000000000000000002";
 bool autoIME            = false;
+bool jpLayout           = false;
 
 HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse (true); }
 HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) { ExitProcess (0); }
@@ -125,9 +126,11 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
                 std::strcat (placeId, "0FF0");
             }
             auto patches = openConfigSection (config, "patches");
-            if (patches) {
-                version = readConfigString (patches, "version", version);
-                autoIME = readConfigBool (patches, "auto_ime", autoIME);
+            if (patches) version = readConfigString (patches, "version", version);
+            auto keyboard = openConfigSection (config, "keyboard");
+            if (keyboard) {
+                autoIME  = readConfigBool (keyboard, "auto_ime", autoIME);
+                jpLayout = readConfigBool (keyboard, "jp_layout", jpLayout);
             }
         }
 

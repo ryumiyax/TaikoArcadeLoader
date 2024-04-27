@@ -37,8 +37,6 @@ res = { x = 1920, y = 1080 }
 windowed = false
 # vertical sync
 vsync = false
-# auto change to english ime mode
-auto_ime = false
 # unlock all songs
 unlock_songs = true
 
@@ -82,10 +80,16 @@ image_path = ""
   song_no = []
 
 [drum]
-# input interval (if you are using taiko drum controller, it should be set to 0)
+# input interval (if using taiko drum controller, should be set to 0)
 wait_period = 4
 
 [controller]
 # use analog input
 analog_input = false
+
+[keyboard]
+# auto change to english ime mode
+auto_ime = false
+# use jp layout scan code (if using jp layout keyboard, must be set to true)
+jp_layout = false
 ```

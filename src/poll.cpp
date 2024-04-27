@@ -2,10 +2,15 @@
 #include "helpers.h"
 #include <windows.h>
 
-struct {
+extern bool jpLayout;
+
+struct KeyCodePair {
     const char *string;
     uint8_t keycode;
-} ConfigKeyboardButtons[] = {
+};
+size_t ConfigKeyboardButtonsCount      = 0;
+KeyCodePair *ConfigKeyboardButtons     = nullptr;
+KeyCodePair ConfigKeyboardButtons_US[] = {
     // Reference:https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
     // Wayback Machine:https://web.archive.org/web/20231223135232/https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
     // Row 1
@@ -126,7 +131,129 @@ struct {
     {"NUM3", VK_NUMPAD3},
     {"NUM0", VK_NUMPAD0},
     {"DECIMAL", VK_DECIMAL},
+};
+KeyCodePair ConfigKeyboardButtons_JP[] = {
+    // Reference:https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    // Wayback Machine:https://web.archive.org/web/20231223135232/https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    // Row 1
+    {"ESCAPE", VK_ESCAPE},
+    {"F1", VK_F1},
+    {"F2", VK_F2},
+    {"F3", VK_F3},
+    {"F4", VK_F4},
+    {"F5", VK_F5},
+    {"F6", VK_F6},
+    {"F7", VK_F7},
+    {"F8", VK_F8},
+    {"F9", VK_F9},
+    {"F10", VK_F10},
+    {"F11", VK_F11},
+    {"F12", VK_F12},
 
+    // Row 2
+    {"1", '1'},
+    {"2", '2'},
+    {"3", '3'},
+    {"4", '4'},
+    {"5", '5'},
+    {"6", '6'},
+    {"7", '7'},
+    {"8", '8'},
+    {"9", '9'},
+    {"0", '0'},
+    {"-", VK_OEM_MINUS},
+    {"^", VK_OEM_7},
+    {"YEN", VK_OEM_5},
+    {"BACKSPACE", VK_BACK},
+
+    // Row 3
+    {"TAB", VK_TAB},
+    {"Q", 'Q'},
+    {"W", 'W'},
+    {"E", 'E'},
+    {"R", 'R'},
+    {"T", 'T'},
+    {"Y", 'Y'},
+    {"U", 'U'},
+    {"I", 'I'},
+    {"O", 'O'},
+    {"P", 'P'},
+    {"@", VK_OEM_3},
+    {"[", VK_OEM_4},
+
+    // Row 4
+    {"CAPS_LOCK", VK_CAPITAL},
+    {"A", 'A'},
+    {"S", 'S'},
+    {"D", 'D'},
+    {"F", 'F'},
+    {"G", 'G'},
+    {"H", 'H'},
+    {"J", 'J'},
+    {"K", 'K'},
+    {"L", 'L'},
+    {";", VK_OEM_PLUS},
+    {":", VK_OEM_1},
+    {"]", VK_OEM_6},
+    {"ENTER", VK_RETURN},
+
+    // Row 5
+    {"SHIFT", VK_SHIFT},
+    {"Z", 'Z'},
+    {"X", 'X'},
+    {"C", 'C'},
+    {"V", 'V'},
+    {"B", 'B'},
+    {"N", 'N'},
+    {"M", 'M'},
+    {",", VK_OEM_COMMA},
+    {".", VK_OEM_PERIOD},
+    {"SLASH", VK_OEM_2},
+    {"BACKSLASH", VK_OEM_102},
+
+    // Row 6
+    {"CONTROL", VK_CONTROL},
+    {"L_WIN", VK_LWIN},
+    {"ALT", VK_MENU},
+    {"SPACE", VK_SPACE},
+    {"R_WIN", VK_RWIN},
+    {"MENU", VK_APPS},
+
+    // Other Keys
+    // PrtSc is more important when making snapshots, therefore comment it as reserved
+    //{"PRINT_SCREEN", VK_SNAPSHOT},
+    {"SCROLL_LOCK", VK_SCROLL},
+    {"PAUSE", VK_PAUSE},
+    {"INSERT", VK_INSERT},
+    {"DELETE", VK_DELETE},
+    {"HOME", VK_HOME},
+    {"END", VK_END},
+    {"PAGE_UP", VK_PRIOR},
+    {"PAGE_DOWN", VK_NEXT},
+
+    // Arrow Keys
+    {"UPARROW", VK_UP},
+    {"LEFTARROW", VK_LEFT},
+    {"DOWNARROW", VK_DOWN},
+    {"RIGHTARROW", VK_RIGHT},
+
+    // NUMPAD Keys
+    {"NUM_LOCK", VK_NUMLOCK},
+    {"DIVIDE", VK_DIVIDE},
+    {"MULTIPLY", VK_MULTIPLY},
+    {"SUBTRACT", VK_SUBTRACT},
+    {"NUM7", VK_NUMPAD7},
+    {"NUM8", VK_NUMPAD8},
+    {"NUM9", VK_NUMPAD9},
+    {"ADD", VK_ADD},
+    {"NUM4", VK_NUMPAD4},
+    {"NUM5", VK_NUMPAD5},
+    {"NUM6", VK_NUMPAD6},
+    {"NUM1", VK_NUMPAD1},
+    {"NUM2", VK_NUMPAD2},
+    {"NUM3", VK_NUMPAD3},
+    {"NUM0", VK_NUMPAD0},
+    {"DECIMAL", VK_DECIMAL},
 };
 
 struct {
@@ -191,6 +318,13 @@ SDLAxisState lastControllerAxisState;
 
 SDL_Window *window;
 SDL_GameController *controllers[255];
+
+void
+SetKeyboardButtons () {
+    ConfigKeyboardButtonsCount = jpLayout ? COUNTOFARR (ConfigKeyboardButtons_JP) : COUNTOFARR (ConfigKeyboardButtons_US);
+    ConfigKeyboardButtons      = (KeyCodePair *)malloc (ConfigKeyboardButtonsCount * sizeof (KeyCodePair));
+    memcpy (ConfigKeyboardButtons, jpLayout ? ConfigKeyboardButtons_JP : ConfigKeyboardButtons_US, ConfigKeyboardButtonsCount * sizeof (KeyCodePair));
+}
 
 void
 SetConfigValue (toml_table_t *table, const char *key, Keybindings *keybind) {
@@ -389,7 +523,7 @@ DisposePoll () {
 ConfigValue
 StringToConfigEnum (const char *value) {
     ConfigValue rval;
-    for (size_t i = 0; i < COUNTOFARR (ConfigKeyboardButtons); ++i)
+    for (size_t i = 0; i < ConfigKeyboardButtonsCount; ++i)
         if (!strcmp (value, ConfigKeyboardButtons[i].string)) {
             rval.type    = keycode;
             rval.keycode = ConfigKeyboardButtons[i].keycode;
@@ -422,7 +556,7 @@ InternalButtonState
 GetInternalButtonState (Keybindings bindings) {
     InternalButtonState buttons = {0};
 
-    for (size_t i = 0; i < COUNTOFARR (ConfigKeyboardButtons); i++) {
+    for (size_t i = 0; i < ConfigKeyboardButtonsCount; i++) {
         if (bindings.keycodes[i] == 0) continue;
         if (KeyboardIsReleased (bindings.keycodes[i])) buttons.Released = 1;
         if (KeyboardIsDown (bindings.keycodes[i])) buttons.Down = 1;
