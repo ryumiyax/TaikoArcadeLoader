@@ -93,11 +93,9 @@ bnusio_GetFirmwareVersion () {
     return 126;
 }
 
-u16 drumMin        = 15000;
-u16 drumMax        = 30000;
 u16 drumWaitPeriod = 4;
+bool valueStates[] = {false, false, false, false, false, false, false, false};
 
-u16 lastHitValue = drumMin;
 Keybindings *analogButtons[]
     = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
 
@@ -137,9 +135,9 @@ bnusio_GetAnalogIn (u8 which) {
                 buttonWaitPeriodP2 = drumWaitPeriod;
             }
 
-            lastHitValue++;
-            if (lastHitValue >= drumMax) lastHitValue = drumMin;
-            return lastHitValue;
+            u16 hitValue       = !valueStates[which] ? 50 : 51;
+            valueStates[which] = !valueStates[which];
+            return (hitValue << 15) / 100 + 1;
         }
         if (IsButtonTapped (*button)) {
             if (isP1) buttonQueueP1.push (which);
@@ -156,9 +154,10 @@ bnusio_GetAnalogIn (u8 which) {
         }
         if (isP1) buttonWaitPeriodP1 = drumWaitPeriod;
         else buttonWaitPeriodP2 = drumWaitPeriod;
-        lastHitValue++;
-        if (lastHitValue >= drumMax) lastHitValue = drumMin;
-        return lastHitValue;
+
+        u16 hitValue       = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        return (hitValue << 15) / 100 + 1;
     } else {
         return 0;
     }
