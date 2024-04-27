@@ -41,4 +41,4 @@ image_path = ""
 wait_period = 4
 
 [controller]
-analog = false
+analog_input = false

@@ -87,5 +87,5 @@ wait_period = 4
 
 [controller]
 # use analog input
-analog = false
+analog_input = false
 ```

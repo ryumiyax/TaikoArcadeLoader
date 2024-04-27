@@ -106,7 +106,7 @@ u16 buttonWaitPeriodP2 = 0;
 std::queue<u8> buttonQueueP1;
 std::queue<u8> buttonQueueP2;
 
-bool useTaikoController;
+bool analogInput;
 SDLAxis analogBindings[] = {
     SDL_AXIS_LEFT_LEFT,  SDL_AXIS_LEFT_RIGHT,  SDL_AXIS_LEFT_DOWN,  SDL_AXIS_LEFT_UP,  // P1: LB, LR, RR, RB
     SDL_AXIS_RIGHT_LEFT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN, SDL_AXIS_RIGHT_UP, // P2: LB, LR, RR, RB
@@ -115,7 +115,7 @@ SDLAxis analogBindings[] = {
 u16
 bnusio_GetAnalogIn (u8 which) {
     u16 analogValue;
-    if (useTaikoController) {
+    if (analogInput) {
         analogValue = (u16)(32768 * ControllerAxisIsDown (analogBindings[which]));
         if (analogValue > 100) return analogValue;
         return 0;
@@ -320,10 +320,10 @@ Init () {
         toml_table_t *config = config_ptr.get ();
         auto drum            = openConfigSection (config, "drum");
         if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
-        auto taikoController = openConfigSection (config, "controller");
-        if (taikoController) {
-            useTaikoController = readConfigBool (taikoController, "analog", useTaikoController);
-            if (useTaikoController) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
+        auto controller = openConfigSection (config, "controller");
+        if (controller) {
+            analogInput = readConfigBool (controller, "analog_input", analogInput);
+            if (analogInput) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
         }
         auto card = openConfigSection (config, "card_reader");
         if (card) {
