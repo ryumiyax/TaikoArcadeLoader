@@ -92,4 +92,10 @@ analog_input = false
 auto_ime = false
 # use jp layout scan code (if using jp layout keyboard, must be set to true)
 jp_layout = false
+
+[layeredfs]
+# replace assets from the game using a layered file system.
+# For example if you want to edit the wordlist, add your edited version like so : 
+# DumpFolder\Data_mods\x64\datatable\wordlist.bin
+enabled = false
 ```

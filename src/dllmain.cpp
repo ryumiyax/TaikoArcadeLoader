@@ -23,6 +23,7 @@ char chipId1[33]        = "00000000000000000000000000000001";
 char chipId2[33]        = "00000000000000000000000000000002";
 bool autoIME            = false;
 bool jpLayout           = false;
+bool useLayeredFs       = false;
 
 HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse (true); }
 HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) { ExitProcess (0); }
@@ -42,6 +43,55 @@ HOOK (i64, UsbFinderGetSerialNumber, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsb
 
 HOOK (i32, ws2_getaddrinfo, PROC_ADDRESS ("ws2_32.dll", "getaddrinfo"), const char *node, char *service, void *hints, void *out) {
     return originalws2_getaddrinfo (server.c_str (), service, hints, out);
+}
+
+HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+      LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+    std::filesystem::path path (lpFileName);
+    if (!path.is_absolute ()) path = std::filesystem::absolute (path);
+    auto originalDataFolder      = std::filesystem::current_path ().parent_path ().parent_path () / "Data" / "x64";
+    auto originalLayeredFsFolder = std::filesystem::current_path ().parent_path ().parent_path () / "Data_mods" / "x64";
+
+    if (path.string ().find (originalDataFolder.string ()) == 0) {
+        auto newPath = path.string ();
+        newPath.replace (0, originalDataFolder.string ().length (), originalLayeredFsFolder.string ());
+
+        if (std::filesystem::exists (newPath)) {
+            std::cout << "Redirecting " << path << " to " << newPath << std::endl;
+            return originalCreateFileAHook (newPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
+                                            dwFlagsAndAttributes, hTemplateFile);
+        }
+    }
+
+    return originalCreateFileAHook (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes,
+                                    hTemplateFile);
+}
+
+HOOK (HANDLE, CreateFileWHook, PROC_ADDRESS ("kernel32.dll", "CreateFileW"), LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+      LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+    std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+    std::string strFileName = converter.to_bytes (lpFileName);
+
+    std::filesystem::path path (strFileName);
+    if (!path.is_absolute ()) path = std::filesystem::absolute (path);
+
+    auto originalDataFolder      = std::filesystem::current_path ().parent_path ().parent_path () / "Data" / "x64";
+    auto originalLayeredFsFolder = std::filesystem::current_path ().parent_path ().parent_path () / "Data_mods" / "x64";
+
+    if (path.string ().find (originalDataFolder.string ()) != std::string::npos) {
+        auto newPath = path.string ();
+        newPath.replace (0, originalDataFolder.string ().length (), originalLayeredFsFolder.string ());
+
+        if (std::filesystem::exists (newPath)) {
+            std::wstring wNewPath = converter.from_bytes (newPath);
+            std::wcout << L"Redirecting " << lpFileName << L" to " << wNewPath << std::endl;
+            return originalCreateFileWHook (wNewPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
+                                            dwFlagsAndAttributes, hTemplateFile);
+        }
+    }
+
+    return originalCreateFileWHook (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes,
+                                    hTemplateFile);
 }
 
 void
@@ -132,6 +182,9 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
                 autoIME  = readConfigBool (keyboard, "auto_ime", autoIME);
                 jpLayout = readConfigBool (keyboard, "jp_layout", jpLayout);
             }
+
+            auto layeredFs = openConfigSection (config, "layeredfs");
+            if (layeredFs) useLayeredFs = readConfigBool (layeredFs, "enabled", useLayeredFs);
         }
 
         if (version == "auto") {
@@ -187,6 +240,12 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
         INSTALL_HOOK (UsbFinderGetSerialNumber);
 
         INSTALL_HOOK (ws2_getaddrinfo);
+
+        if (useLayeredFs) {
+            std::wcout << "Using LayeredFs!" << std::endl;
+            INSTALL_HOOK (CreateFileAHook);
+            INSTALL_HOOK (CreateFileWHook);
+        }
 
         bnusio::Init ();
 
