@@ -11,6 +11,8 @@ subprojects/xxHash-0.8.2
 subprojects/safetyhook
 subprojects/zxing-cpp-2.2.1
 subprojects/stb
+subprojects/zlib
+libtomcrypt-1.18.2
 dist.7z
 .vscode
 out/
