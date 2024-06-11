@@ -1,0 +1,13 @@
+diff --git a/meson.build b/meson - Copie.build
+index 650ee60..c7b61fd 100644
+--- a/meson.build
++++ b/meson - Copie.build	
+@@ -14,7 +14,7 @@ extra_objects = []
+ 
+ subdir('src')
+ 
+-tomcryptlib = library('tomcrypt', all_sources,
++tomcryptlib = static_library('tomcrypt', all_sources,
+   objects : extra_objects,
+   include_directories : core_inc)
+ 

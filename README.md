@@ -29,7 +29,7 @@ country_code = "JPN"
 # JPN00: JPN 00.18
 # JPN08: JPN 08.18
 # JPN39: JPN 39.06
-# CHN00: CHN 00.32 (based JPN 32.09)
+# CHN00: CHN 00.32 (based on JPN 32.09)
 version = "auto"
 # window resolution
 res = { x = 1920, y = 1080 }
@@ -41,7 +41,7 @@ vsync = false
 unlock_songs = true
 
   [patches.chn00]
-  # sync test mode language to attract etc.
+  # sync test mode language to attract etc
   fix_language = false
   # show demo movie
   demo_movie = true
@@ -52,10 +52,13 @@ unlock_songs = true
 
 [audio]
 # wasapi shared mode
+# allows you to have multiple audio sources at once at a cost of having higher latency
 wasapi_shared = true
 # use asio
 asio = false
 # asio driver name
+# to find it, open up regedit then navigate to HKEY_LOCAL_MACHINE\SOFTWARE\ASIO
+# the name is case sensitive !
 asio_driver = ""
 
 [card_reader]
@@ -98,4 +101,9 @@ jp_layout = false
 # For example if you want to edit the wordlist, add your edited version like so : 
 # DumpFolder\Data_mods\x64\datatable\wordlist.bin
 enabled = false
+# AES encryption keys needed to dynamically encrypt datatable files and fumens
+# keys need to be provided in an hexlified form. A missing or incorrect key will crash the game !
+# keys are not needed if you provide already encrypted files
+datatable_key = ""
+fumen_key = ""
 ```
