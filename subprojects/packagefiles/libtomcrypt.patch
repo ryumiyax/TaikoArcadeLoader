@@ -1,7 +1,5 @@
-diff --git a/meson.build b/meson - Copie.build
-index 650ee60..c7b61fd 100644
---- a/meson.build
-+++ b/meson - Copie.build	
+--- libtomcrypt-1.18.2/meson.build
++++ libtomcrypt-1.18.2/meson.build	
 @@ -14,7 +14,7 @@ extra_objects = []
  
  subdir('src')
