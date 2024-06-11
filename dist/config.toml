@@ -48,3 +48,5 @@ jp_layout = false
 
 [layeredfs]
 enabled = false
+datatable_key = ""
+fumen_key = ""
