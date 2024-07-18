@@ -40,6 +40,10 @@ stb = subproject('stb')
 opt_var.add_cmake_defines({'BUILD_EXAMPLES': false})
 zxing_proj = cmake.subproject('zxing', options: opt_var)
 zxing_dep = zxing_proj.dependency('ZXing')
+zlib_proj = subproject('zlib')
+zlib_dep = zlib_proj.get_variable('zlib_dep')
+libtomcrypt = subproject('libtomcrypt')
+libtomcrypt_dep = libtomcrypt.get_variable('tomcrypt_dep')
 
 library(
 	'bnusio',
@@ -48,6 +52,8 @@ library(
 		tomlc99.get_variable('tomlc99_lib'),
 		sdl2.get_variable('sdl2'),
 		xxhash.get_variable('xxhash'),
+		zlib_proj.get_variable('zlib_lib'),
+		libtomcrypt.get_variable('tomcryptlib'),
 	],
 	include_directories: [
 		'src',
@@ -55,11 +61,16 @@ library(
 		tomlc99.get_variable('tomlc99_inc'),
 		sdl2.get_variable('core_inc'),
 		xxhash.get_variable('inc'),
+		zlib_proj.get_variable('zlib_inc'),
+		libtomcrypt.get_variable('core_inc'),
 	],
-	dependencies: [stb.get_variable('stb_dep'),
+	dependencies: [
+		stb.get_variable('stb_dep'),
 		zxing_dep,
 		safetyhook_dep,
 		zydis_dep,
+		zlib_dep,
+		libtomcrypt_dep,
 	],
 	sources : [
 		'src/dllmain.cpp',

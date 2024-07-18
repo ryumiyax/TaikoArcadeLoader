@@ -45,3 +45,8 @@ analog_input = false
 [keyboard]
 auto_ime = false
 jp_layout = false
+
+[layeredfs]
+enabled = false
+datatable_key = ""
+fumen_key = ""

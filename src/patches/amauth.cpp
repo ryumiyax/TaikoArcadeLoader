@@ -1,3 +1,4 @@
+#include <winsock2.h>
 #include <MinHook.h>
 #include <bits/stdc++.h>
 #include <format>
@@ -8,7 +9,6 @@
 #include <stdlib.h>
 #include <toml.h>
 #include <windows.h>
-#include <winsock2.h>
 #include <ws2tcpip.h>
 
 /*

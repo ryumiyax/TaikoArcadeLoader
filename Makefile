@@ -3,7 +3,7 @@ all:
 	@strip build/bnusio.dll
 
 setup:
-	@meson setup build --cross cross-mingw-64.txt
+	@meson setup build --cross cross-mingw-64.txt --wipe
 
 dist-no-7z: all
 	@mkdir -p out/
@@ -11,5 +11,5 @@ dist-no-7z: all
 	@cp -r dist/* out/
 
 dist: dist-no-7z
-	@cd out && 7z a -t7z ../dist.7z .
+	@cd out && 7zz a -t7z ../dist.7z .
 	@rm -rf out
