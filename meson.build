@@ -55,6 +55,7 @@ library(
 		zlib_proj.get_variable('zlib_lib'),
 		libtomcrypt.get_variable('tomcryptlib'),
 	],
+	link_args : '-Wl,--allow-multiple-definition',
 	include_directories: [
 		'src',
 		minhook.get_variable('minhook_inc'),
