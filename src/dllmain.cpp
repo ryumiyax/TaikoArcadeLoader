@@ -5,7 +5,6 @@
 #include "poll.h"
 #include <zlib.h>
 #include <tomcrypt.h>
-#define POLY 0x82f63b78
 
 GameVersion gameVersion = GameVersion::UNKNOWN;
 std::vector<HMODULE> plugins;
@@ -38,7 +37,7 @@ uint32_t crc32c(uint32_t crc, const unsigned char *buf, size_t len)
     while (len--) {
         crc ^= *buf++;
         for (k = 0; k < 8; k++)
-            crc = (crc >> 1) ^ (POLY & (0 - (crc & 1)));
+            crc = (crc >> 1) ^ (crcPOLY & (0 - (crc & 1)));
     }
     return ~crc;
 }

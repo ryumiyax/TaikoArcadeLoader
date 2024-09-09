@@ -11,5 +11,5 @@ dist-no-7z: all
 	@cp -r dist/* out/
 
 dist: dist-no-7z
-	@cd out && 7zz a -t7z ../dist.7z .
+	@cd out && 7z a -t7z ../dist.7z .
 	@rm -rf out
