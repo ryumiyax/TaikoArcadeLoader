@@ -1,8 +1,6 @@
 #pragma once
 #include <xxhash.h>
 
-#define crcPOLY 0x82f63b78
-
 enum class GameVersion : XXH64_hash_t {
     UNKNOWN = 0,
     JPN00   = 0x4C07355966D815FB,
