@@ -16,6 +16,9 @@ unlock_songs = true
   mode_collabo025 = false
   mode_collabo026 = false
 
+  [patches.jpn39]
+  chs_patch = false
+
 [graphics]
 res = { x = 1920, y = 1080 }
 windowed = false

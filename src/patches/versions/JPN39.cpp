@@ -1,6 +1,7 @@
 #include "../patches.h"
 #include "helpers.h"
 #include <safetyhook.hpp>
+#include <stdio.h>
 
 namespace patches::JPN39 {
 
@@ -40,17 +41,33 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
     }
 }
 
+SafetyHookMid changeLanguageTypeHook{};
+
+void
+ChangeLanguageType(SafetyHookContext& ctx) {
+    int* pFontType = (int *) ctx.rax;
+    printf("---- saftyhook 2 fontType = %d\n", *pFontType);
+    if (*pFontType == 4) *pFontType = 2;
+}
+
 void
 Init () {
     i32 xRes         = 1920;
     i32 yRes         = 1080;
     bool unlockSongs = true;
+    bool chsPatch    = false;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         auto patches = openConfigSection (config_ptr.get (), "patches");
-        if (patches) unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+        if (patches) {
+            unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+            auto jpn39  = openConfigSection (patches, "jpn39");
+            if (jpn39) {
+                chsPatch = readConfigBool (jpn39, "chs_patch", chsPatch);
+            }
+        }
 
         auto graphics = openConfigSection (config_ptr.get (), "graphics");
         if (graphics) {
@@ -113,6 +130,16 @@ Init () {
         ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
         ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
         ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
+    }
+
+    if (chsPatch) {
+        WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
+        WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
+        WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
+        WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
+        WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
+
+        changeLanguageTypeHook = safetyhook::create_mid (ASLR (0x1400B2016), ChangeLanguageType);
     }
 
     // Disable live check

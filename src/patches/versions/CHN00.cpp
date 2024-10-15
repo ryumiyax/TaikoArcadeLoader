@@ -130,7 +130,7 @@ Init () {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
             auto chn00  = openConfigSection (patches, "chn00");
             if (chn00) {
-                fixLanguage    = readConfigBool (chn00, "fix_language", fixLanguage);
+                fixLanguage     = readConfigBool (chn00, "fix_language", fixLanguage);
                 demoMovie      = readConfigBool (chn00, "demo_movie", demoMovie);
                 modeCollabo025 = readConfigBool (chn00, "mode_collabo025", modeCollabo025);
                 modeCollabo026 = readConfigBool (chn00, "mode_collabo026", modeCollabo026);

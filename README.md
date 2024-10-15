@@ -50,6 +50,10 @@ unlock_songs = true
   # enable ai soshina mode
   mode_collabo026 = false
 
+  [patches.jpn39]
+  # use cn font and chineseS wordlist value
+  chs_patch = false
+
 [audio]
 # wasapi shared mode
 # allows you to have multiple audio sources at once at a cost of having higher latency
