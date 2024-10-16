@@ -107,9 +107,5 @@ Init () {
     WRITE_MEMORY (amHandle + 0x3282C, u8, 0xEB); // CommonLogPathB
     WRITE_MEMORY (amHandle + 0x32C2A, u8, 0xEB); // BackupDataPathA
     WRITE_MEMORY (amHandle + 0x32D7D, u8, 0xEB); // BackupDataPathB
-
-    patches::Audio::Init ();
-    patches::Qr::Init ();
-    patches::AmAuth::Init ();
 }
 } // namespace patches::JPN00

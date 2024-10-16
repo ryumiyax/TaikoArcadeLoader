@@ -16,6 +16,11 @@ unlock_songs = true
   mode_collabo025 = false
   mode_collabo026 = false
 
+[emulation]
+usio = true
+card_reader = true
+qr = true
+
 [graphics]
 res = { x = 1920, y = 1080 }
 windowed = false
@@ -27,11 +32,7 @@ wasapi_shared = true
 asio = false
 asio_driver = ""
 
-[card_reader]
-enabled = true
-
 [qr]
-enabled = true
 image_path = ""
 
   [qr.data]
