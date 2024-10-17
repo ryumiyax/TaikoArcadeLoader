@@ -14,9 +14,9 @@ HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4,
     return originalcurl_easy_setopt (a1, a2, a3, a4, a5);
 }
 
-i64 (__fastcall *lua_settop) (u64, u64)      = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_settop");
-i64 (__fastcall *lua_pushboolean) (u64, u64) = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushboolean");
-i64 (__fastcall *lua_pushstring) (u64, u64)  = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushstring");
+FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
+FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
+FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
 
 i64
 lua_pushtrue (i64 a1) {
@@ -25,9 +25,9 @@ lua_pushtrue (i64 a1) {
     return 1;
 }
 
-HOOK (i64, AvailableMode_Collabo024,   ASLR (0x1402DE710), i64 a1) { return lua_pushtrue (a1); }
-HOOK (i64, AvailableMode_Collabo025,   ASLR (0x1402DE6B0), i64 a1) { return lua_pushtrue (a1); }
-HOOK (i64, AvailableMode_Collabo026,   ASLR (0x1402DE670), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) { return lua_pushtrue (a1); }
 HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) { return lua_pushtrue (a1); }
 
 const i32 datatableBufferSize = 1024 * 1024 * 12;
@@ -60,8 +60,8 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
 SafetyHookMid changeLanguageTypeHook{};
 
 void
-ChangeLanguageType(SafetyHookContext& ctx) {
-    int* pFontType = (int *) ctx.rax;
+ChangeLanguageType (SafetyHookContext &ctx) {
+    int *pFontType = (int *)ctx.rax;
     if (*pFontType == 4) *pFontType = 2;
 }
 
@@ -97,7 +97,7 @@ Init () {
     i32 xRes              = 1920;
     i32 yRes              = 1080;
     bool unlockSongs      = true;
-    bool fixLanguage       = false;
+    bool fixLanguage      = false;
     bool chsPatch         = false;
     bool modeCollabo025   = false;
     bool modeCollabo026   = false;
@@ -111,7 +111,7 @@ Init () {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
             auto jpn39  = openConfigSection (patches, "jpn39");
             if (jpn39) {
-                fixLanguage       = readConfigBool (jpn39, "fix_language", fixLanguage);
+                fixLanguage      = readConfigBool (jpn39, "fix_language", fixLanguage);
                 chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
                 modeCollabo025   = readConfigBool (jpn39, "mode_collabo025", modeCollabo025);
                 modeCollabo026   = readConfigBool (jpn39, "mode_collabo026", modeCollabo026);
@@ -200,8 +200,8 @@ Init () {
         INSTALL_HOOK (GetCabinetLanguage);
     }
 
-    if (modeCollabo025)   INSTALL_HOOK (AvailableMode_Collabo025);
-    if (modeCollabo026)   INSTALL_HOOK (AvailableMode_Collabo026);
+    if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
+    if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
     if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
 
     // Disable live check

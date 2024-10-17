@@ -24,9 +24,9 @@ HOOK (i32, HaspRead, PROC_ADDRESS ("hasp_windows_x64.dll", "hasp_read"), i32, i3
     return 0;
 }
 
-i64 (__fastcall *lua_settop) (u64, u64)      = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_settop");
-i64 (__fastcall *lua_pushboolean) (u64, u64) = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushboolean");
-i64 (__fastcall *lua_pushstring) (u64, u64)  = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushstring");
+FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
+FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
+FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
 
 i64
 lua_pushtrue (i64 a1) {
@@ -100,7 +100,7 @@ Init () {
     i32 xRes            = 1920;
     i32 yRes            = 1080;
     bool unlockSongs    = true;
-    bool fixLanguage     = false;
+    bool fixLanguage    = false;
     bool demoMovie      = true;
     bool modeCollabo025 = false;
     bool modeCollabo026 = false;
@@ -130,7 +130,7 @@ Init () {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
             auto chn00  = openConfigSection (patches, "chn00");
             if (chn00) {
-                fixLanguage     = readConfigBool (chn00, "fix_language", fixLanguage);
+                fixLanguage    = readConfigBool (chn00, "fix_language", fixLanguage);
                 demoMovie      = readConfigBool (chn00, "demo_movie", demoMovie);
                 modeCollabo025 = readConfigBool (chn00, "mode_collabo025", modeCollabo025);
                 modeCollabo026 = readConfigBool (chn00, "mode_collabo026", modeCollabo026);
