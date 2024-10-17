@@ -55,6 +55,12 @@ unlock_songs = true
   fix_language = false
   # use cn font and chineseS wordlist value
   chs_patch = false
+  # enable one piece collab mode
+  mode_collabo025 = false
+  # enable ai soshina mode
+  mode_collabo026 = false
+  # enable aoharu no tatsujinn mode
+  mode_aprilfool001 = false
 
 [audio]
 # wasapi shared mode

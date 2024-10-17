@@ -100,7 +100,7 @@ Init () {
     i32 xRes            = 1920;
     i32 yRes            = 1080;
     bool unlockSongs    = true;
-    bool fixLanguage    = false;
+    bool fixLanguage     = false;
     bool demoMovie      = true;
     bool modeCollabo025 = false;
     bool modeCollabo026 = false;

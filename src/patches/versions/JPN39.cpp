@@ -25,6 +25,11 @@ lua_pushtrue (i64 a1) {
     return 1;
 }
 
+HOOK (i64, AvailableMode_Collabo024,   ASLR (0x1402DE710), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo025,   ASLR (0x1402DE6B0), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo026,   ASLR (0x1402DE670), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) { return lua_pushtrue (a1); }
+
 const i32 datatableBufferSize = 1024 * 1024 * 12;
 safetyhook::Allocation datatableBuffer1;
 safetyhook::Allocation datatableBuffer2;
@@ -89,11 +94,14 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
 
 void
 Init () {
-    i32 xRes         = 1920;
-    i32 yRes         = 1080;
-    bool unlockSongs = true;
-    bool fixLanguage  = false;
-    bool chsPatch    = false;
+    i32 xRes              = 1920;
+    i32 yRes              = 1080;
+    bool unlockSongs      = true;
+    bool fixLanguage       = false;
+    bool chsPatch         = false;
+    bool modeCollabo025   = false;
+    bool modeCollabo026   = false;
+    bool modeAprilFool001 = false;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -103,8 +111,11 @@ Init () {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
             auto jpn39  = openConfigSection (patches, "jpn39");
             if (jpn39) {
-                fixLanguage = readConfigBool (jpn39, "fix_language", fixLanguage);
-                chsPatch   = readConfigBool (jpn39, "chs_patch", chsPatch);
+                fixLanguage       = readConfigBool (jpn39, "fix_language", fixLanguage);
+                chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
+                modeCollabo025   = readConfigBool (jpn39, "mode_collabo025", modeCollabo025);
+                modeCollabo026   = readConfigBool (jpn39, "mode_collabo026", modeCollabo026);
+                modeAprilFool001 = readConfigBool (jpn39, "mode_aprilfool001", modeAprilFool001);
             }
         }
 
@@ -188,6 +199,10 @@ Init () {
         INSTALL_HOOK (GetRegionLanguage);
         INSTALL_HOOK (GetCabinetLanguage);
     }
+
+    if (modeCollabo025)   INSTALL_HOOK (AvailableMode_Collabo025);
+    if (modeCollabo026)   INSTALL_HOOK (AvailableMode_Collabo026);
+    if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
 
     // Disable live check
     auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
