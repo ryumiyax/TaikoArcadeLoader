@@ -31,12 +31,6 @@ country_code = "JPN"
 # JPN39: JPN 39.06
 # CHN00: CHN 00.32 (based on JPN 32.09)
 version = "auto"
-# window resolution
-res = { x = 1920, y = 1080 }
-# window mode
-windowed = false
-# vertical sync
-vsync = false
 # unlock all songs
 unlock_songs = true
 
@@ -62,24 +56,35 @@ unlock_songs = true
   # enable aoharu no tatsujinn mode
   mode_aprilfool001 = false
 
+[emulation]
+# If usio emulation is disabled, card_reader emulation, qr emulation and plugins will also stop working
+# Also, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder
+usio = true
+card_reader = true
+qr = true
+
+[graphics]
+# window resolution
+res = { x = 1920, y = 1080 }
+# window mode
+windowed = false
+# vertical sync
+vsync = false
+# fps limit
+fpslimit = 120
+
 [audio]
 # wasapi shared mode
 # allows you to have multiple audio sources at once at a cost of having higher latency
 wasapi_shared = true
-# use asio
+# use asio audio mode
 asio = false
 # asio driver name
 # to find it, open up regedit then navigate to HKEY_LOCAL_MACHINE\SOFTWARE\ASIO
 # the name is case sensitive !
 asio_driver = ""
 
-[card_reader]
-# enable card reader emulation
-enabled = true
-
 [qr]
-# enable qr emulation
-enabled = true
 # qr image path
 image_path = ""
 
@@ -111,7 +116,7 @@ jp_layout = false
 [layeredfs]
 # replace assets from the game using a layered file system.
 # For example if you want to edit the wordlist, add your edited version like so : 
-# DumpFolder\Data_mods\x64\datatable\wordlist.bin
+# .\Data_mods\x64\datatable\wordlist.bin
 enabled = false
 # AES encryption keys needed to dynamically encrypt datatable files and fumens
 # keys need to be provided in an hexlified form. A missing or incorrect key will crash the game !

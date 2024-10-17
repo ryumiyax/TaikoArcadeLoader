@@ -221,9 +221,5 @@ Init () {
     // Redirect garmc requests
     auto garmcHandle = (u64)GetModuleHandle ("garmc.dll");
     INSTALL_HOOK_DYNAMIC (curl_easy_setopt, (void *)(garmcHandle + 0x1FBBB0));
-
-    patches::Audio::Init ();
-    patches::Qr::Init ();
-    patches::AmAuth::Init ();
 }
 } // namespace patches::JPN39

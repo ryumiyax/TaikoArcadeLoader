@@ -56,6 +56,13 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
         MH_EnableHook ((void *)where##functionName);                                                                   \
     }
 
+#define INSTALL_HOOK_DIRECT(location, locationOfHook)                       \
+    {                                                                       \
+        MH_Initialize ();                                                   \
+        MH_CreateHook ((void *)(location), (void *)(locationOfHook), NULL); \
+        MH_EnableHook ((void *)(location));                                 \
+    }
+
 #define INSTALL_HOOK_DYNAMIC(functionName, location) \
     {                                                \
         where##functionName = (void *)location;      \

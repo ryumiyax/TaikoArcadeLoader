@@ -19,6 +19,7 @@ extern Keybindings QR_IMAGE_READ;
 extern char accessCode1[21];
 extern char accessCode2[21];
 extern std::vector<HMODULE> plugins;
+extern bool emulateQR;
 
 typedef void event ();
 typedef void initQrEvent (GameVersion gameVersion);
@@ -33,7 +34,6 @@ State gState = State::Ready;
 Mode gMode   = Mode::Card;
 HMODULE gPlugin;
 std::string accessCode;
-bool qrEnabled = true;
 
 std::vector<HMODULE> qrPlugins;
 bool qrPluginRegistered = false;
@@ -196,7 +196,7 @@ HOOK_DYNAMIC (i64, __fastcall, copy_data, i64, void *dest, int length) {
 
 void
 Update () {
-    if (!qrEnabled) return;
+    if (!emulateQR) return;
     if (gState == State::Ready) {
         if (IsButtonTapped (CARD_INSERT_1)) {
             if (gameVersion != GameVersion::CHN00) return;
@@ -239,20 +239,7 @@ Update () {
 
 void
 Init () {
-    auto configPath = std::filesystem::current_path () / "config.toml";
-    std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-    if (!config_ptr) {
-        std::cerr << "[Init] Config file not found" << std::endl;
-        return;
-    }
-    auto qr = openConfigSection (config_ptr.get (), "qr");
-    if (!qr) {
-        std::cerr << "[Init] QR config section not found! QR emulation disabled" << std::endl;
-        qrEnabled = false;
-        return;
-    }
-    qrEnabled = readConfigBool (qr, "enabled", true);
-    if (!qrEnabled) {
+    if (!emulateQR) {
         std::cout << "[Init] QR emulation disabled" << std::endl;
         return;
     }

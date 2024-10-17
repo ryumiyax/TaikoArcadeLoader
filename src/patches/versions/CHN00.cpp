@@ -217,8 +217,5 @@ Init () {
     WRITE_MEMORY (amHandle + 0x24A85, u8, 0xEB);                         // CommonLogPathB
     WRITE_MEMORY (amHandle + 0x24DD1, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathA
     WRITE_MEMORY (amHandle + 0x24E47, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathB
-
-    patches::Audio::Init ();
-    patches::Qr::Init ();
 }
 } // namespace patches::CHN00

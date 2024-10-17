@@ -25,6 +25,9 @@ bool windowed            = false;
 bool autoIME             = false;
 bool jpLayout            = false;
 bool useLayeredFS        = false;
+bool emulateUSIO         = true;
+bool emulateCardReader   = true;
+bool emulateQR           = true;
 std::string datatableKey = "0000000000000000000000000000000000000000000000000000000000000000";
 std::string fumenKey     = "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -158,6 +161,12 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
             }
             auto patches = openConfigSection (config, "patches");
             if (patches) version = readConfigString (patches, "version", version);
+            auto emulation = openConfigSection (config, "emulation");
+            if (emulation) {
+                emulateUSIO       = readConfigBool (emulation, "usio", emulateUSIO);
+                emulateCardReader = readConfigBool (emulation, "card_reader", emulateCardReader);
+                emulateQR         = readConfigBool (emulation, "qr", emulateQR);
+            }
             auto graphics = openConfigSection (config, "graphics");
             if (graphics) windowed = readConfigBool (graphics, "windowed", windowed);
             auto keyboard = openConfigSection (config, "keyboard");
@@ -239,9 +248,11 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
         case GameVersion::CHN00: patches::CHN00::Init (); break;
         }
 
-        if (useLayeredFS) patches::LayeredFS::Init ();
-
+        patches::Qr::Init ();
+        patches::Audio::Init ();
         patches::Dxgi::Init ();
+        patches::AmAuth::Init ();
+        if (useLayeredFS) patches::LayeredFS::Init ();
     }
     return true;
 }
