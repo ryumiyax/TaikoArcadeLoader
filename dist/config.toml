@@ -16,6 +16,13 @@ unlock_songs = true
   mode_collabo025 = false
   mode_collabo026 = false
 
+  [patches.jpn39]
+  fix_language = false
+  chs_patch = false
+  mode_collabo025 = false
+  mode_collabo026 = false
+  mode_aprilfool001 = false
+
 [emulation]
 usio = true
 card_reader = true

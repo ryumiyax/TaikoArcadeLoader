@@ -44,6 +44,18 @@ unlock_songs = true
   # enable ai soshina mode
   mode_collabo026 = false
 
+  [patches.jpn39]
+  # sync test mode language to attract etc
+  fix_language = false
+  # use cn font and chineseS wordlist value
+  chs_patch = false
+  # enable one piece collab mode
+  mode_collabo025 = false
+  # enable ai soshina mode
+  mode_collabo026 = false
+  # enable aoharu no tatsujinn mode
+  mode_aprilfool001 = false
+
 [emulation]
 # If usio emulation is disabled, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder
 usio = true

@@ -24,9 +24,9 @@ HOOK (i32, HaspRead, PROC_ADDRESS ("hasp_windows_x64.dll", "hasp_read"), i32, i3
     return 0;
 }
 
-i64 (__fastcall *lua_settop) (u64, u64)      = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_settop");
-i64 (__fastcall *lua_pushboolean) (u64, u64) = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushboolean");
-i64 (__fastcall *lua_pushstring) (u64, u64)  = (i64 (__fastcall *) (u64, u64))PROC_ADDRESS ("lua51.dll", "lua_pushstring");
+FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
+FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
+FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
 
 i64
 lua_pushtrue (i64 a1) {

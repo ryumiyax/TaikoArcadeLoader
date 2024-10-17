@@ -1,6 +1,7 @@
 #include "../patches.h"
 #include "helpers.h"
 #include <safetyhook.hpp>
+#include <stdio.h>
 
 namespace patches::JPN39 {
 
@@ -12,6 +13,22 @@ HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4,
     originalcurl_easy_setopt (a1, 81, 0, 0, 0);
     return originalcurl_easy_setopt (a1, a2, a3, a4, a5);
 }
+
+FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
+FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
+FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
+
+i64
+lua_pushtrue (i64 a1) {
+    lua_settop (a1, 0);
+    lua_pushboolean (a1, 1);
+    return 1;
+}
+
+HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) { return lua_pushtrue (a1); }
+HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) { return lua_pushtrue (a1); }
 
 const i32 datatableBufferSize = 1024 * 1024 * 12;
 safetyhook::Allocation datatableBuffer1;
@@ -40,17 +57,67 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
     }
 }
 
+SafetyHookMid changeLanguageTypeHook{};
+
+void
+ChangeLanguageType (SafetyHookContext &ctx) {
+    int *pFontType = (int *)ctx.rax;
+    if (*pFontType == 4) *pFontType = 2;
+}
+
+int language = 0;
+const char *
+languageStr () {
+    switch (language) {
+    case 1: return "en_us";
+    case 2: return "cn_tw";
+    case 3: return "kor";
+    case 4: return "cn_cn";
+    default: return "jpn";
+    }
+}
+HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
+    auto result = originalGetLanguage (a1);
+    language    = *((u32 *)result);
+    return result;
+}
+HOOK (i64, GetRegionLanguage, ASLR (0x1401CE9B0), i64 a1) {
+    lua_settop (a1, 0);
+    lua_pushstring (a1, (u64)languageStr ());
+    return 1;
+}
+HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
+    lua_settop (a2, 0);
+    lua_pushstring (a2, (u64)languageStr ());
+    return 1;
+}
+
 void
 Init () {
-    i32 xRes         = 1920;
-    i32 yRes         = 1080;
-    bool unlockSongs = true;
+    i32 xRes              = 1920;
+    i32 yRes              = 1080;
+    bool unlockSongs      = true;
+    bool fixLanguage      = false;
+    bool chsPatch         = false;
+    bool modeCollabo025   = false;
+    bool modeCollabo026   = false;
+    bool modeAprilFool001 = false;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         auto patches = openConfigSection (config_ptr.get (), "patches");
-        if (patches) unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+        if (patches) {
+            unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
+            auto jpn39  = openConfigSection (patches, "jpn39");
+            if (jpn39) {
+                fixLanguage      = readConfigBool (jpn39, "fix_language", fixLanguage);
+                chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
+                modeCollabo025   = readConfigBool (jpn39, "mode_collabo025", modeCollabo025);
+                modeCollabo026   = readConfigBool (jpn39, "mode_collabo026", modeCollabo026);
+                modeAprilFool001 = readConfigBool (jpn39, "mode_aprilfool001", modeAprilFool001);
+            }
+        }
 
         auto graphics = openConfigSection (config_ptr.get (), "graphics");
         if (graphics) {
@@ -114,6 +181,28 @@ Init () {
         ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
         ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
     }
+
+    // patch to use chs font/wordlist instead of cht
+    if (chsPatch) {
+        WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
+        WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
+        WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
+        WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
+        WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
+
+        changeLanguageTypeHook = safetyhook::create_mid (ASLR (0x1400B2016), ChangeLanguageType);
+    }
+
+    // Fix language
+    if (fixLanguage) {
+        INSTALL_HOOK (GetLanguage);
+        INSTALL_HOOK (GetRegionLanguage);
+        INSTALL_HOOK (GetCabinetLanguage);
+    }
+
+    if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
+    if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
+    if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
 
     // Disable live check
     auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
