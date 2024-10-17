@@ -45,8 +45,7 @@ unlock_songs = true
   mode_collabo026 = false
 
 [emulation]
-# If usio emulation is disabled, card_reader emulation, qr emulation and plugins will also stop working
-# Also, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder
+# If usio emulation is disabled, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder
 usio = true
 card_reader = true
 qr = true

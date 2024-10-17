@@ -321,6 +321,14 @@ FUNCTION_PTR (u16, bnusio_GetAnalogIn_Original, PROC_ADDRESS ("bnusio_original.d
 FUNCTION_PTR (u16, bnusio_GetCoin_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_GetCoin"), i32 a1);
 FUNCTION_PTR (u32, bnusio_GetSwIn_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_GetSwIn"));
 FUNCTION_PTR (i64, bnusio_Close_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_Close"));
+HOOK (u16, bnusio_GetCoin_Hook, bnusio_GetCoin, i32 a1) {
+    originalbnusio_GetCoin_Hook (a1);
+    return bnusio_GetCoin_Original (a1);
+}
+HOOK (i64, bnusio_Close_Hook, bnusio_Close) {
+    originalbnusio_Close_Hook ();
+    return bnusio_Close_Original ();
+}
 
 HOOK (u64, bngrw_DevReset, PROC_ADDRESS ("bngrw.dll", "BngRwDevReset")) { return 1; }
 HOOK (u64, bngrw_ReadMifare, PROC_ADDRESS ("bngrw.dll", "BngRwExReadMifareAllBlock")) { return 0xFFFFFF9C; }
@@ -452,9 +460,9 @@ Init () {
         INSTALL_HOOK_DIRECT (bnusio_DecCoin, bnusio_DecCoin_Original);
         INSTALL_HOOK_DIRECT (bnusio_GetFirmwareVersion, bnusio_GetFirmwareVersion_Original);
         INSTALL_HOOK_DIRECT (bnusio_GetAnalogIn, bnusio_GetAnalogIn_Original);
-        INSTALL_HOOK_DIRECT (bnusio_GetCoin, bnusio_GetCoin_Original);
         INSTALL_HOOK_DIRECT (bnusio_GetSwIn, bnusio_GetSwIn_Original);
-        INSTALL_HOOK_DIRECT (bnusio_Close, bnusio_Close_Original);
+        INSTALL_HOOK (bnusio_GetCoin_Hook);
+        INSTALL_HOOK (bnusio_Close_Hook);
 
         std::cout << "[Init] USIO emulation disabled" << std::endl;
     }
