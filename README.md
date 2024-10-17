@@ -51,6 +51,8 @@ unlock_songs = true
   mode_collabo026 = false
 
   [patches.jpn39]
+  # sync test mode language to attract etc
+  fix_language = false
   # use cn font and chineseS wordlist value
   chs_patch = false
 
