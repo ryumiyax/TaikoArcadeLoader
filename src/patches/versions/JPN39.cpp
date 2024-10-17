@@ -182,7 +182,7 @@ Init () {
         ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
     }
 
-    // patch to use chs font/wordlist instead of cht
+    // Use chs font/wordlist instead of cht
     if (chsPatch) {
         WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
         WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
@@ -209,14 +209,14 @@ Init () {
     INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x42DE0));
 
     // Move various files to current directory
-    WRITE_MEMORY (amHandle + 0x15252, u8, 0xEB);                         // CreditLogPathA
-    WRITE_MEMORY (amHandle + 0x15419, u8, 0xEB);                         // CreditLogPathB
-    WRITE_MEMORY (amHandle + 0x416DA, u8, 0xEB);                         // ErrorLogPathA
-    WRITE_MEMORY (amHandle + 0x41859, u8, 0xEB);                         // ErrorLogPathB
-    WRITE_MEMORY (amHandle + 0x41C21, u8, 0xEB);                         // CommonLogPathA
-    WRITE_MEMORY (amHandle + 0x41DA5, u8, 0xEB);                         // CommonLogPathB
-    WRITE_MEMORY (amHandle + 0x420F1, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathA
-    WRITE_MEMORY (amHandle + 0x42167, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathB
+    WRITE_MEMORY (amHandle + 0x15252, u8, 0xEB); // CreditLogPathA
+    WRITE_MEMORY (amHandle + 0x15419, u8, 0xEB); // CreditLogPathB
+    WRITE_MEMORY (amHandle + 0x416DA, u8, 0xEB); // ErrorLogPathA
+    WRITE_MEMORY (amHandle + 0x41859, u8, 0xEB); // ErrorLogPathB
+    WRITE_MEMORY (amHandle + 0x41C21, u8, 0xEB); // CommonLogPathA
+    WRITE_MEMORY (amHandle + 0x41DA5, u8, 0xEB); // CommonLogPathB
+    WRITE_NOP (amHandle + 0x420F1, 0x05);        // BackupDataPathA
+    WRITE_NOP (amHandle + 0x42167, 0x05);        // BackupDataPathB
 
     // Redirect garmc requests
     auto garmcHandle = (u64)GetModuleHandle ("garmc.dll");

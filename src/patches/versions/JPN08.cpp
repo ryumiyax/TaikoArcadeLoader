@@ -153,7 +153,7 @@ Init () {
         WRITE_MEMORY (ASLR (0x1403067DE), u8, GENERATE_MOV (RDX_MOV, song_data));
         WRITE_MEMORY (ASLR (0x140306712), u8, GENERATE_MOV (RDX_MOV, song_data));
         WRITE_MEMORY (ASLR (0x1403069A2), u8, GENERATE_MOV (RDX_MOV, song_data));
-        WRITE_MEMORY (ASLR (0x1403069AC), u8, 0x90, 0x90, 0x90, 0x90, 0x90);
+        WRITE_NOP (ASLR (0x1403069AC), 0x05);
         // Unknown
         WRITE_MEMORY (ASLR (0x140313755), u8, GENERATE_MOV (RDX_MOV, song_data));
         WRITE_MEMORY (ASLR (0x140313A0B), u8, GENERATE_MOV (RDX_MOV, song_data));
