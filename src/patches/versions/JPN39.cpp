@@ -18,21 +18,17 @@ FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u6
 FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
 FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
 FUNCTION_PTR (i64, lua_pushcclosure, PROC_ADDRESS ("lua51.dll", "lua_pushcclosure"), u64, u64, u64);
+FUNCTION_PTR (i64, lua_pushnumber, PROC_ADDRESS ("lua51.dll", "lua_pushnumber"), u64, u64);
 
 FUNCTION_PTR (i64, lua_toboolean, PROC_ADDRESS ("lua51.dll", "lua_toboolean"), u64, u64);
-FUNCTION_PTR (i64, lua_touserdata, PROC_ADDRESS ("lua51.dll", "lua_touserdata"), u64, u64);
+FUNCTION_PTR (i64, lua_tostring, PROC_ADDRESS ("lua51.dll", "lua_tostring"), u64, u64);
+FUNCTION_PTR (double, lua_tonumber, PROC_ADDRESS ("lua51.dll", "lua_tonumber"), u64, u64);
 
 i64
 lua_pushtrue (i64 a1) {
     lua_settop (a1, 0);
     lua_pushboolean (a1, 1);
     return 1;
-}
-
-i64 __fastcall
-lua_freeze_timer (i64 a1) {
-    // i64 v2 = lua_touserdata (a1, 4294957292);
-    return lua_pushtrue (a1);
 }
 
 HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) { return lua_pushtrue (a1); }
@@ -67,7 +63,15 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
     }
 }
 
+// -------------- MidHook Area --------------
+
 SafetyHookMid changeLanguageTypeHook{};
+SafetyHookMid freezeTimerHook{};
+SafetyHookMid genNus3bankIdHook{};
+
+std::map<std::string, int> nus3bankMap;
+int nus3bankIdCounter = 0;
+std::mutex nus3bankMtx;
 
 void
 ChangeLanguageType (SafetyHookContext &ctx) {
@@ -75,7 +79,10 @@ ChangeLanguageType (SafetyHookContext &ctx) {
     if (*pFontType == 4) *pFontType = 2;
 }
 
-SafetyHookMid freezeTimerHook{};
+i64 __fastcall
+lua_freeze_timer (i64 a1) {
+    return lua_pushtrue (a1);
+}
 
 void
 FreezeTimer (SafetyHookContext &ctx) {
@@ -84,6 +91,37 @@ FreezeTimer (SafetyHookContext &ctx) {
     lua_pushcclosure(a1, reinterpret_cast<i64>(&lua_freeze_timer), v9);
     ctx.rip = ASLR (0x14019FF65);
 }
+
+int
+get_bank_id(std::string bankName) {
+    std::lock_guard<std::mutex> lock(nus3bankMtx);
+    if (nus3bankMap.find(bankName) == nus3bankMap.end()) {
+        nus3bankMap[bankName] = nus3bankIdCounter;
+        nus3bankIdCounter++;
+    }
+    return nus3bankMap[bankName];
+}
+
+void
+GenNus3bankId (SafetyHookContext &ctx) {
+    int originalBankId = ctx.rax;
+    if ((uint8_t**)(ctx.rcx + 8) != nullptr) {
+        uint8_t* pNus3bankFile = *((uint8_t **)(ctx.rcx + 8));
+        if (pNus3bankFile[0] == 'N' && pNus3bankFile[1] == 'U' && pNus3bankFile[2] == 'S' && pNus3bankFile[3] == '3') {
+            int tocLength = *((int*)(pNus3bankFile + 16));
+            uint8_t* pPropBlock = pNus3bankFile + 20 + tocLength;
+            int propLength = *((int*)(pPropBlock + 4));
+            uint8_t* pBinfBlock = pPropBlock + 8 + propLength;
+            std::string bankName((char*)(pBinfBlock + 0x11));
+            ctx.rax = get_bank_id(bankName);
+            std::cout << "GenNus3bankId bankName: " << bankName << " changeId: " << originalBankId << " --> " << ctx.rax << std::endl;
+        }
+    } else {
+        std::cout << "GenNus3bankId load unexpected Id: " << ctx.rax << std::endl;
+    }
+}
+
+// -------------- MidHook Area End --------------
 
 int language = 0;
 const char *
@@ -112,24 +150,64 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
     return 1;
 }
 
-// int loaded_fail_count = 0;
-// HOOK (i64, LoadedBankAll, ASLR (0x1404C6990), i64 a1) {
-//     std::cout << "LoadBankAll start" << std::endl;
-//     originalLoadedBankAll (a1);
-//     auto result = lua_toboolean(a1, -1);
-//     std::cout << "LoadedBankAll returns: " << result << std::endl;
-//     std::cout << "LoadedBankAll returns: " << *((int32_t*)result) << std::endl;
-//     lua_settop(a1, 0);
-//     if (result) {
-//         lua_pushboolean (a1, 1);
-//     } else if (loaded_fail_count > 10) {
-//         lua_pushboolean (a1, 1);
-//     } else {
-//         loaded_fail_count += 1;
-//         lua_pushboolean (a1, 0);
-//     }
-//     return 1;
+const char* 
+fixToneName (std::string bankName, std::string toneName) {
+    if ((language == 2 || language == 4) && bankName.starts_with("voice_")) {
+        return (toneName + "_cn").c_str();
+    } else return toneName.c_str();
+}
+
+// HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
+//     char* bankName = (char*)lua_tostring (a1, 1);
+//     char* toneName = (char*)lua_tostring (a1, 2);
+//     double slotNo = lua_tonumber (a1, 3);
+//     std::cout << "bankName: " << bankName << std::endl;
+//     std::cout << "toneName: " << toneName << std::endl;
+//     std::cout << "slotNo: " << slotNo << std::endl;
+//     lua_settop (a1, 0);
+//     lua_pushstring (a1, (u64)bankName);
+//     lua_pushstring (a1, (u64)fixToneName (bankName, toneName));
+//     lua_pushnumber (a1, slotNo);
+//     return originalPlaySound(a1);
 // }
+
+// HOOK (i64, PlaySoundMulti, ASLR (0x1404C6DC0), i64 a1) {
+//     double playerNum = lua_tonumber (a1, 1);
+//     double playerNo = lua_tonumber (a1, 2);
+//     char* bankName = (char*)lua_tostring (a1, 3);
+//     char* toneName = (char*)lua_tostring (a1, 4);
+//     double slotNo = lua_tonumber (a1, 5);
+//     std::cout << "playerNum: " << playerNum << std::endl;
+//     std::cout << "playerNo: " << playerNo << std::endl;
+//     std::cout << "bankName: " << bankName << std::endl;
+//     std::cout << "toneName: " << toneName << std::endl;
+//     std::cout << "slotNo: " << slotNo << std::endl;
+//     lua_settop (a1, 0);
+//     lua_pushnumber (a1, playerNum);
+//     lua_pushnumber (a1, playerNo);
+//     lua_pushstring (a1, (u64)bankName);
+//     lua_pushstring (a1, (u64)fixToneName (bankName, toneName));
+//     lua_pushnumber (a1, slotNo);
+//     return originalPlaySoundMulti(a1);
+// }
+
+int loaded_fail_count = 0;
+HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
+    originalLoadedBankAll (a1);
+    auto result = lua_toboolean(a1, -1);
+    lua_settop(a1, 0);
+    if (result) {
+        loaded_fail_count = 0;
+        lua_pushboolean (a1, 1);
+    } else if (loaded_fail_count > 10) {
+        loaded_fail_count = 0;
+        lua_pushboolean (a1, 1);
+    } else {
+        loaded_fail_count += 1;
+        lua_pushboolean (a1, 0);
+    }
+    return 1;
+}
 
 void
 Init () {
@@ -137,6 +215,7 @@ Init () {
     i32 xRes              = 1920;
     i32 yRes              = 1080;
     bool unlockSongs      = true;
+    bool fixNus3bank      = true;
     bool fixLanguage      = false;
     bool freezeTimer      = false;
     bool chsPatch         = false;
@@ -152,6 +231,7 @@ Init () {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
             auto jpn39  = openConfigSection (patches, "jpn39");
             if (jpn39) {
+                fixNus3bank      = readConfigBool (jpn39, "fix_nus3bank", fixNus3bank);
                 fixLanguage      = readConfigBool (jpn39, "fix_language", fixLanguage);
                 freezeTimer      = readConfigBool (jpn39, "freeze_timer", freezeTimer);
                 chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
@@ -227,7 +307,6 @@ Init () {
     // Freeze Timer
     if (freezeTimer) {
         freezeTimerHook = safetyhook::create_mid (ASLR (0x14019FF51), FreezeTimer);
-
     }
 
     // patch to use chs font/wordlist instead of cht
@@ -243,18 +322,25 @@ Init () {
 
     // Fix language
     if (fixLanguage) {
-        INSTALL_HOOK (GetLanguage);
+        INSTALL_HOOK (GetLanguage);         // Language will use in other place
         INSTALL_HOOK (GetRegionLanguage);
         INSTALL_HOOK (GetCabinetLanguage);
     }
+
+    // if (fixLanguage && chsPatch) {
+    //     INSTALL_HOOK (PlaySound);
+    //     INSTALL_HOOK (PlaySoundMulti);
+    // }
 
     // Mode unlock
     if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
     if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
     if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
 
-    // // Fix normal song play after passing through silent song
-    // INSTALL_HOOK(LoadedBankAll);
+    // Fix normal song play after passing through silent song
+    if (fixNus3bank) {
+        genNus3bankIdHook = safetyhook::create_mid (ASLR (0x1407B97BD), GenNus3bankId);
+    }
 
     // Disable live check
     auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");

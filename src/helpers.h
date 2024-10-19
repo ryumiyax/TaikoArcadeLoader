@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <toml.h>
 #include <windows.h>
+#include <map>
+#include <mutex>
+#include <atomic>
 
 typedef int8_t i8;
 typedef int16_t i16;
