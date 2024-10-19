@@ -1,7 +1,7 @@
 #include "../patches.h"
 #include "helpers.h"
 #include <safetyhook.hpp>
-#include <stdio.h>
+#include <iostream>
 
 namespace patches::JPN39 {
 
@@ -17,12 +17,22 @@ HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4,
 FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
 FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
 FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
+FUNCTION_PTR (i64, lua_pushcclosure, PROC_ADDRESS ("lua51.dll", "lua_pushcclosure"), u64, u64, u64);
+
+FUNCTION_PTR (i64, lua_toboolean, PROC_ADDRESS ("lua51.dll", "lua_toboolean"), u64, u64);
+FUNCTION_PTR (i64, lua_touserdata, PROC_ADDRESS ("lua51.dll", "lua_touserdata"), u64, u64);
 
 i64
 lua_pushtrue (i64 a1) {
     lua_settop (a1, 0);
     lua_pushboolean (a1, 1);
     return 1;
+}
+
+i64 __fastcall
+lua_freeze_timer (i64 a1) {
+    // i64 v2 = lua_touserdata (a1, 4294957292);
+    return lua_pushtrue (a1);
 }
 
 HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) { return lua_pushtrue (a1); }
@@ -65,6 +75,16 @@ ChangeLanguageType (SafetyHookContext &ctx) {
     if (*pFontType == 4) *pFontType = 2;
 }
 
+SafetyHookMid freezeTimerHook{};
+
+void
+FreezeTimer (SafetyHookContext &ctx) {
+    auto a1 = ctx.rdi;
+    int v9 = (int)(ctx.rax + 1);
+    lua_pushcclosure(a1, reinterpret_cast<i64>(&lua_freeze_timer), v9);
+    ctx.rip = ASLR (0x14019FF65);
+}
+
 int language = 0;
 const char *
 languageStr () {
@@ -92,12 +112,33 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
     return 1;
 }
 
+// int loaded_fail_count = 0;
+// HOOK (i64, LoadedBankAll, ASLR (0x1404C6990), i64 a1) {
+//     std::cout << "LoadBankAll start" << std::endl;
+//     originalLoadedBankAll (a1);
+//     auto result = lua_toboolean(a1, -1);
+//     std::cout << "LoadedBankAll returns: " << result << std::endl;
+//     std::cout << "LoadedBankAll returns: " << *((int32_t*)result) << std::endl;
+//     lua_settop(a1, 0);
+//     if (result) {
+//         lua_pushboolean (a1, 1);
+//     } else if (loaded_fail_count > 10) {
+//         lua_pushboolean (a1, 1);
+//     } else {
+//         loaded_fail_count += 1;
+//         lua_pushboolean (a1, 0);
+//     }
+//     return 1;
+// }
+
 void
 Init () {
+    std::cout << "Init JPN39" << std::endl;
     i32 xRes              = 1920;
     i32 yRes              = 1080;
     bool unlockSongs      = true;
     bool fixLanguage      = false;
+    bool freezeTimer      = false;
     bool chsPatch         = false;
     bool modeCollabo025   = false;
     bool modeCollabo026   = false;
@@ -112,6 +153,7 @@ Init () {
             auto jpn39  = openConfigSection (patches, "jpn39");
             if (jpn39) {
                 fixLanguage      = readConfigBool (jpn39, "fix_language", fixLanguage);
+                freezeTimer      = readConfigBool (jpn39, "freeze_timer", freezeTimer);
                 chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
                 modeCollabo025   = readConfigBool (jpn39, "mode_collabo025", modeCollabo025);
                 modeCollabo026   = readConfigBool (jpn39, "mode_collabo026", modeCollabo026);
@@ -182,6 +224,12 @@ Init () {
         ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
     }
 
+    // Freeze Timer
+    if (freezeTimer) {
+        freezeTimerHook = safetyhook::create_mid (ASLR (0x14019FF51), FreezeTimer);
+
+    }
+
     // patch to use chs font/wordlist instead of cht
     if (chsPatch) {
         WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
@@ -200,9 +248,13 @@ Init () {
         INSTALL_HOOK (GetCabinetLanguage);
     }
 
+    // Mode unlock
     if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
     if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
     if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
+
+    // // Fix normal song play after passing through silent song
+    // INSTALL_HOOK(LoadedBankAll);
 
     // Disable live check
     auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
@@ -221,5 +273,7 @@ Init () {
     // Redirect garmc requests
     auto garmcHandle = (u64)GetModuleHandle ("garmc.dll");
     INSTALL_HOOK_DYNAMIC (curl_easy_setopt, (void *)(garmcHandle + 0x1FBBB0));
+
+    std::cout << "Finished Init JPN39" << std::endl;
 }
 } // namespace patches::JPN39
