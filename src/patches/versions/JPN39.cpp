@@ -15,13 +15,15 @@ HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4,
 }
 
 FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
+FUNCTION_PTR (i64, lua_gettop, PROC_ADDRESS ("lua51.dll", "lua_gettop"), u64);
+FUNCTION_PTR (i64, lua_replace, PROC_ADDRESS ("lua51.dll", "lua_replace"), u64, u64);
 FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
 FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
 FUNCTION_PTR (i64, lua_pushcclosure, PROC_ADDRESS ("lua51.dll", "lua_pushcclosure"), u64, u64, u64);
 FUNCTION_PTR (i64, lua_pushnumber, PROC_ADDRESS ("lua51.dll", "lua_pushnumber"), u64, u64);
 
 FUNCTION_PTR (i64, lua_toboolean, PROC_ADDRESS ("lua51.dll", "lua_toboolean"), u64, u64);
-FUNCTION_PTR (i64, lua_tostring, PROC_ADDRESS ("lua51.dll", "lua_tostring"), u64, u64);
+FUNCTION_PTR (i64, lua_tolstring, PROC_ADDRESS ("lua51.dll", "lua_tolstring"), u64, u64, u64);
 FUNCTION_PTR (double, lua_tonumber, PROC_ADDRESS ("lua51.dll", "lua_tonumber"), u64, u64);
 
 i64
@@ -65,16 +67,7 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
 
 // -------------- MidHook Area --------------
 
-SafetyHookMid changeLanguageTypeHook{};
-SafetyHookMid freezeTimerHook{};
-SafetyHookMid genNus3bankIdHook{};
-
-std::map<std::string, int> nus3bankMap;
-int nus3bankIdCounter = 0;
-std::mutex nus3bankMtx;
-
-void
-ChangeLanguageType (SafetyHookContext &ctx) {
+HOOK_MID (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
     int *pFontType = (int *)ctx.rax;
     if (*pFontType == 4) *pFontType = 2;
 }
@@ -84,17 +77,21 @@ lua_freeze_timer (i64 a1) {
     return lua_pushtrue (a1);
 }
 
-void
-FreezeTimer (SafetyHookContext &ctx) {
+HOOK_MID (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
     auto a1 = ctx.rdi;
     int v9 = (int)(ctx.rax + 1);
     lua_pushcclosure(a1, reinterpret_cast<i64>(&lua_freeze_timer), v9);
     ctx.rip = ASLR (0x14019FF65);
 }
 
+std::map<std::string, int> nus3bankMap;
+int nus3bankIdCounter = 0;
+std::map<std::string, bool> voiceCnExist;
+bool enableSwitchVoice = false;
+std::mutex nus3bankMtx;
+
 int
 get_bank_id(std::string bankName) {
-    std::lock_guard<std::mutex> lock(nus3bankMtx);
     if (nus3bankMap.find(bankName) == nus3bankMap.end()) {
         nus3bankMap[bankName] = nus3bankIdCounter;
         nus3bankIdCounter++;
@@ -103,8 +100,49 @@ get_bank_id(std::string bankName) {
 }
 
 void
-GenNus3bankId (SafetyHookContext &ctx) {
-    int originalBankId = ctx.rax;
+check_voice_tail(std::string bankName, uint8_t* pBinfBlock, std::map<std::string, bool> &voiceExist, std::string tail) {
+    // check if any voice_xxx.nus3bank has xxx_cn audio inside while loading
+    if (enableSwitchVoice && bankName.starts_with("voice_")) {
+        int binfLength = *((int*)(pBinfBlock + 4));
+        uint8_t* pGrpBlock = pBinfBlock + 8 + binfLength;
+        int grpLength = *((int*)(pGrpBlock + 4));
+        uint8_t* pDtonBlock = pGrpBlock + 8 + grpLength;
+        int dtonLength = *((int*)(pDtonBlock + 4));
+        uint8_t* pToneBlock = pDtonBlock + 8 + dtonLength;
+        int toneSize = *((int*)(pToneBlock + 8));
+        uint8_t* pToneBase = pToneBlock + 12;
+        for (int i = 0; i < toneSize; i++) {
+            if (*((int*)(pToneBase + i * 8 + 4)) <= 0x0C) continue;     // skip empty space
+            uint8_t* currToneBase = pToneBase + *((int*)(pToneBase + i * 8));
+            int titleOffset = -1;
+            switch (*currToneBase) {
+                case 0xFF: titleOffset = 9; break;      // audio mark
+                case 0x7F: titleOffset = 5; break;      // randomizer mark
+                default: continue;                      // unknown mark skip
+            }
+            if (titleOffset > 0) {
+                std::string title((char*)(currToneBase + titleOffset));
+                if (title.ends_with(tail)) {
+                    if (voiceExist.find(bankName) == voiceExist.end() || !voiceExist[bankName]) {
+                        std::cout << "[MultiLang Patch] found " << tail << " voices from " << bankName << ".nus3bank!" << std::endl;
+                        voiceExist[bankName] = true;
+                    }
+                    return;
+                }
+            }
+        }
+        if (voiceExist.find(bankName) == voiceExist.end()) {
+            voiceExist[bankName] = false;
+        } else if (voiceExist[bankName]) {
+            std::cout << "[MultiLang Patch] " << tail << " voices was removed, maybe you changed " << bankName << ".nus3bank file?" << std::endl;
+            voiceExist[bankName] = false;
+        }
+    }
+}
+
+HOOK_MID (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
+    std::lock_guard<std::mutex> lock(nus3bankMtx);
+    // int originalBankId = ctx.rax;
     if ((uint8_t**)(ctx.rcx + 8) != nullptr) {
         uint8_t* pNus3bankFile = *((uint8_t **)(ctx.rcx + 8));
         if (pNus3bankFile[0] == 'N' && pNus3bankFile[1] == 'U' && pNus3bankFile[2] == 'S' && pNus3bankFile[3] == '3') {
@@ -113,13 +151,15 @@ GenNus3bankId (SafetyHookContext &ctx) {
             int propLength = *((int*)(pPropBlock + 4));
             uint8_t* pBinfBlock = pPropBlock + 8 + propLength;
             std::string bankName((char*)(pBinfBlock + 0x11));
+            check_voice_tail(bankName, pBinfBlock, voiceCnExist, "_cn");
             ctx.rax = get_bank_id(bankName);
-            std::cout << "GenNus3bankId bankName: " << bankName << " changeId: " << originalBankId << " --> " << ctx.rax << std::endl;
+            // std::cout << "FixNus3bankId bankName: " << bankName << " fixId: " << originalBankId << " --> " << ctx.rax << std::endl;
         }
     } else {
-        std::cout << "GenNus3bankId load unexpected Id: " << ctx.rax << std::endl;
+        // std::cout << "FixNus3bankId load unexpected Id: " << ctx.rax << std::endl;
     }
 }
+
 
 // -------------- MidHook Area End --------------
 
@@ -150,46 +190,82 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
     return 1;
 }
 
-const char* 
+std::string 
 fixToneName (std::string bankName, std::string toneName) {
-    if ((language == 2 || language == 4) && bankName.starts_with("voice_")) {
-        return (toneName + "_cn").c_str();
-    } else return toneName.c_str();
+    if (enableSwitchVoice && bankName.starts_with("voice_")) {
+        if (language == 2 || language == 4) {
+            bool existCnVoice = voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName];
+            if (existCnVoice) {
+                return toneName + "_cn";
+            }
+        }   // if there is more language of voice, we could add them here
+    }
+    return toneName;
 }
 
-// HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
-//     char* bankName = (char*)lua_tostring (a1, 1);
-//     char* toneName = (char*)lua_tostring (a1, 2);
-//     double slotNo = lua_tonumber (a1, 3);
-//     std::cout << "bankName: " << bankName << std::endl;
-//     std::cout << "toneName: " << toneName << std::endl;
-//     std::cout << "slotNo: " << slotNo << std::endl;
-//     lua_settop (a1, 0);
-//     lua_pushstring (a1, (u64)bankName);
-//     lua_pushstring (a1, (u64)fixToneName (bankName, toneName));
-//     lua_pushnumber (a1, slotNo);
-//     return originalPlaySound(a1);
-// }
+HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
+    if (enableSwitchVoice) {
+        // int n_param = lua_gettop(a1);
+        // std::cout << "PlaySound param num: " << n_param << std::endl;
+        int size_bankName = 0;
+        const char* bankName = (char*)lua_tolstring (a1, -3, (u64)&size_bankName);
+        // std::cout << "PlaySound bankName: " << bankName << std::endl;
+        int size_toneName = 0;
+        const char* toneName = (char*)lua_tolstring (a1, -2, (u64)&size_toneName);
+        // std::cout << "PlaySound toneName: " << toneName << std::endl;
+        // int slotNoDouble = lua_tonumber (a1, -1);
+        // int slotNo = round(slotNoDouble);
+        // std::cout << "PlaySound slotNo: " << slotNo << std::endl;
+        lua_pushstring (a1, (u64)(fixToneName (bankName, toneName).c_str()));
+        lua_replace(a1, -3);
+    }
+    return originalPlaySound(a1);
+}
 
-// HOOK (i64, PlaySoundMulti, ASLR (0x1404C6DC0), i64 a1) {
-//     double playerNum = lua_tonumber (a1, 1);
-//     double playerNo = lua_tonumber (a1, 2);
-//     char* bankName = (char*)lua_tostring (a1, 3);
-//     char* toneName = (char*)lua_tostring (a1, 4);
-//     double slotNo = lua_tonumber (a1, 5);
-//     std::cout << "playerNum: " << playerNum << std::endl;
-//     std::cout << "playerNo: " << playerNo << std::endl;
-//     std::cout << "bankName: " << bankName << std::endl;
-//     std::cout << "toneName: " << toneName << std::endl;
-//     std::cout << "slotNo: " << slotNo << std::endl;
-//     lua_settop (a1, 0);
-//     lua_pushnumber (a1, playerNum);
-//     lua_pushnumber (a1, playerNo);
-//     lua_pushstring (a1, (u64)bankName);
-//     lua_pushstring (a1, (u64)fixToneName (bankName, toneName));
-//     lua_pushnumber (a1, slotNo);
-//     return originalPlaySoundMulti(a1);
-// }
+HOOK (i64, PlaySoundMulti, ASLR (0x1404C6DC0), i64 a1) {
+    if (enableSwitchVoice) {
+        // double playerNumDouble = lua_tonumber (a1, -5);
+        // int playerNum = round(playerNumDouble);
+        // std::cout << "PlaySound playerNum: " << playerNum << std::endl;
+        // double playerNoDouble = lua_tonumber (a1, -4);
+        // int playerNo = round(playerNoDouble);
+        // std::cout << "PlaySound playerNo: " << playerNo << std::endl;
+        int size_bankName = 0;
+        const char* bankName = (char*)lua_tolstring (a1, -3, (u64)&size_bankName);
+        // std::cout << "PlaySound bankName: " << bankName << std::endl;
+        int size_toneName = 0;
+        const char* toneName = (char*)lua_tolstring (a1, -2, (u64)&size_toneName);
+        // std::cout << "PlaySound toneName: " << toneName << std::endl;
+        // double slotNoDouble = lua_tonumber (a1, -1);
+        // int slotNo = round(slotNoDouble);
+        // std::cout << "PlaySound slotNo: " << slotNo << std::endl;
+        lua_pushstring (a1, (u64)(fixToneName (bankName, toneName).c_str()));
+        lua_replace (a1, -3);
+    }
+    return originalPlaySoundMulti(a1);
+}
+
+FUNCTION_PTR (u64*, __fastcall base_string_append, ASLR (0x140027DA0), u64*, void*, size_t);
+HOOK_MID (PlaySoundInGame, ASLR (0x1404ED5F9), SafetyHookContext &ctx) {
+    char* originalPlaySound = *((char**)ctx.rax);
+    std::string playSound(originalPlaySound);
+    if (enableSwitchVoice && playSound.starts_with("voice_")) {
+        size_t slashIndex = playSound.find("/");
+        if (slashIndex != std::string::npos) {
+            std::string bankName = playSound.substr(0, slashIndex);
+            std::string toneName = playSound.substr(slashIndex + 1, playSound.size());
+            std::string finalDesc = bankName + "/" + fixToneName(bankName, toneName.c_str());
+            if (playSound != finalDesc) {
+                std::cout << "PlaySoundInGame fix: " << playSound << " --> " << finalDesc << std::endl;
+                ctx.rax = (uintptr_t)((void*)&finalDesc);
+
+                // std::string tail("_cn");
+                // base_string_append((u64*)ctx.rax, *((void**)&tail), tail.size());
+                // std::cout << "PlaySoundInGame after: " << *((char**)ctx.rax);
+            }
+        }
+    }
+}
 
 int loaded_fail_count = 0;
 HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
@@ -199,7 +275,7 @@ HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
     if (result) {
         loaded_fail_count = 0;
         lua_pushboolean (a1, 1);
-    } else if (loaded_fail_count > 10) {
+    } else if (loaded_fail_count > 100) {
         loaded_fail_count = 0;
         lua_pushboolean (a1, 1);
     } else {
@@ -215,13 +291,14 @@ Init () {
     i32 xRes              = 1920;
     i32 yRes              = 1080;
     bool unlockSongs      = true;
-    bool fixNus3bank      = true;
     bool fixLanguage      = false;
     bool freezeTimer      = false;
     bool chsPatch         = false;
     bool modeCollabo025   = false;
     bool modeCollabo026   = false;
     bool modeAprilFool001 = false;
+
+    bool useLayeredfs     = false;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -231,7 +308,6 @@ Init () {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
             auto jpn39  = openConfigSection (patches, "jpn39");
             if (jpn39) {
-                fixNus3bank      = readConfigBool (jpn39, "fix_nus3bank", fixNus3bank);
                 fixLanguage      = readConfigBool (jpn39, "fix_language", fixLanguage);
                 freezeTimer      = readConfigBool (jpn39, "freeze_timer", freezeTimer);
                 chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
@@ -248,6 +324,11 @@ Init () {
                 xRes = readConfigInt (res, "x", xRes);
                 yRes = readConfigInt (res, "y", yRes);
             }
+        }
+
+        auto layeredfs = openConfigSection (config_ptr.get (), "layeredfs");
+        if (layeredfs) {
+            useLayeredfs = readConfigBool (layeredfs, "enabled", useLayeredfs);
         }
     }
 
@@ -306,18 +387,27 @@ Init () {
 
     // Freeze Timer
     if (freezeTimer) {
-        freezeTimerHook = safetyhook::create_mid (ASLR (0x14019FF51), FreezeTimer);
+        INSTALL_HOOK_MID (FreezeTimer);
     }
 
     // patch to use chs font/wordlist instead of cht
     if (chsPatch) {
-        WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
-        WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
-        WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
-        WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
-        WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
+        bool fontExistAll = true;
+        const char* fontToCheck[] {"cn_30.nutexb", "cn_30.xml", "cn_32.nutexb", "cn_32.xml", "cn_64.nutexb", "cn_64.xml"};
+        for (int i = 0; i < 6; i++) {
+            if (useLayeredfs && std::filesystem::exists(std::string("..\\..\\Data_mods\\x64\\font\\") + fontToCheck[i])) continue;
+            if (std::filesystem::exists(std::string("..\\..\\Data\\x64\\font\\") + fontToCheck[i])) continue;
+            fontExistAll = false;
+        }
 
-        changeLanguageTypeHook = safetyhook::create_mid (ASLR (0x1400B2016), ChangeLanguageType);
+        if (fontExistAll) {
+            WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
+            WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
+            WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
+            WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
+            WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
+            INSTALL_HOOK_MID (ChangeLanguageType);
+        }
     }
 
     // Fix language
@@ -327,10 +417,14 @@ Init () {
         INSTALL_HOOK (GetCabinetLanguage);
     }
 
-    // if (fixLanguage && chsPatch) {
-    //     INSTALL_HOOK (PlaySound);
-    //     INSTALL_HOOK (PlaySoundMulti);
-    // }
+    // if both chsPatch & fixLanguage enabled, try use cn voice from nus3bank
+    // don't worry, we will check if cn voice existed
+    if (chsPatch && fixLanguage) {
+        enableSwitchVoice = true;
+        INSTALL_HOOK (PlaySound);
+        INSTALL_HOOK (PlaySoundMulti);
+        INSTALL_HOOK_MID (PlaySoundInGame);
+    }
 
     // Mode unlock
     if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
@@ -338,9 +432,8 @@ Init () {
     if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
 
     // Fix normal song play after passing through silent song
-    if (fixNus3bank) {
-        genNus3bankIdHook = safetyhook::create_mid (ASLR (0x1407B97BD), GenNus3bankId);
-    }
+    INSTALL_HOOK_MID (GenNus3bankId);
+    INSTALL_HOOK (LoadedBankAll);
 
     // Disable live check
     auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
