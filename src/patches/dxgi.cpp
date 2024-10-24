@@ -15,6 +15,7 @@
 #include "d3d12.h"
 #pragma comment(lib, "d3d12.lib")
 
+#include "bnusio.h"
 #include "patches.h"
 #include <intrin.h>
 
@@ -125,6 +126,8 @@ PresentWrap (IDXGISwapChain *pSwapChain, UINT SyncInterval, UINT Flags) {
     if (DisableVSync) SyncInterval = 0;
 
     if (FpsLimiterEnable) patches::FpsLimiter::Update ();
+
+    bnusio::Update ();
 
     return g_oldPresentWrap (pSwapChain, SyncInterval, Flags);
 }

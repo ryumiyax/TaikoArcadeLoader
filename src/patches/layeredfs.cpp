@@ -7,7 +7,7 @@ extern std::string fumenKey;
 
 #define CRCPOLY 0x82F63B78
 
-namespace patches::LayeredFS {
+namespace patches::LayeredFs {
 
 uint32_t
 CRC32C (uint32_t crc, const unsigned char *buf, size_t len) {
@@ -274,4 +274,4 @@ Init () {
     // INSTALL_HOOK (CreateFileWHook);
 }
 
-}
+} // namespace patches::LayeredFs

@@ -28,7 +28,7 @@ void Update ();
 namespace AmAuth {
 void Init ();
 } // namespace AmAuth
-namespace LayeredFS {
+namespace LayeredFs {
 void Init ();
-} // namespace LayeredFS
+} // namespace LayeredFs
 } // namespace patches

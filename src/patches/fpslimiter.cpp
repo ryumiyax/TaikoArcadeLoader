@@ -62,4 +62,4 @@ Update () {
     PerformanceCount1.QuadPart = PerformanceCount2.QuadPart >> i;
 }
 
-}
+} // namespace patches::FpsLimiter

@@ -209,13 +209,13 @@ Init () {
     INSTALL_HOOK_DYNAMIC (AMFWTerminate, (void *)(amHandle + 0x25A00));
 
     // Move various files to current directory
-    WRITE_MEMORY (amHandle + 0xC652, u8, 0xEB);                          // CreditLogPathA
-    WRITE_MEMORY (amHandle + 0xC819, u8, 0xEB);                          // CreditLogPathB
-    WRITE_MEMORY (amHandle + 0x243BA, u8, 0xEB);                         // ErrorLogPathA
-    WRITE_MEMORY (amHandle + 0x24539, u8, 0xEB);                         // ErrorLogPathB
-    WRITE_MEMORY (amHandle + 0x24901, u8, 0xEB);                         // CommonLogPathA
-    WRITE_MEMORY (amHandle + 0x24A85, u8, 0xEB);                         // CommonLogPathB
-    WRITE_MEMORY (amHandle + 0x24DD1, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathA
-    WRITE_MEMORY (amHandle + 0x24E47, u8, 0x90, 0x90, 0x90, 0x90, 0x90); // BackupDataPathB
+    WRITE_MEMORY (amHandle + 0xC652, u8, 0xEB);  // CreditLogPathA
+    WRITE_MEMORY (amHandle + 0xC819, u8, 0xEB);  // CreditLogPathB
+    WRITE_MEMORY (amHandle + 0x243BA, u8, 0xEB); // ErrorLogPathA
+    WRITE_MEMORY (amHandle + 0x24539, u8, 0xEB); // ErrorLogPathB
+    WRITE_MEMORY (amHandle + 0x24901, u8, 0xEB); // CommonLogPathA
+    WRITE_MEMORY (amHandle + 0x24A85, u8, 0xEB); // CommonLogPathB
+    WRITE_NOP (amHandle + 0x24DD1, 0x05);        // BackupDataPathA
+    WRITE_NOP (amHandle + 0x24E47, 0x05);        // BackupDataPathB
 }
 } // namespace patches::CHN00

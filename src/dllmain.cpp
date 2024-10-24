@@ -22,12 +22,12 @@ char accessCode2[21]     = "00000000000000000002";
 char chipId1[33]         = "00000000000000000000000000000001";
 char chipId2[33]         = "00000000000000000000000000000002";
 bool windowed            = false;
-bool autoIME             = false;
+bool autoIme             = false;
 bool jpLayout            = false;
-bool useLayeredFS        = false;
-bool emulateUSIO         = true;
+bool useLayeredFs        = false;
+bool emulateUsio         = true;
 bool emulateCardReader   = true;
-bool emulateQR           = true;
+bool emulateQr           = true;
 std::string datatableKey = "0000000000000000000000000000000000000000000000000000000000000000";
 std::string fumenKey     = "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -57,6 +57,11 @@ HOOK (bool, SetWindowPosition, PROC_ADDRESS ("user32.dll", "SetWindowPos"), HWND
         cy = (rw.bottom - rw.top) - (rc.bottom - rc.top) + cy;
     }
     return originalSetWindowPosition (hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+}
+
+HOOK (void, ExitProcessHook, PROC_ADDRESS ("kernel32.dll", "ExitProcess"), u32 uExitCode) {
+    bnusio::Close ();
+    originalExitProcessHook (uExitCode);
 }
 
 HOOK (i32, XinputGetState, PROC_ADDRESS ("xinput9_1_0.dll", "XInputGetState")) { return ERROR_DEVICE_NOT_CONNECTED; }
@@ -115,7 +120,7 @@ GetGameVersion () {
 }
 
 void
-createCard () {
+CreateCard () {
     const char hexCharacterTable[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
     char buf[64]                   = {0};
     srand (time (nullptr));
@@ -163,22 +168,22 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
             if (patches) version = readConfigString (patches, "version", version);
             auto emulation = openConfigSection (config, "emulation");
             if (emulation) {
-                emulateUSIO       = readConfigBool (emulation, "usio", emulateUSIO);
+                emulateUsio       = readConfigBool (emulation, "usio", emulateUsio);
                 emulateCardReader = readConfigBool (emulation, "card_reader", emulateCardReader);
-                emulateQR         = readConfigBool (emulation, "qr", emulateQR);
+                emulateQr         = readConfigBool (emulation, "qr", emulateQr);
             }
             auto graphics = openConfigSection (config, "graphics");
             if (graphics) windowed = readConfigBool (graphics, "windowed", windowed);
             auto keyboard = openConfigSection (config, "keyboard");
             if (keyboard) {
-                autoIME  = readConfigBool (keyboard, "auto_ime", autoIME);
+                autoIme  = readConfigBool (keyboard, "auto_ime", autoIme);
                 jpLayout = readConfigBool (keyboard, "jp_layout", jpLayout);
             }
-            auto layeredFS = openConfigSection (config, "layeredfs");
-            if (layeredFS) {
-                useLayeredFS = readConfigBool (layeredFS, "enabled", useLayeredFS);
-                datatableKey = readConfigString (layeredFS, "datatable_key", datatableKey);
-                fumenKey     = readConfigString (layeredFS, "fumen_key", fumenKey);
+            auto layeredFs = openConfigSection (config, "layeredfs");
+            if (layeredFs) {
+                useLayeredFs = readConfigBool (layeredFs, "enabled", useLayeredFs);
+                datatableKey = readConfigString (layeredFs, "datatable_key", datatableKey);
+                fumenKey     = readConfigString (layeredFs, "fumen_key", fumenKey);
             }
         }
 
@@ -215,7 +220,7 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
             }
         }
 
-        if (!std::filesystem::exists (".\\card.ini")) createCard ();
+        if (!std::filesystem::exists (".\\card.ini")) CreateCard ();
         GetPrivateProfileStringA ("card", "accessCode1", accessCode1, accessCode1, 21, ".\\card.ini");
         GetPrivateProfileStringA ("card", "chipId1", chipId1, chipId1, 33, ".\\card.ini");
         GetPrivateProfileStringA ("card", "accessCode2", accessCode2, accessCode2, 21, ".\\card.ini");
@@ -225,6 +230,8 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
         INSTALL_HOOK (ExitWindows);
         INSTALL_HOOK (CreateWindow);
         INSTALL_HOOK (SetWindowPosition);
+
+        INSTALL_HOOK (ExitProcessHook);
 
         INSTALL_HOOK (XinputGetState);
         INSTALL_HOOK (XinputSetState);
@@ -252,7 +259,7 @@ DllMain (HMODULE module, DWORD reason, LPVOID reserved) {
         patches::Audio::Init ();
         patches::Dxgi::Init ();
         patches::AmAuth::Init ();
-        if (useLayeredFS) patches::LayeredFS::Init ();
+        if (useLayeredFs) patches::LayeredFs::Init ();
     }
     return true;
 }
