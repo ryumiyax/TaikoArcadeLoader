@@ -220,14 +220,15 @@ FUNCTION_PTR (u64*, __fastcall base_string_append, ASLR (0x140027DA0), u64*, voi
 HOOK_MID (PlaySoundInGame, ASLR (0x1404ED5F9), SafetyHookContext &ctx) {
     char* originalPlaySound = *((char**)ctx.rax);
     std::string playSound(originalPlaySound);
-    if (enableSwitchVoice && language != 0 && playSound.starts_with("voice_")) {
+    if (enableSwitchVoice && language != 0 && playSound[0] == 'v') {
         size_t slashIndex = playSound.find("/");
         if (slashIndex != std::string::npos) {
             std::string bankName = playSound.substr(0, slashIndex);
-            std::string toneName = playSound.substr(slashIndex + 1, playSound.size());
-            std::string finalDesc = bankName + "/" + fixToneName(bankName, toneName.c_str());
-            if (playSound != finalDesc) {
-                ctx.rax = (uintptr_t)((void*)&finalDesc);
+            if (language == 2 || language == 4) {
+                if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+                    std::string finalPlaySound = playSound + "_cn";
+                    ctx.rax = (uintptr_t)((void*)&finalPlaySound);
+                }
             }
         }
     }
