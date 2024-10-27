@@ -216,8 +216,24 @@ HOOK (i64, PlaySoundMulti, ASLR (0x1404C6DC0), i64 a1) {
     return originalPlaySoundMulti(a1);
 }
 
-FUNCTION_PTR (u64*, __fastcall base_string_append, ASLR (0x140027DA0), u64*, void*, size_t);
-HOOK_MID (PlaySoundInGame, ASLR (0x1404ED5F9), SafetyHookContext &ctx) {
+HOOK_MID (PlaySoundInEnso, ASLR (0x1404ED5F9), SafetyHookContext &ctx) {
+    char* originalPlaySound = *((char**)ctx.rax);
+    std::string playSound(originalPlaySound);
+    if (enableSwitchVoice && language != 0 && playSound[0] == 'v') {
+        size_t slashIndex = playSound.find("/");
+        if (slashIndex != std::string::npos) {
+            std::string bankName = playSound.substr(0, slashIndex);
+            if (language == 2 || language == 4) {
+                if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+                    std::string finalPlaySound = playSound + "_cn";
+                    ctx.rax = (uintptr_t)((void*)&finalPlaySound);
+                }
+            }
+        }
+    }
+}
+
+HOOK_MID (PlaySoundInAiEnso, ASLR (0x1404ED296), SafetyHookContext &ctx) {
     char* originalPlaySound = *((char**)ctx.rax);
     std::string playSound(originalPlaySound);
     if (enableSwitchVoice && language != 0 && playSound[0] == 'v') {
@@ -254,7 +270,6 @@ HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
 
 void
 Init () {
-    std::cout << "Init JPN39" << std::endl;
     i32 xRes              = 1920;
     i32 yRes              = 1080;
     bool unlockSongs      = true;
@@ -390,7 +405,8 @@ Init () {
         enableSwitchVoice = true;
         INSTALL_HOOK (PlaySound);
         INSTALL_HOOK (PlaySoundMulti);
-        INSTALL_HOOK_MID (PlaySoundInGame);
+        INSTALL_HOOK_MID (PlaySoundInEnso);
+        INSTALL_HOOK_MID (PlaySoundInAiEnso);
     }
 
     // Mode unlock
@@ -419,7 +435,5 @@ Init () {
     // Redirect garmc requests
     auto garmcHandle = (u64)GetModuleHandle ("garmc.dll");
     INSTALL_HOOK_DYNAMIC (curl_easy_setopt, (void *)(garmcHandle + 0x1FBBB0));
-
-    std::cout << "Finished Init JPN39" << std::endl;
 }
 } // namespace patches::JPN39
