@@ -84,6 +84,7 @@ HOOK_MID (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
 std::map<std::string, int> nus3bankMap;
 int nus3bankIdCounter = 0;
 std::map<std::string, bool> voiceCnExist;
+// std::map<std::string, std::string> voiceCnInGameCache;
 bool enableSwitchVoice = false;
 std::mutex nus3bankMtx;
 
@@ -146,7 +147,7 @@ HOOK_MID (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
             check_voice_tail(bankName, pBinfBlock, voiceCnExist, "_cn");
             ctx.rax = get_bank_id(bankName);
         }
-    }
+    } 
 }
 
 
@@ -216,35 +217,33 @@ HOOK (i64, PlaySoundMulti, ASLR (0x1404C6DC0), i64 a1) {
     return originalPlaySoundMulti(a1);
 }
 
-HOOK_MID (PlaySoundInEnso, ASLR (0x1404ED5F9), SafetyHookContext &ctx) {
+HOOK_MID (PlaySoundEnso, ASLR (0x1404ED5F9), SafetyHookContext &ctx) {
     char* originalPlaySound = *((char**)ctx.rax);
     std::string playSound(originalPlaySound);
-    if (enableSwitchVoice && language != 0 && playSound[0] == 'v') {
+    if (enableSwitchVoice && playSound[0] == 'v') {
         size_t slashIndex = playSound.find("/");
         if (slashIndex != std::string::npos) {
             std::string bankName = playSound.substr(0, slashIndex);
-            if (language == 2 || language == 4) {
-                if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
-                    std::string finalPlaySound = playSound + "_cn";
-                    ctx.rax = (uintptr_t)((void*)&finalPlaySound);
-                }
+            if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+                std::string *finalPlaySound = new std::string(playSound + "_cn");
+                std::cout << "PlaySoundEnso fixed: " << *finalPlaySound << std::endl;
+                ctx.rax = (uintptr_t)finalPlaySound;
             }
         }
     }
 }
 
-HOOK_MID (PlaySoundInAiEnso, ASLR (0x1404ED296), SafetyHookContext &ctx) {
+HOOK_MID (PlaySoundSpecial, ASLR (0x1404ED296), SafetyHookContext &ctx) {
     char* originalPlaySound = *((char**)ctx.rax);
     std::string playSound(originalPlaySound);
-    if (enableSwitchVoice && language != 0 && playSound[0] == 'v') {
+    if (enableSwitchVoice && playSound[0] == 'v') {
         size_t slashIndex = playSound.find("/");
         if (slashIndex != std::string::npos) {
             std::string bankName = playSound.substr(0, slashIndex);
-            if (language == 2 || language == 4) {
-                if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
-                    std::string finalPlaySound = playSound + "_cn";
-                    ctx.rax = (uintptr_t)((void*)&finalPlaySound);
-                }
+            if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+                std::string *finalPlaySound = new std::string(playSound + "_cn");
+                std::cout << "PlaySoundSpecial fixed: " << *finalPlaySound << std::endl;
+                ctx.rax = (uintptr_t)finalPlaySound;
             }
         }
     }
@@ -405,8 +404,8 @@ Init () {
         enableSwitchVoice = true;
         INSTALL_HOOK (PlaySound);
         INSTALL_HOOK (PlaySoundMulti);
-        INSTALL_HOOK_MID (PlaySoundInEnso);
-        INSTALL_HOOK_MID (PlaySoundInAiEnso);
+        INSTALL_HOOK_MID (PlaySoundEnso);
+        INSTALL_HOOK_MID (PlaySoundSpecial);
     }
 
     // Mode unlock
