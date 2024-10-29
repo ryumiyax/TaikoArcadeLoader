@@ -205,7 +205,7 @@ HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
     return originalPlaySound(a1);
 }
 
-HOOK (i64, PlaySoundMulti, ASLR (0x1404C6DC0), i64 a1) {
+HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
     if (enableSwitchVoice && language != 0) {
         int size_bankName = 0;
         const char* bankName = (char*)lua_tolstring (a1, -3, (u64)&size_bankName);
