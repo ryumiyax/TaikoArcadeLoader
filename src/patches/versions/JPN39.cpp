@@ -209,7 +209,7 @@ HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
             lua_replace(a1, -3);
         }
     }
-    return originalPlaySound(a1);
+    return originalPlaySoundMulti(a1);
 }
 
 FUNCTION_PTR (u64*, append_chars_to_basic_string, ASLR (0x140028DA0), u64*, char*, size_t);
