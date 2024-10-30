@@ -84,7 +84,6 @@ HOOK_MID (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
 std::map<std::string, int> nus3bankMap;
 int nus3bankIdCounter = 0;
 std::map<std::string, bool> voiceCnExist;
-// std::map<std::string, std::string> voiceCnInGameCache;
 bool enableSwitchVoice = false;
 std::mutex nus3bankMtx;
 
@@ -181,72 +180,64 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
 }
 
 std::string 
-fixToneName (std::string bankName, std::string toneName) {
-    if (enableSwitchVoice && bankName.starts_with("voice_")) {
-        if (language == 2 || language == 4) {
-            bool existCnVoice = voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName];
-            if (existCnVoice) {
-                return toneName + "_cn";
-            }
+FixToneName (std::string bankName, std::string toneName) {
+    if (language == 2 || language == 4) {
+        if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+            return toneName + "_cn";
         }
     }
     return toneName;
 }
 
+int commonSize = 0;
 HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
     if (enableSwitchVoice && language != 0) {
-        int size_bankName = 0;
-        const char* bankName = (char*)lua_tolstring (a1, -3, (u64)&size_bankName);
-        int size_toneName = 0;
-        const char* toneName = (char*)lua_tolstring (a1, -2, (u64)&size_toneName);
-        lua_pushstring (a1, (u64)(fixToneName (bankName, toneName).c_str()));
-        lua_replace(a1, -3);
+        std::string bankName((char*)lua_tolstring (a1, -3, (u64)&commonSize));
+        if (bankName[0] == 'v') {
+            lua_pushstring(a1, (u64)(FixToneName(bankName, (char*)lua_tolstring (a1, -2, (u64)&commonSize)).c_str()));
+            lua_replace(a1, -3);
+        }
     }
     return originalPlaySound(a1);
 }
 
 HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
     if (enableSwitchVoice && language != 0) {
-        int size_bankName = 0;
-        const char* bankName = (char*)lua_tolstring (a1, -3, (u64)&size_bankName);
-        int size_toneName = 0;
-        const char* toneName = (char*)lua_tolstring (a1, -2, (u64)&size_toneName);
-        lua_pushstring (a1, (u64)(fixToneName (bankName, toneName).c_str()));
-        lua_replace (a1, -3);
-    }
-    return originalPlaySoundMulti(a1);
-}
-
-HOOK_MID (PlaySoundEnso, ASLR (0x1404ED5F9), SafetyHookContext &ctx) {
-    char* originalPlaySound = *((char**)ctx.rax);
-    std::string playSound(originalPlaySound);
-    if (enableSwitchVoice && playSound[0] == 'v') {
-        size_t slashIndex = playSound.find("/");
-        if (slashIndex != std::string::npos) {
-            std::string bankName = playSound.substr(0, slashIndex);
-            if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
-                std::string *finalPlaySound = new std::string(playSound + "_cn");
-                std::cout << "PlaySoundEnso fixed: " << *finalPlaySound << std::endl;
-                ctx.rax = (uintptr_t)finalPlaySound;
-            }
+        std::string bankName((char*)lua_tolstring (a1, -3, (u64)&commonSize));
+        if (bankName[0] == 'v') {
+            lua_pushstring(a1, (u64)(FixToneName(bankName, (char*)lua_tolstring (a1, -2, (u64)&commonSize)).c_str()));
+            lua_replace(a1, -3);
         }
     }
+    return originalPlaySound(a1);
 }
 
-HOOK_MID (PlaySoundSpecial, ASLR (0x1404ED296), SafetyHookContext &ctx) {
-    char* originalPlaySound = *((char**)ctx.rax);
-    std::string playSound(originalPlaySound);
-    if (enableSwitchVoice && playSound[0] == 'v') {
-        size_t slashIndex = playSound.find("/");
-        if (slashIndex != std::string::npos) {
-            std::string bankName = playSound.substr(0, slashIndex);
-            if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
-                std::string *finalPlaySound = new std::string(playSound + "_cn");
-                std::cout << "PlaySoundSpecial fixed: " << *finalPlaySound << std::endl;
-                ctx.rax = (uintptr_t)finalPlaySound;
-            }
+FUNCTION_PTR (u64*, append_chars_to_basic_string, ASLR (0x140028DA0), u64*, char*, size_t);
+
+u64* 
+FixToneNameEnso(u64* Src, std::string &bankName) {
+    if (language == 2 || language == 4) {
+        if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+            Src = append_chars_to_basic_string (Src, (const char*)"_cn", 3);
         }
     }
+    return Src;
+}
+
+HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64* a1, u64* a2, i64 a3) {
+    if (enableSwitchVoice && language != 0) {
+        std::string bankName = a1[3] > 0x10 ? std::string(*((char**)a1)) : std::string((char*)a1);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso(a2, bankName);
+    }
+    return originalPlaySoundEnso(a1, a2, a3);
+}
+
+HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64* a1, u64* a2) {
+    if (enableSwitchVoice && language != 0) {
+        std::string bankName = a1[3] > 0x10 ? std::string(*((char**)a1)) : std::string((char*)a1);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso(a2, bankName);
+    }
+    return originalPlaySoundSpecial(a1, a2);
 }
 
 int loaded_fail_count = 0;
@@ -404,8 +395,8 @@ Init () {
         enableSwitchVoice = true;
         INSTALL_HOOK (PlaySound);
         INSTALL_HOOK (PlaySoundMulti);
-        INSTALL_HOOK_MID (PlaySoundEnso);
-        INSTALL_HOOK_MID (PlaySoundSpecial);
+        INSTALL_HOOK (PlaySoundEnso);
+        INSTALL_HOOK (PlaySoundSpecial);
     }
 
     // Mode unlock
