@@ -22,14 +22,14 @@ bool wasapiShared      = true;
 bool asio              = false;
 std::string asioDriver = "";
 
-HOOK_DYNAMIC (i64, __fastcall, NUSCDeviceInit, void *a1, nusc_init_config_t *a2, nusc_init_config_t *a3, void *a4) {
+HOOK_DYNAMIC (i64, NUSCDeviceInit, void *a1, nusc_init_config_t *a2, nusc_init_config_t *a3, void *a4) {
     a2->device_mode      = asio;
     a2->asio_driver_name = asio ? asioDriver.c_str () : "";
     a2->wasapi_exclusive = asio ? 1 : wasapiShared ? 0 : 1;
-    return originalNUSCDeviceInit (a1, a2, a3, a4);
+    return originalNUSCDeviceInit.call<i64> (a1, a2, a3, a4);
 }
-HOOK_DYNAMIC (bool, __fastcall, LoadASIODriver, void *a1, const char *a2) {
-    auto result = originalLoadASIODriver (a1, a2);
+HOOK_DYNAMIC (bool, LoadASIODriver, void *a1, const char *a2) {
+    auto result = originalLoadASIODriver.call<bool> (a1, a2);
     if (!result) {
         MessageBoxA (nullptr, "Failed to load ASIO driver", nullptr, MB_OK);
         ExitProcess (0);

@@ -38,29 +38,29 @@ std::string accessCode;
 std::vector<HMODULE> qrPlugins;
 bool qrPluginRegistered = false;
 
-HOOK_DYNAMIC (char, __fastcall, QrInit, i64) { return 1; }
-HOOK_DYNAMIC (char, __fastcall, QrClose, i64) { return 1; }
-HOOK_DYNAMIC (char, __fastcall, QrRead, i64 a1) {
+HOOK_DYNAMIC (char, QrInit, i64) { return 1; }
+HOOK_DYNAMIC (char, QrClose, i64) { return 1; }
+HOOK_DYNAMIC (char, QrRead, i64 a1) {
     *(DWORD *)(a1 + 40) = 1;
     *(DWORD *)(a1 + 16) = 1;
     *(BYTE *)(a1 + 112) = 0;
     return 1;
 }
-HOOK_DYNAMIC (i64, __fastcall, CallQrUnknown, i64) { return 1; }
-HOOK_DYNAMIC (bool, __fastcall, Send1, i64 a1) {
+HOOK_DYNAMIC (i64, CallQrUnknown, i64) { return 1; }
+HOOK_DYNAMIC (bool, Send1, i64 a1) {
     *(BYTE *)(a1 + 88) = 1;
     *(i64 *)(a1 + 32)  = *(i64 *)(a1 + 24);
     *(WORD *)(a1 + 89) = 0;
     return true;
 }
-HOOK_DYNAMIC (bool, __fastcall, Send2, i64 a1) {
+HOOK_DYNAMIC (bool, Send2, i64 a1) {
     *(WORD *)(a1 + 88) = 0;
     *(BYTE *)(a1 + 90) = 0;
     return true;
 }
-HOOK_DYNAMIC (bool, __fastcall, Send3, i64, char) { return true; }
-HOOK_DYNAMIC (bool, __fastcall, Send4, i64, const void *, i64) { return true; }
-HOOK_DYNAMIC (i64, __fastcall, CopyData, i64, void *dest, int length) {
+HOOK_DYNAMIC (bool, Send3, i64, char) { return true; }
+HOOK_DYNAMIC (bool, Send4, i64, const void *, i64) { return true; }
+HOOK_DYNAMIC (i64, CopyData, i64, void *dest, int length) {
     if (gState == State::CopyWait) {
         std::cout << "Copy data, length: " << length << std::endl;
 

@@ -1,6 +1,9 @@
 #pragma once
-#include <MinHook.h>
+#include <atomic>
 #include <bits/stdc++.h>
+#include <map>
+#include <mutex>
+#include <safetyhook.hpp>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -8,10 +11,6 @@
 #include <stdlib.h>
 #include <toml.h>
 #include <windows.h>
-#include <map>
-#include <mutex>
-#include <atomic>
-#include <safetyhook.hpp>
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -27,8 +26,8 @@ typedef double f64;
 #define FUNCTION_PTR(returnType, function, location, ...) returnType (*function) (__VA_ARGS__) = (returnType (*) (__VA_ARGS__)) (location)
 #define FUNCTION_PTR_H(returnType, function, ...)         extern returnType (*function) (__VA_ARGS__)
 
-#define PROC_ADDRESS(libraryName, procName) GetProcAddress (LoadLibrary (TEXT (libraryName)), procName)
-#define PROC_ADDRESS_OFFSET(libraryName, offset) (u64)((u64)GetModuleHandle (TEXT (libraryName)) + offset)
+#define PROC_ADDRESS(libraryName, procName)      GetProcAddress (LoadLibrary (TEXT (libraryName)), procName)
+#define PROC_ADDRESS_OFFSET(libraryName, offset) (u64) ((u64)GetModuleHandle (TEXT (libraryName)) + offset)
 
 #define BASE_ADDRESS 0x140000000
 #ifdef BASE_ADDRESS
@@ -36,47 +35,33 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 #define ASLR(address) ((u64)MODULE_HANDLE + (u64)address - (u64)BASE_ADDRESS)
 #endif
 
-#define HOOK(returnType, functionName, location, ...)         \
-    typedef returnType (*functionName) (__VA_ARGS__);         \
-    functionName original##functionName = NULL;               \
-    void *where##functionName           = (void *)(location); \
+#define HOOK(returnType, functionName, location, ...) \
+    SafetyHookInline original##functionName{};        \
+    void *where##functionName = (void *)location;     \
     returnType implOf##functionName (__VA_ARGS__)
 
-#define HOOK_DYNAMIC(returnType, callingConvention, functionName, ...)  \
-    typedef returnType callingConvention (*functionName) (__VA_ARGS__); \
-    functionName original##functionName = NULL;                         \
-    void *where##functionName           = NULL;                         \
-    returnType callingConvention implOf##functionName (__VA_ARGS__)
+#define HOOK_DYNAMIC(returnType, functionName, ...) \
+    SafetyHookInline original##functionName{};      \
+    void *where##functionName = NULL;               \
+    returnType implOf##functionName (__VA_ARGS__)
 
-#define VTABLE_HOOK(returnType, className, functionName, ...)                      \
-    typedef returnType (*className##functionName) (className * This, __VA_ARGS__); \
-    className##functionName original##className##functionName = NULL;              \
-    void *where##className##functionName                      = NULL;              \
+#define VTABLE_HOOK(returnType, className, functionName, ...) \
+    SafetyHookInline original##className##functionName{};     \
+    void *where##className##functionName = NULL;              \
     returnType implOf##className##functionName (className *This, __VA_ARGS__)
 
-#define HOOK_MID(functionName, location, ...)          \
-    SafetyHookMid midHook##functionName{};             \
-    u64 where##functionName = (location);              \
+#define MID_HOOK(functionName, location, ...)     \
+    SafetyHookMid midHook##functionName{};        \
+    void *where##functionName = (void *)location; \
     void implOf##functionName (SafetyHookContext &ctx)
 
-#define HOOK_MID_DYNAMIC(functionName, location, ...)  \
-    SafetyHookMid midHook##functionName{};             \
-    u64 where##functionName = (location);              \
+#define MID_HOOK_DYNAMIC(functionName, ...) \
+    SafetyHookMid midHook##functionName{};  \
+    void *where##functionName = NULL;       \
     void implOf##functionName (SafetyHookContext &ctx)
 
-#define INSTALL_HOOK(functionName)                                                                                     \
-    {                                                                                                                  \
-        MH_Initialize ();                                                                                              \
-        MH_CreateHook ((void *)where##functionName, (void *)implOf##functionName, (void **)(&original##functionName)); \
-        MH_EnableHook ((void *)where##functionName);                                                                   \
-    }
-
-#define INSTALL_HOOK_DIRECT(location, locationOfHook)                       \
-    {                                                                       \
-        MH_Initialize ();                                                   \
-        MH_CreateHook ((void *)(location), (void *)(locationOfHook), NULL); \
-        MH_EnableHook ((void *)(location));                                 \
-    }
+#define INSTALL_HOOK(functionName) \
+    { original##functionName = safetyhook::create_inline (where##functionName, implOf##functionName); }
 
 #define INSTALL_HOOK_DYNAMIC(functionName, location) \
     {                                                \
@@ -84,25 +69,22 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
         INSTALL_HOOK (functionName);                 \
     }
 
+#define INSTALL_HOOK_DIRECT(location, locationOfHook) \
+    { directHooks.push_back (safetyhook::create_inline ((void *)location, (void *)locationOfHook)); }
+
 #define INSTALL_VTABLE_HOOK(className, object, functionName, functionIndex)                     \
     {                                                                                           \
         where##className##functionName = (*(className##functionName ***)object)[functionIndex]; \
         INSTALL_HOOK (className##functionName);                                                 \
     }
 
-#define INSTALL_HOOK_MID(functionName)                                                             \
-    {                                                                                              \
-        midHook##functionName = safetyhook::create_mid(where##functionName, implOf##functionName); \
-    }
+#define INSTALL_MID_HOOK(functionName) \
+    { midHook##functionName = safetyhook::create_mid (where##functionName, implOf##functionName); }
 
-#define INSTALL_HOOK_MID_DYNAMIC(functionName, address)                                \
-    {                                                                                  \
-        midHook##functionName = safetyhook::create_mid(address, implOf##functionName); \
-    }
-
-#define UNINSTALL_HOOK_MID(functionName) \
-    {                                    \
-        midHook##functionName = {};      \
+#define INSTALL_MID_HOOK_DYNAMIC(functionName, location) \
+    {                                                    \
+        where##functionName = (void *)location;          \
+        INSTALL_MID_HOOK (functionName);                 \
     }
 
 #define READ_MEMORY(location, type) *(type *)location
@@ -159,3 +141,4 @@ int64_t readConfigInt (toml_table_t *table, const std::string &key, int64_t notF
 const std::string readConfigString (toml_table_t *table, const std::string &key, const std::string &notFoundValue);
 std::vector<int64_t> readConfigIntArray (toml_table_t *table, const std::string &key, std::vector<int64_t> notFoundValue);
 void printColour (int colour, const char *format, ...);
+std::vector<SafetyHookInline> directHooks = {};

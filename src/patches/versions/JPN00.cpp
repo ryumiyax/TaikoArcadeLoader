@@ -13,7 +13,7 @@ extern void *song_data;
 
 namespace patches::JPN00 {
 
-HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
+HOOK_DYNAMIC (char, AMFWTerminate, i64) { return 0; }
 
 const i32 datatableBufferSize = 1024 * 1024 * 12;
 safetyhook::Allocation datatableBuffer;

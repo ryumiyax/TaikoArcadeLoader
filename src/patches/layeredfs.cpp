@@ -181,8 +181,8 @@ HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPC
         if (std::filesystem::exists (newPath)) { // If a file exists in the datamod folder
             if (IsFumenEncrypted (newPath)) {    // And if it's an encrypted fumen or a different type of file, use it.
                 std::cout << "Redirecting " << std::filesystem::relative (path).string () << std::endl;
-                return originalCreateFileAHook (newPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
-                                                dwFlagsAndAttributes, hTemplateFile);
+                return originalCreateFileAHook.call<HANDLE> (newPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                                                             dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
             } else {                                      // Otherwise if it's an unencrypted fumen.
                 if (!std::filesystem::exists (encPath)) { // We check if we don't already have a cached file.
                     if (fumenKey.length () == 64) {
@@ -197,8 +197,8 @@ HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPC
                         encPath = path.string ();
                     }
                 } else std::cout << "Using cached file for " << std::filesystem::relative (newPath) << std::endl;
-                return originalCreateFileAHook (encPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
-                                                dwFlagsAndAttributes, hTemplateFile);
+                return originalCreateFileAHook.call<HANDLE> (encPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes,
+                                                             dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
             }
         }
 
@@ -230,13 +230,13 @@ HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPC
             } else
                 std::cout << "Using cached file for " << std::filesystem::relative (json_path)
                           << std::endl; // Otherwise use the already encrypted file.
-            return originalCreateFileAHook (encPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
-                                            dwFlagsAndAttributes, hTemplateFile);
+            return originalCreateFileAHook.call<HANDLE> (encPath.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
+                                                         dwFlagsAndAttributes, hTemplateFile);
         }
     }
 
-    return originalCreateFileAHook (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes,
-                                    hTemplateFile);
+    return originalCreateFileAHook.call<HANDLE> (lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
+                                                 dwFlagsAndAttributes, hTemplateFile);
 }
 
 // HOOK (HANDLE, CreateFileWHook, PROC_ADDRESS ("kernel32.dll", "CreateFileW"), LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,

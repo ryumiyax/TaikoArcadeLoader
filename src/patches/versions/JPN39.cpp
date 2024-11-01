@@ -3,16 +3,15 @@
 #include <iostream>
 #include <safetyhook.hpp>
 
-
 namespace patches::JPN39 {
 
-HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
+HOOK_DYNAMIC (char, AMFWTerminate, i64) { return 0; }
 
-HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
+HOOK_DYNAMIC (i64, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
     // printf ("garmc curl_easy_setopt\n");
-    originalcurl_easy_setopt (a1, 64, 0, 0, 0);
-    originalcurl_easy_setopt (a1, 81, 0, 0, 0);
-    return originalcurl_easy_setopt (a1, a2, a3, a4, a5);
+    originalcurl_easy_setopt.call<i64> (a1, 64, 0, 0, 0);
+    originalcurl_easy_setopt.call<i64> (a1, 81, 0, 0, 0);
+    return originalcurl_easy_setopt.call<i64> (a1, a2, a3, a4, a5);
 }
 
 FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
@@ -65,14 +64,17 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
 
 // -------------- MidHook Area --------------
 
-HOOK_MID (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
+MID_HOOK (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
     int *pFontType = (int *)ctx.rax;
     if (*pFontType == 4) *pFontType = 2;
 }
 
-i64 __fastcall lua_freeze_timer (i64 a1) { return lua_pushtrue (a1); }
+i64
+lua_freeze_timer (i64 a1) {
+    return lua_pushtrue (a1);
+}
 
-HOOK_MID (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
+MID_HOOK (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
     auto a1 = ctx.rdi;
     int v9  = (int)(ctx.rax + 1);
     lua_pushcclosure (a1, reinterpret_cast<i64> (&lua_freeze_timer), v9);
@@ -127,7 +129,7 @@ check_voice_tail (std::string bankName, uint8_t *pBinfBlock, std::map<std::strin
     }
 }
 
-HOOK_MID (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
+MID_HOOK (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
     std::lock_guard<std::mutex> lock (nus3bankMtx);
     if ((uint8_t **)(ctx.rcx + 8) != nullptr) {
         uint8_t *pNus3bankFile = *((uint8_t **)(ctx.rcx + 8));
@@ -157,7 +159,7 @@ languageStr () {
     }
 }
 HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
-    auto result = originalGetLanguage (a1);
+    auto result = originalGetLanguage.call<i64> (a1);
     language    = *((u32 *)result);
     return result;
 }
@@ -189,7 +191,7 @@ HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
             lua_replace (a1, -3);
         }
     }
-    return originalPlaySound (a1);
+    return originalPlaySound.call<i64> (a1);
 }
 
 HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
@@ -200,16 +202,15 @@ HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
             lua_replace (a1, -3);
         }
     }
-    return originalPlaySoundMulti (a1);
+    return originalPlaySoundMulti.call<i64> (a1);
 }
 
-FUNCTION_PTR (u64 *, append_chars_to_basic_string, ASLR (0x140028DA0), u64 *, char *, size_t);
+FUNCTION_PTR (u64 *, append_chars_to_basic_string, ASLR (0x140028DA0), u64 *, const char *, size_t);
 
 u64 *
 FixToneNameEnso (u64 *Src, std::string &bankName) {
     if (language == 2 || language == 4) {
-        if (voiceCnExist.find (bankName) != voiceCnExist.end () && voiceCnExist[bankName])
-            Src = append_chars_to_basic_string (Src, (const char *)"_cn", 3);
+        if (voiceCnExist.find (bankName) != voiceCnExist.end () && voiceCnExist[bankName]) Src = append_chars_to_basic_string (Src, "_cn", 3);
     }
     return Src;
 }
@@ -219,7 +220,7 @@ HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64 *a1, u64 *a2, i64 a3) {
         std::string bankName = a1[3] > 0x10 ? std::string (*((char **)a1)) : std::string ((char *)a1);
         if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName);
     }
-    return originalPlaySoundEnso (a1, a2, a3);
+    return originalPlaySoundEnso.call<bool> (a1, a2, a3);
 }
 
 HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64 *a1, u64 *a2) {
@@ -227,12 +228,12 @@ HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64 *a1, u64 *a2) {
         std::string bankName = a1[3] > 0x10 ? std::string (*((char **)a1)) : std::string ((char *)a1);
         if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName);
     }
-    return originalPlaySoundSpecial (a1, a2);
+    return originalPlaySoundSpecial.call<bool> (a1, a2);
 }
 
 int loaded_fail_count = 0;
 HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
-    originalLoadedBankAll (a1);
+    originalLoadedBankAll.call<i64> (a1);
     auto result = lua_toboolean (a1, -1);
     lua_settop (a1, 0);
     if (result) {
@@ -349,7 +350,7 @@ Init () {
     }
 
     // Freeze Timer
-    if (freezeTimer) INSTALL_HOOK_MID (FreezeTimer);
+    if (freezeTimer) INSTALL_MID_HOOK (FreezeTimer);
 
     // Use chs font/wordlist instead of cht
     if (chsPatch) {
@@ -367,7 +368,7 @@ Init () {
             WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
             WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
             WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
-            INSTALL_HOOK_MID (ChangeLanguageType);
+            INSTALL_MID_HOOK (ChangeLanguageType);
         }
     }
 
@@ -394,7 +395,7 @@ Init () {
     if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
 
     // Fix normal song play after passing through silent song
-    INSTALL_HOOK_MID (GenNus3bankId);
+    INSTALL_MID_HOOK (GenNus3bankId);
     INSTALL_HOOK (LoadedBankAll);
 
     // Disable live check

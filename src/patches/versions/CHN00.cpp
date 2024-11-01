@@ -51,7 +51,7 @@ languageStr () {
     }
 }
 HOOK (i64, GetLanguage, ASLR (0x140023720), i64 a1) {
-    auto result = originalGetLanguage (a1);
+    auto result = originalGetLanguage.call<i64> (a1);
     language    = *((u32 *)result);
     return result;
 }
@@ -66,7 +66,7 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401AF270), i64, i64 a2) {
     return 1;
 }
 
-HOOK_DYNAMIC (char, __fastcall, AMFWTerminate, i64) { return 0; }
+HOOK_DYNAMIC (char, AMFWTerminate, i64) { return 0; }
 
 const i32 datatableBufferSize = 1024 * 1024 * 12;
 safetyhook::Allocation datatableBuffer1;

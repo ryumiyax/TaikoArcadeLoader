@@ -183,7 +183,7 @@ bnusio_GetAnalogIn (u8 which) {
     }
 }
 
-u16 __fastcall bnusio_GetCoin (i32 a1) { return coin_count; }
+u16 bnusio_GetCoin (i32 a1) { return coin_count; }
 }
 
 FUNCTION_PTR (i64, bnusio_Open_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_Open"));
@@ -240,7 +240,7 @@ HOOK (i32, bngrw_ReqSendUrl, PROC_ADDRESS ("bngrw.dll", "BngRwReqSendUrlTo")) { 
 HOOK (u64, bngrw_ReqLed, PROC_ADDRESS ("bngrw.dll", "BngRwReqLed")) { return 1; }
 HOOK (u64, bngrw_ReqBeep, PROC_ADDRESS ("bngrw.dll", "BngRwReqBeep")) { return 1; }
 HOOK (u64, bngrw_ReqAction, PROC_ADDRESS ("bngrw.dll", "BngRwReqAction")) { return 1; }
-HOOK (u64, bngrw_ReqSetLedPower, PROC_ADDRESS ("bngrw.dll", "BngRwReqSetLedPower")) { return 0; }
+HOOK (u64, bngrw_SetLedPower, PROC_ADDRESS ("bngrw.dll", "BngRwSetLedPower")) { return 0; }
 HOOK (u64, bngrw_GetRetryCount, PROC_ADDRESS ("bngrw.dll", "BngRwGetTotalRetryCount")) { return 0; }
 HOOK (u64, bngrw_GetFwVersion, PROC_ADDRESS ("bngrw.dll", "BngRwGetFwVersion")) { return 0; }
 HOOK (u64, bngrw_ReqFwVersionUp, PROC_ADDRESS ("bngrw.dll", "BngRwReqFwVersionUp")) { return 1; }
@@ -379,7 +379,7 @@ Init () {
         INSTALL_HOOK (bngrw_ReqLed);
         INSTALL_HOOK (bngrw_ReqBeep);
         INSTALL_HOOK (bngrw_ReqAction);
-        INSTALL_HOOK (bngrw_ReqSetLedPower);
+        INSTALL_HOOK (bngrw_SetLedPower);
         INSTALL_HOOK (bngrw_GetRetryCount);
         INSTALL_HOOK (bngrw_GetFwVersion);
         INSTALL_HOOK (bngrw_ReqFwVersionUp);
