@@ -8,6 +8,10 @@
 #include <stdlib.h>
 #include <toml.h>
 #include <windows.h>
+#include <map>
+#include <mutex>
+#include <atomic>
+#include <safetyhook.hpp>
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -24,6 +28,7 @@ typedef double f64;
 #define FUNCTION_PTR_H(returnType, function, ...)         extern returnType (*function) (__VA_ARGS__)
 
 #define PROC_ADDRESS(libraryName, procName) GetProcAddress (LoadLibrary (TEXT (libraryName)), procName)
+#define PROC_ADDRESS_OFFSET(libraryName, offset) (u64)((u64)GetModuleHandle (TEXT (libraryName)) + offset)
 
 #define BASE_ADDRESS 0x140000000
 #ifdef BASE_ADDRESS
@@ -49,6 +54,16 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
     void *where##className##functionName                      = NULL;              \
     returnType implOf##className##functionName (className *This, __VA_ARGS__)
 
+#define HOOK_MID(functionName, location, ...)          \
+    SafetyHookMid midHook##functionName{};             \
+    u64 where##functionName = (location);              \
+    void implOf##functionName (SafetyHookContext &ctx)
+
+#define HOOK_MID_DYNAMIC(functionName, location, ...)  \
+    SafetyHookMid midHook##functionName{};             \
+    u64 where##functionName = (location);              \
+    void implOf##functionName (SafetyHookContext &ctx)
+
 #define INSTALL_HOOK(functionName)                                                                                     \
     {                                                                                                                  \
         MH_Initialize ();                                                                                              \
@@ -73,6 +88,21 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
     {                                                                                           \
         where##className##functionName = (*(className##functionName ***)object)[functionIndex]; \
         INSTALL_HOOK (className##functionName);                                                 \
+    }
+
+#define INSTALL_HOOK_MID(functionName)                                                             \
+    {                                                                                              \
+        midHook##functionName = safetyhook::create_mid(where##functionName, implOf##functionName); \
+    }
+
+#define INSTALL_HOOK_MID_DYNAMIC(functionName, address)                                \
+    {                                                                                  \
+        midHook##functionName = safetyhook::create_mid(address, implOf##functionName); \
+    }
+
+#define UNINSTALL_HOOK_MID(functionName) \
+    {                                    \
+        midHook##functionName = {};      \
     }
 
 #define READ_MEMORY(location, type) *(type *)location
@@ -120,6 +150,7 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 #define printInfo(format, ...)    printColour (INFO_COLOUR, format, __VA_ARGS__)
 #define printWarning(format, ...) printColour (WARNING_COLOUR, format, __VA_ARGS__)
 #define printError(format, ...)   printColour (ERROR_COLOUR, format, __VA_ARGS__)
+#define round(num)                ((num > 0) ? (int)(num + 0.5) : (int)(num - 0.5))
 
 toml_table_t *openConfig (std::filesystem::path path);
 toml_table_t *openConfigSection (toml_table_t *config, const std::string &sectionName);

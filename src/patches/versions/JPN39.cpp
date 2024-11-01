@@ -1,7 +1,7 @@
 #include "../patches.h"
 #include "helpers.h"
 #include <safetyhook.hpp>
-#include <stdio.h>
+#include <iostream>
 
 namespace patches::JPN39 {
 
@@ -15,8 +15,13 @@ HOOK_DYNAMIC (i64, __fastcall, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4,
 }
 
 FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
+FUNCTION_PTR (i64, lua_replace, PROC_ADDRESS ("lua51.dll", "lua_replace"), u64, u64);
 FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
 FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
+FUNCTION_PTR (i64, lua_pushcclosure, PROC_ADDRESS ("lua51.dll", "lua_pushcclosure"), u64, u64, u64);
+
+FUNCTION_PTR (i64, lua_toboolean, PROC_ADDRESS ("lua51.dll", "lua_toboolean"), u64, u64);
+FUNCTION_PTR (i64, lua_tolstring, PROC_ADDRESS ("lua51.dll", "lua_tolstring"), u64, u64, u64);
 
 i64
 lua_pushtrue (i64 a1) {
@@ -57,13 +62,95 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
     }
 }
 
-SafetyHookMid changeLanguageTypeHook{};
+// -------------- MidHook Area --------------
 
-void
-ChangeLanguageType (SafetyHookContext &ctx) {
+HOOK_MID (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
     int *pFontType = (int *)ctx.rax;
     if (*pFontType == 4) *pFontType = 2;
 }
+
+i64 __fastcall
+lua_freeze_timer (i64 a1) {
+    return lua_pushtrue (a1);
+}
+
+HOOK_MID (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
+    auto a1 = ctx.rdi;
+    int v9 = (int)(ctx.rax + 1);
+    lua_pushcclosure(a1, reinterpret_cast<i64>(&lua_freeze_timer), v9);
+    ctx.rip = ASLR (0x14019FF65);
+}
+
+std::map<std::string, int> nus3bankMap;
+int nus3bankIdCounter = 0;
+std::map<std::string, bool> voiceCnExist;
+bool enableSwitchVoice = false;
+std::mutex nus3bankMtx;
+
+int
+get_bank_id(std::string bankName) {
+    if (nus3bankMap.find(bankName) == nus3bankMap.end()) {
+        nus3bankMap[bankName] = nus3bankIdCounter;
+        nus3bankIdCounter++;
+    }
+    return nus3bankMap[bankName];
+}
+
+void
+check_voice_tail(std::string bankName, uint8_t* pBinfBlock, std::map<std::string, bool> &voiceExist, std::string tail) {
+    // check if any voice_xxx.nus3bank has xxx_cn audio inside while loading
+    if (enableSwitchVoice && bankName.starts_with("voice_")) {
+        int binfLength = *((int*)(pBinfBlock + 4));
+        uint8_t* pGrpBlock = pBinfBlock + 8 + binfLength;
+        int grpLength = *((int*)(pGrpBlock + 4));
+        uint8_t* pDtonBlock = pGrpBlock + 8 + grpLength;
+        int dtonLength = *((int*)(pDtonBlock + 4));
+        uint8_t* pToneBlock = pDtonBlock + 8 + dtonLength;
+        int toneSize = *((int*)(pToneBlock + 8));
+        uint8_t* pToneBase = pToneBlock + 12;
+        for (int i = 0; i < toneSize; i++) {
+            if (*((int*)(pToneBase + i * 8 + 4)) <= 0x0C) continue;     // skip empty space
+            uint8_t* currToneBase = pToneBase + *((int*)(pToneBase + i * 8));
+            int titleOffset = -1;
+            switch (*currToneBase) {
+                case 0xFF: titleOffset = 9; break;      // audio mark
+                case 0x7F: titleOffset = 5; break;      // randomizer mark
+                default: continue;                      // unknown mark skip
+            }
+            if (titleOffset > 0) {
+                std::string title((char*)(currToneBase + titleOffset));
+                if (title.ends_with(tail)) {
+                    if (voiceExist.find(bankName) == voiceExist.end() || !voiceExist[bankName]) {
+                        voiceExist[bankName] = true;
+                    }
+                    return;
+                }
+            }
+        }
+        if (voiceExist.find(bankName) == voiceExist.end() || voiceExist[bankName]) {
+            voiceExist[bankName] = false;
+        }
+    }
+}
+
+HOOK_MID (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
+    std::lock_guard<std::mutex> lock(nus3bankMtx);
+    if ((uint8_t**)(ctx.rcx + 8) != nullptr) {
+        uint8_t* pNus3bankFile = *((uint8_t **)(ctx.rcx + 8));
+        if (pNus3bankFile[0] == 'N' && pNus3bankFile[1] == 'U' && pNus3bankFile[2] == 'S' && pNus3bankFile[3] == '3') {
+            int tocLength = *((int*)(pNus3bankFile + 16));
+            uint8_t* pPropBlock = pNus3bankFile + 20 + tocLength;
+            int propLength = *((int*)(pPropBlock + 4));
+            uint8_t* pBinfBlock = pPropBlock + 8 + propLength;
+            std::string bankName((char*)(pBinfBlock + 0x11));
+            check_voice_tail(bankName, pBinfBlock, voiceCnExist, "_cn");
+            ctx.rax = get_bank_id(bankName);
+        }
+    } 
+}
+
+
+// -------------- MidHook Area End --------------
 
 int language = 0;
 const char *
@@ -92,16 +179,98 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
     return 1;
 }
 
+std::string 
+FixToneName (std::string bankName, std::string toneName) {
+    if (language == 2 || language == 4) {
+        if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+            return toneName + "_cn";
+        }
+    }
+    return toneName;
+}
+
+int commonSize = 0;
+HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
+    if (enableSwitchVoice && language != 0) {
+        std::string bankName((char*)lua_tolstring (a1, -3, (u64)&commonSize));
+        if (bankName[0] == 'v') {
+            lua_pushstring(a1, (u64)(FixToneName(bankName, (char*)lua_tolstring (a1, -2, (u64)&commonSize)).c_str()));
+            lua_replace(a1, -3);
+        }
+    }
+    return originalPlaySound(a1);
+}
+
+HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
+    if (enableSwitchVoice && language != 0) {
+        std::string bankName((char*)lua_tolstring (a1, -3, (u64)&commonSize));
+        if (bankName[0] == 'v') {
+            lua_pushstring(a1, (u64)(FixToneName(bankName, (char*)lua_tolstring (a1, -2, (u64)&commonSize)).c_str()));
+            lua_replace(a1, -3);
+        }
+    }
+    return originalPlaySoundMulti(a1);
+}
+
+FUNCTION_PTR (u64*, append_chars_to_basic_string, ASLR (0x140028DA0), u64*, char*, size_t);
+
+u64* 
+FixToneNameEnso(u64* Src, std::string &bankName) {
+    if (language == 2 || language == 4) {
+        if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
+            Src = append_chars_to_basic_string (Src, (const char*)"_cn", 3);
+        }
+    }
+    return Src;
+}
+
+HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64* a1, u64* a2, i64 a3) {
+    if (enableSwitchVoice && language != 0) {
+        std::string bankName = a1[3] > 0x10 ? std::string(*((char**)a1)) : std::string((char*)a1);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso(a2, bankName);
+    }
+    return originalPlaySoundEnso(a1, a2, a3);
+}
+
+HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64* a1, u64* a2) {
+    if (enableSwitchVoice && language != 0) {
+        std::string bankName = a1[3] > 0x10 ? std::string(*((char**)a1)) : std::string((char*)a1);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso(a2, bankName);
+    }
+    return originalPlaySoundSpecial(a1, a2);
+}
+
+int loaded_fail_count = 0;
+HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
+    originalLoadedBankAll (a1);
+    auto result = lua_toboolean(a1, -1);
+    lua_settop(a1, 0);
+    if (result) {
+        loaded_fail_count = 0;
+        lua_pushboolean (a1, 1);
+    } else if (loaded_fail_count > 100) {
+        loaded_fail_count = 0;
+        lua_pushboolean (a1, 1);
+    } else {
+        loaded_fail_count += 1;
+        lua_pushboolean (a1, 0);
+    }
+    return 1;
+}
+
 void
 Init () {
     i32 xRes              = 1920;
     i32 yRes              = 1080;
     bool unlockSongs      = true;
     bool fixLanguage      = false;
+    bool freezeTimer      = false;
     bool chsPatch         = false;
     bool modeCollabo025   = false;
     bool modeCollabo026   = false;
     bool modeAprilFool001 = false;
+
+    bool useLayeredfs     = false;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -112,6 +281,7 @@ Init () {
             auto jpn39  = openConfigSection (patches, "jpn39");
             if (jpn39) {
                 fixLanguage      = readConfigBool (jpn39, "fix_language", fixLanguage);
+                freezeTimer      = readConfigBool (jpn39, "freeze_timer", freezeTimer);
                 chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
                 modeCollabo025   = readConfigBool (jpn39, "mode_collabo025", modeCollabo025);
                 modeCollabo026   = readConfigBool (jpn39, "mode_collabo026", modeCollabo026);
@@ -126,6 +296,11 @@ Init () {
                 xRes = readConfigInt (res, "x", xRes);
                 yRes = readConfigInt (res, "y", yRes);
             }
+        }
+
+        auto layeredfs = openConfigSection (config_ptr.get (), "layeredfs");
+        if (layeredfs) {
+            useLayeredfs = readConfigBool (layeredfs, "enabled", useLayeredfs);
         }
     }
 
@@ -182,27 +357,56 @@ Init () {
         ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
     }
 
+    // Freeze Timer
+    if (freezeTimer) {
+        INSTALL_HOOK_MID (FreezeTimer);
+    }
+
     // Use chs font/wordlist instead of cht
     if (chsPatch) {
-        WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
-        WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
-        WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
-        WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
-        WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
+        bool fontExistAll = true;
+        const char* fontToCheck[] {"cn_30.nutexb", "cn_30.xml", "cn_32.nutexb", "cn_32.xml", "cn_64.nutexb", "cn_64.xml"};
+        for (int i = 0; i < 6; i++) {
+            if (useLayeredfs && std::filesystem::exists(std::string("..\\..\\Data_mods\\x64\\font\\") + fontToCheck[i])) continue;
+            if (std::filesystem::exists(std::string("..\\..\\Data\\x64\\font\\") + fontToCheck[i])) continue;
+            fontExistAll = false;
+        }
 
-        changeLanguageTypeHook = safetyhook::create_mid (ASLR (0x1400B2016), ChangeLanguageType);
+        if (fontExistAll) {
+            WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
+            WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
+            WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
+            WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
+            WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
+            INSTALL_HOOK_MID (ChangeLanguageType);
+        }
     }
 
     // Fix language
     if (fixLanguage) {
-        INSTALL_HOOK (GetLanguage);
+        INSTALL_HOOK (GetLanguage);         // Language will use in other place
         INSTALL_HOOK (GetRegionLanguage);
         INSTALL_HOOK (GetCabinetLanguage);
     }
 
+    // if both chsPatch & fixLanguage enabled, try use cn voice from nus3bank
+    // don't worry, we will check if cn voice existed
+    if (chsPatch && fixLanguage) {
+        enableSwitchVoice = true;
+        INSTALL_HOOK (PlaySound);
+        INSTALL_HOOK (PlaySoundMulti);
+        INSTALL_HOOK (PlaySoundEnso);
+        INSTALL_HOOK (PlaySoundSpecial);
+    }
+
+    // Mode unlock
     if (modeCollabo025) INSTALL_HOOK (AvailableMode_Collabo025);
     if (modeCollabo026) INSTALL_HOOK (AvailableMode_Collabo026);
     if (modeAprilFool001) INSTALL_HOOK (AvailableMode_AprilFool001);
+
+    // Fix normal song play after passing through silent song
+    INSTALL_HOOK_MID (GenNus3bankId);
+    INSTALL_HOOK (LoadedBankAll);
 
     // Disable live check
     auto amHandle = (u64)GetModuleHandle ("AMFrameWork.dll");
