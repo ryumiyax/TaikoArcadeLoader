@@ -48,6 +48,7 @@ void
 Init () {
     i32 xRes         = 1920;
     i32 yRes         = 1080;
+    bool vsync       = false;
     bool unlockSongs = true;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
@@ -63,12 +64,14 @@ Init () {
                 xRes = readConfigInt (res, "x", xRes);
                 yRes = readConfigInt (res, "y", yRes);
             }
+            vsync = readConfigBool (graphics, "vsync", vsync);
         }
     }
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x140224B2B), i32, xRes);
     WRITE_MEMORY (ASLR (0x140224B32), i32, yRes);
+    if (!vsync) WRITE_MEMORY (ASLR (0x1403D6189), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
     if (unlockSongs) WRITE_MEMORY (ASLR (0x1401F6B78), u8, 0xB0, 0x01);
 
     // Bypass errors

@@ -1,7 +1,8 @@
 #include "../patches.h"
 #include "helpers.h"
-#include <safetyhook.hpp>
 #include <iostream>
+#include <safetyhook.hpp>
+
 
 namespace patches::JPN39 {
 
@@ -69,15 +70,12 @@ HOOK_MID (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
     if (*pFontType == 4) *pFontType = 2;
 }
 
-i64 __fastcall
-lua_freeze_timer (i64 a1) {
-    return lua_pushtrue (a1);
-}
+i64 __fastcall lua_freeze_timer (i64 a1) { return lua_pushtrue (a1); }
 
 HOOK_MID (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
     auto a1 = ctx.rdi;
-    int v9 = (int)(ctx.rax + 1);
-    lua_pushcclosure(a1, reinterpret_cast<i64>(&lua_freeze_timer), v9);
+    int v9  = (int)(ctx.rax + 1);
+    lua_pushcclosure (a1, reinterpret_cast<i64> (&lua_freeze_timer), v9);
     ctx.rip = ASLR (0x14019FF65);
 }
 
@@ -88,8 +86,8 @@ bool enableSwitchVoice = false;
 std::mutex nus3bankMtx;
 
 int
-get_bank_id(std::string bankName) {
-    if (nus3bankMap.find(bankName) == nus3bankMap.end()) {
+get_bank_id (std::string bankName) {
+    if (nus3bankMap.find (bankName) == nus3bankMap.end ()) {
         nus3bankMap[bankName] = nus3bankIdCounter;
         nus3bankIdCounter++;
     }
@@ -97,58 +95,53 @@ get_bank_id(std::string bankName) {
 }
 
 void
-check_voice_tail(std::string bankName, uint8_t* pBinfBlock, std::map<std::string, bool> &voiceExist, std::string tail) {
+check_voice_tail (std::string bankName, uint8_t *pBinfBlock, std::map<std::string, bool> &voiceExist, std::string tail) {
     // check if any voice_xxx.nus3bank has xxx_cn audio inside while loading
-    if (enableSwitchVoice && bankName.starts_with("voice_")) {
-        int binfLength = *((int*)(pBinfBlock + 4));
-        uint8_t* pGrpBlock = pBinfBlock + 8 + binfLength;
-        int grpLength = *((int*)(pGrpBlock + 4));
-        uint8_t* pDtonBlock = pGrpBlock + 8 + grpLength;
-        int dtonLength = *((int*)(pDtonBlock + 4));
-        uint8_t* pToneBlock = pDtonBlock + 8 + dtonLength;
-        int toneSize = *((int*)(pToneBlock + 8));
-        uint8_t* pToneBase = pToneBlock + 12;
+    if (enableSwitchVoice && bankName.starts_with ("voice_")) {
+        int binfLength      = *((int *)(pBinfBlock + 4));
+        uint8_t *pGrpBlock  = pBinfBlock + 8 + binfLength;
+        int grpLength       = *((int *)(pGrpBlock + 4));
+        uint8_t *pDtonBlock = pGrpBlock + 8 + grpLength;
+        int dtonLength      = *((int *)(pDtonBlock + 4));
+        uint8_t *pToneBlock = pDtonBlock + 8 + dtonLength;
+        int toneSize        = *((int *)(pToneBlock + 8));
+        uint8_t *pToneBase  = pToneBlock + 12;
         for (int i = 0; i < toneSize; i++) {
-            if (*((int*)(pToneBase + i * 8 + 4)) <= 0x0C) continue;     // skip empty space
-            uint8_t* currToneBase = pToneBase + *((int*)(pToneBase + i * 8));
-            int titleOffset = -1;
+            if (*((int *)(pToneBase + i * 8 + 4)) <= 0x0C) continue; // skip empty space
+            uint8_t *currToneBase = pToneBase + *((int *)(pToneBase + i * 8));
+            int titleOffset       = -1;
             switch (*currToneBase) {
-                case 0xFF: titleOffset = 9; break;      // audio mark
-                case 0x7F: titleOffset = 5; break;      // randomizer mark
-                default: continue;                      // unknown mark skip
+            case 0xFF: titleOffset = 9; break; // audio mark
+            case 0x7F: titleOffset = 5; break; // randomizer mark
+            default: continue;                 // unknown mark skip
             }
             if (titleOffset > 0) {
-                std::string title((char*)(currToneBase + titleOffset));
-                if (title.ends_with(tail)) {
-                    if (voiceExist.find(bankName) == voiceExist.end() || !voiceExist[bankName]) {
-                        voiceExist[bankName] = true;
-                    }
+                std::string title ((char *)(currToneBase + titleOffset));
+                if (title.ends_with (tail)) {
+                    if (voiceExist.find (bankName) == voiceExist.end () || !voiceExist[bankName]) voiceExist[bankName] = true;
                     return;
                 }
             }
         }
-        if (voiceExist.find(bankName) == voiceExist.end() || voiceExist[bankName]) {
-            voiceExist[bankName] = false;
-        }
+        if (voiceExist.find (bankName) == voiceExist.end () || voiceExist[bankName]) voiceExist[bankName] = false;
     }
 }
 
 HOOK_MID (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
-    std::lock_guard<std::mutex> lock(nus3bankMtx);
-    if ((uint8_t**)(ctx.rcx + 8) != nullptr) {
-        uint8_t* pNus3bankFile = *((uint8_t **)(ctx.rcx + 8));
+    std::lock_guard<std::mutex> lock (nus3bankMtx);
+    if ((uint8_t **)(ctx.rcx + 8) != nullptr) {
+        uint8_t *pNus3bankFile = *((uint8_t **)(ctx.rcx + 8));
         if (pNus3bankFile[0] == 'N' && pNus3bankFile[1] == 'U' && pNus3bankFile[2] == 'S' && pNus3bankFile[3] == '3') {
-            int tocLength = *((int*)(pNus3bankFile + 16));
-            uint8_t* pPropBlock = pNus3bankFile + 20 + tocLength;
-            int propLength = *((int*)(pPropBlock + 4));
-            uint8_t* pBinfBlock = pPropBlock + 8 + propLength;
-            std::string bankName((char*)(pBinfBlock + 0x11));
-            check_voice_tail(bankName, pBinfBlock, voiceCnExist, "_cn");
-            ctx.rax = get_bank_id(bankName);
+            int tocLength       = *((int *)(pNus3bankFile + 16));
+            uint8_t *pPropBlock = pNus3bankFile + 20 + tocLength;
+            int propLength      = *((int *)(pPropBlock + 4));
+            uint8_t *pBinfBlock = pPropBlock + 8 + propLength;
+            std::string bankName ((char *)(pBinfBlock + 0x11));
+            check_voice_tail (bankName, pBinfBlock, voiceCnExist, "_cn");
+            ctx.rax = get_bank_id (bankName);
         }
-    } 
+    }
 }
-
 
 // -------------- MidHook Area End --------------
 
@@ -179,12 +172,10 @@ HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
     return 1;
 }
 
-std::string 
+std::string
 FixToneName (std::string bankName, std::string toneName) {
     if (language == 2 || language == 4) {
-        if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
-            return toneName + "_cn";
-        }
+        if (voiceCnExist.find (bankName) != voiceCnExist.end () && voiceCnExist[bankName]) return toneName + "_cn";
     }
     return toneName;
 }
@@ -192,59 +183,58 @@ FixToneName (std::string bankName, std::string toneName) {
 int commonSize = 0;
 HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
     if (enableSwitchVoice && language != 0) {
-        std::string bankName((char*)lua_tolstring (a1, -3, (u64)&commonSize));
+        std::string bankName ((char *)lua_tolstring (a1, -3, (u64)&commonSize));
         if (bankName[0] == 'v') {
-            lua_pushstring(a1, (u64)(FixToneName(bankName, (char*)lua_tolstring (a1, -2, (u64)&commonSize)).c_str()));
-            lua_replace(a1, -3);
+            lua_pushstring (a1, (u64)(FixToneName (bankName, (char *)lua_tolstring (a1, -2, (u64)&commonSize)).c_str ()));
+            lua_replace (a1, -3);
         }
     }
-    return originalPlaySound(a1);
+    return originalPlaySound (a1);
 }
 
 HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
     if (enableSwitchVoice && language != 0) {
-        std::string bankName((char*)lua_tolstring (a1, -3, (u64)&commonSize));
+        std::string bankName ((char *)lua_tolstring (a1, -3, (u64)&commonSize));
         if (bankName[0] == 'v') {
-            lua_pushstring(a1, (u64)(FixToneName(bankName, (char*)lua_tolstring (a1, -2, (u64)&commonSize)).c_str()));
-            lua_replace(a1, -3);
+            lua_pushstring (a1, (u64)(FixToneName (bankName, (char *)lua_tolstring (a1, -2, (u64)&commonSize)).c_str ()));
+            lua_replace (a1, -3);
         }
     }
-    return originalPlaySoundMulti(a1);
+    return originalPlaySoundMulti (a1);
 }
 
-FUNCTION_PTR (u64*, append_chars_to_basic_string, ASLR (0x140028DA0), u64*, char*, size_t);
+FUNCTION_PTR (u64 *, append_chars_to_basic_string, ASLR (0x140028DA0), u64 *, char *, size_t);
 
-u64* 
-FixToneNameEnso(u64* Src, std::string &bankName) {
+u64 *
+FixToneNameEnso (u64 *Src, std::string &bankName) {
     if (language == 2 || language == 4) {
-        if (voiceCnExist.find(bankName) != voiceCnExist.end() && voiceCnExist[bankName]) {
-            Src = append_chars_to_basic_string (Src, (const char*)"_cn", 3);
-        }
+        if (voiceCnExist.find (bankName) != voiceCnExist.end () && voiceCnExist[bankName])
+            Src = append_chars_to_basic_string (Src, (const char *)"_cn", 3);
     }
     return Src;
 }
 
-HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64* a1, u64* a2, i64 a3) {
+HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64 *a1, u64 *a2, i64 a3) {
     if (enableSwitchVoice && language != 0) {
-        std::string bankName = a1[3] > 0x10 ? std::string(*((char**)a1)) : std::string((char*)a1);
-        if (bankName[0] == 'v') a2 = FixToneNameEnso(a2, bankName);
+        std::string bankName = a1[3] > 0x10 ? std::string (*((char **)a1)) : std::string ((char *)a1);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName);
     }
-    return originalPlaySoundEnso(a1, a2, a3);
+    return originalPlaySoundEnso (a1, a2, a3);
 }
 
-HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64* a1, u64* a2) {
+HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64 *a1, u64 *a2) {
     if (enableSwitchVoice && language != 0) {
-        std::string bankName = a1[3] > 0x10 ? std::string(*((char**)a1)) : std::string((char*)a1);
-        if (bankName[0] == 'v') a2 = FixToneNameEnso(a2, bankName);
+        std::string bankName = a1[3] > 0x10 ? std::string (*((char **)a1)) : std::string ((char *)a1);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName);
     }
-    return originalPlaySoundSpecial(a1, a2);
+    return originalPlaySoundSpecial (a1, a2);
 }
 
 int loaded_fail_count = 0;
 HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
     originalLoadedBankAll (a1);
-    auto result = lua_toboolean(a1, -1);
-    lua_settop(a1, 0);
+    auto result = lua_toboolean (a1, -1);
+    lua_settop (a1, 0);
     if (result) {
         loaded_fail_count = 0;
         lua_pushboolean (a1, 1);
@@ -262,6 +252,7 @@ void
 Init () {
     i32 xRes              = 1920;
     i32 yRes              = 1080;
+    bool vsync            = false;
     bool unlockSongs      = true;
     bool fixLanguage      = false;
     bool freezeTimer      = false;
@@ -270,7 +261,7 @@ Init () {
     bool modeCollabo026   = false;
     bool modeAprilFool001 = false;
 
-    bool useLayeredfs     = false;
+    bool useLayeredfs = false;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -296,17 +287,17 @@ Init () {
                 xRes = readConfigInt (res, "x", xRes);
                 yRes = readConfigInt (res, "y", yRes);
             }
+            vsync = readConfigBool (graphics, "vsync", vsync);
         }
 
         auto layeredfs = openConfigSection (config_ptr.get (), "layeredfs");
-        if (layeredfs) {
-            useLayeredfs = readConfigBool (layeredfs, "enabled", useLayeredfs);
-        }
+        if (layeredfs) useLayeredfs = readConfigBool (layeredfs, "enabled", useLayeredfs);
     }
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
     WRITE_MEMORY (ASLR (0x14049453A), i32, yRes);
+    if (!vsync) WRITE_MEMORY (ASLR (0x14064C7E9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
     if (unlockSongs) WRITE_MEMORY (ASLR (0x1403F45CF), u8, 0xB0, 0x01);
 
     // Bypass errors
@@ -358,17 +349,15 @@ Init () {
     }
 
     // Freeze Timer
-    if (freezeTimer) {
-        INSTALL_HOOK_MID (FreezeTimer);
-    }
+    if (freezeTimer) INSTALL_HOOK_MID (FreezeTimer);
 
     // Use chs font/wordlist instead of cht
     if (chsPatch) {
         bool fontExistAll = true;
-        const char* fontToCheck[] {"cn_30.nutexb", "cn_30.xml", "cn_32.nutexb", "cn_32.xml", "cn_64.nutexb", "cn_64.xml"};
+        const char *fontToCheck[]{"cn_30.nutexb", "cn_30.xml", "cn_32.nutexb", "cn_32.xml", "cn_64.nutexb", "cn_64.xml"};
         for (int i = 0; i < 6; i++) {
-            if (useLayeredfs && std::filesystem::exists(std::string("..\\..\\Data_mods\\x64\\font\\") + fontToCheck[i])) continue;
-            if (std::filesystem::exists(std::string("..\\..\\Data\\x64\\font\\") + fontToCheck[i])) continue;
+            if (useLayeredfs && std::filesystem::exists (std::string ("..\\..\\Data_mods\\x64\\font\\") + fontToCheck[i])) continue;
+            if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\font\\") + fontToCheck[i])) continue;
             fontExistAll = false;
         }
 
@@ -384,7 +373,7 @@ Init () {
 
     // Fix language
     if (fixLanguage) {
-        INSTALL_HOOK (GetLanguage);         // Language will use in other place
+        INSTALL_HOOK (GetLanguage); // Language will use in other place
         INSTALL_HOOK (GetRegionLanguage);
         INSTALL_HOOK (GetCabinetLanguage);
     }

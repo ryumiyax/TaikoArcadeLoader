@@ -99,6 +99,7 @@ void
 Init () {
     i32 xRes            = 1920;
     i32 yRes            = 1080;
+    bool vsync          = false;
     bool unlockSongs    = true;
     bool fixLanguage    = false;
     bool demoMovie      = true;
@@ -144,12 +145,14 @@ Init () {
                 xRes = readConfigInt (res, "x", xRes);
                 yRes = readConfigInt (res, "y", yRes);
             }
+            vsync = readConfigBool (graphics, "vsync", vsync);
         }
     }
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x1404A4ED3), i32, xRes);
     WRITE_MEMORY (ASLR (0x1404A4EDA), i32, yRes);
+    if (!vsync) WRITE_MEMORY (ASLR (0x1405FC5B9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
     if (unlockSongs) WRITE_MEMORY (ASLR (0x140425BCD), u8, 0xB0, 0x01);
 
     // Bypass errors
