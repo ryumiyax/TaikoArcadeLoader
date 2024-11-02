@@ -1,5 +1,6 @@
 #pragma once
-#include <atomic>
+#include <windows.h>
+
 #include <bits/stdc++.h>
 #include <map>
 #include <mutex>
@@ -10,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <toml.h>
-#include <windows.h>
 
 typedef int8_t i8;
 typedef int16_t i16;
