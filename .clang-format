@@ -20,3 +20,4 @@ RemoveBracesLLVM: True
 AlignEscapedNewlines: Left
 AccessModifierOffset: -4
 Cpp11BracedListStyle: True
+SortIncludes: false

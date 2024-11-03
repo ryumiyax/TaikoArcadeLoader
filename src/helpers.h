@@ -1,6 +1,5 @@
 #pragma once
 #include <windows.h>
-
 #include <bits/stdc++.h>
 #include <map>
 #include <mutex>
