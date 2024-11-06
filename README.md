@@ -1,18 +1,44 @@
 # TaikoArcadeLoader
 
-This is a loader for Taiko no Tatsujin Nijiiro ver.
+This is a loader for Taiko no Tatsujin Nijiiro ver.  
+It currently supports the following versions:
+
+* JPN 00.18
+* JPN 08.18
+* JPN 39.06
+* CHN 00.32 (based on JPN 32.09)
+
+## Compilation
+
+TaikoArcadeLoader can be a bit tricky to compile if you've never done it before.  
+Go to the TaikoArcadeLoader folder and run the following commands :
+
+```bash
+apt install -y npm mingw-w64 ninja-build nasm pip 7zip cmake
+pip3 install meson
+
+npm install n -g && n latest && npm install --global xpm@latest
+npx xpm init && npx xpm install @xpack-dev-tools/mingw-w64-gcc@latest
+
+# make sure to edit "path_to_tal" with the actual TaikoArcadeLoader folder path
+export PATH=/path_to_tal/xpacks/.bin:$PATH
+make setup
+```
+
+Once that's done, run `make` to compile TAL.  
+The output will be written at the root of the folder in `dist.7z`.
 
 ## Setup
 
-Copy the extracted contents of dist.zip to the same directory as Taiko.exe
+Copy the extracted contents of `dist.zip` to the same directory as Taiko.exe
 
 ### config.toml
 
 ```toml
 [amauth]
-# connection server
+# server ip
 server = "127.0.0.1"
-# connection port
+# server port
 port = "54430"
 # dongle serial
 chassis_id = "284111080000"

@@ -1,9 +1,17 @@
+default: dist
+
 all:
 	@meson compile -C build
 	@strip build/bnusio.dll
 
 setup:
-	@meson setup build --cross cross-mingw-64.txt
+	@meson setup --wipe build --cross cross-mingw-64.txt
+
+clean:
+	@rm -rf out
+	@rm -rf build
+	@rm -f dist.7z
+	@cd subprojects && find . -maxdepth 1 ! -name packagefiles -type d -not -path '.' -exec rm -rf {} +
 
 dist-no-7z: all
 	@mkdir -p out/
