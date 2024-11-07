@@ -1,18 +1,24 @@
 # TaikoArcadeLoader
 
-This is a loader for Taiko no Tatsujin Nijiiro ver.
+This is a loader for Taiko no Tatsujin Nijiiro ver.  
+It currently supports the following versions:
+
+* JPN 00.18
+* JPN 08.18
+* JPN 39.06
+* CHN 00.32 (based on JPN 32.09)
 
 ## Setup
 
-Copy the extracted contents of dist.zip to the same directory as Taiko.exe
+Copy the extracted contents of `dist.zip` to the same directory as Taiko.exe
 
 ### config.toml
 
 ```toml
 [amauth]
-# connection server
+# server ip
 server = "127.0.0.1"
-# connection port
+# server port
 port = "54430"
 # dongle serial
 chassis_id = "284111080000"
@@ -55,11 +61,11 @@ unlock_songs = true
   mode_collabo025 = false
   # enable ai soshina mode
   mode_collabo026 = false
-  # enable aoharu no tatsujinn mode
+  # enable aoharu no tatsujin mode
   mode_aprilfool001 = false
 
 [emulation]
-# If usio emulation is disabled, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder
+# If usio emulation is disabled, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
 usio = true
 card_reader = true
 qr = true
@@ -76,13 +82,13 @@ fpslimit = 120
 
 [audio]
 # wasapi shared mode
-# allows you to have multiple audio sources at once at a cost of having higher latency
+# allows you to have multiple audio sources at once at a cost of having higher latency.
 wasapi_shared = true
 # use asio audio mode
 asio = false
 # asio driver name
 # to find it, open up regedit then navigate to HKEY_LOCAL_MACHINE\SOFTWARE\ASIO
-# the name is case sensitive !
+# the name is case sensitive.
 asio_driver = ""
 
 [qr]
@@ -116,12 +122,32 @@ jp_layout = false
 
 [layeredfs]
 # replace assets from the game using a layered file system.
-# For example if you want to edit the wordlist, add your edited version like so : 
+# For example if you want to edit the wordlist, add your edited version like so:
 # .\Data_mods\x64\datatable\wordlist.bin
 enabled = false
-# AES encryption keys needed to dynamically encrypt datatable files and fumens
-# keys need to be provided in an hexlified form. A missing or incorrect key will crash the game !
-# keys are not needed if you provide already encrypted files
+# AES encryption keys needed to dynamically encrypt datatable files and fumens.
+# keys need to be provided in an hexlified form. A missing or incorrect key will crash the game.
+# keys are not needed if you provide already encrypted files.
 datatable_key = ""
 fumen_key = ""
 ```
+
+## Building
+
+TaikoArcadeLoader can be a bit tricky to build if you've never done it before.  
+Go to the TaikoArcadeLoader folder and run the following commands:
+
+```bash
+apt install -y npm mingw-w64 ninja-build nasm pip 7zip cmake
+pip3 install meson
+
+npm install n -g && n latest && npm install --global xpm@latest
+npx xpm init && npx xpm install @xpack-dev-tools/mingw-w64-gcc@latest
+
+# make sure to edit "path_to_tal" with the actual TaikoArcadeLoader folder path
+export PATH=/path_to_tal/xpacks/.bin:$PATH
+make setup
+```
+
+Once that's done, run `make` to build TAL.  
+The output will be written in the `out` folder.
