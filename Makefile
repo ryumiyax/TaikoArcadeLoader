@@ -1,4 +1,4 @@
-default: dist
+default: dist-no-7z
 
 all:
 	@meson compile -C build
