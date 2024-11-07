@@ -134,7 +134,7 @@ fumen_key = ""
 
 ## Building
 
-TaikoArcadeLoader can be a bit tricky to build if you've never done it before.
+TaikoArcadeLoader can be a bit tricky to build if you've never done it before.  
 Go to the TaikoArcadeLoader folder and run the following commands:
 
 ```bash
@@ -149,5 +149,5 @@ export PATH=/path_to_tal/xpacks/.bin:$PATH
 make setup
 ```
 
-Once that's done, run `make` to build TAL.
+Once that's done, run `make` to build TAL.  
 The output will be written in the `out` folder.
