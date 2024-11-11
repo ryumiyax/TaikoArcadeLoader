@@ -149,14 +149,20 @@ EncryptFile (const std::string &input_file, const std::string &hex_key) {
 
 bool
 IsFumenEncrypted (const std::string &filename) {
-    std::ifstream file (filename, std::ios::binary);
-    file.seekg (0x210, std::ios::beg);
-    std::vector<unsigned char> buffer (32);
+    // Check if the filename ends with ".bin"
+    if (filename.size() < 4 || filename.substr(filename.size() - 4) != ".bin") {
+        std::cout << "Not a Fumen file: " << filename << std::endl;
+        return true; // If it doesn't we return early, as the file we're seeing isn't a fumen !
+    }
+
+    std::ifstream file(filename, std::ios::binary);
+    file.seekg (0x214, std::ios::beg);
+    std::vector<unsigned char> buffer (24);
     file.read (reinterpret_cast<char *> (buffer.data ()), buffer.size ());
 
     // Check if the read bytes match the expected pattern
-    std::vector<unsigned char> expected_bytes = {0x00, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                                                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00};
+    std::vector<unsigned char> expected_bytes = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
     return buffer != expected_bytes;
 }
@@ -192,7 +198,7 @@ HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPC
                         uint32_t crc = CRC32C (0, crc_vector.data (), crc_vector.size ());
                         WriteFile (encPath, EncryptFile (newPath, fumenKey), crc); // And we save it
                     } else {
-                        std::cout << "Missing or invalid fumen key : " << std::filesystem::relative (newPath) << " couldn't be encrypted."
+                        std::cout << "Missing or invalid fumen key: " << std::filesystem::relative (newPath) << " couldn't be encrypted."
                                   << std::endl;
                         encPath = path.string ();
                     }
@@ -223,7 +229,7 @@ HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPC
                     uint32_t crc = CRC32C (0, crc_vector.data (), crc_vector.size ());
                     WriteFile (encPath, EncryptFile (json_path.string (), datatableKey), crc); // And save it
                 } else {
-                    std::cout << "Missing or invalid datatable key : " << std::filesystem::relative (newPath) << " couldn't be encrypted."
+                    std::cout << "Missing or invalid datatable key: " << std::filesystem::relative (newPath) << " couldn't be encrypted."
                               << std::endl;
                     encPath = path.string ();
                 }
