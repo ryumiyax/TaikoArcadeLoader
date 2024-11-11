@@ -150,12 +150,12 @@ EncryptFile (const std::string &input_file, const std::string &hex_key) {
 bool
 IsFumenEncrypted (const std::string &filename) {
     std::ifstream file (filename, std::ios::binary);
-    file.seekg (0x210, std::ios::beg);
-    std::vector<unsigned char> buffer (28);
+    file.seekg (0x214, std::ios::beg);
+    std::vector<unsigned char> buffer (24);
     file.read (reinterpret_cast<char *> (buffer.data ()), buffer.size ());
 
     // Check if the read bytes match the expected pattern
-    std::vector<unsigned char> expected_bytes = {0x00, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    std::vector<unsigned char> expected_bytes = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
                                                  0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
     return buffer != expected_bytes;
