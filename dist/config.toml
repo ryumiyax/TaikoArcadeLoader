@@ -20,6 +20,7 @@ unlock_songs = true
   fix_language = false
   freeze_timer = false
   chs_patch = false
+  instant_result = false
   mode_collabo025 = false
   mode_collabo026 = false
   mode_aprilfool001 = false

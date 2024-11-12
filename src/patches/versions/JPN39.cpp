@@ -14,14 +14,21 @@ HOOK_DYNAMIC (i64, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
     return originalcurl_easy_setopt.call<i64> (a1, a2, a3, a4, a5);
 }
 
-FUNCTION_PTR (i64, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), u64, u64);
-FUNCTION_PTR (i64, lua_replace, PROC_ADDRESS ("lua51.dll", "lua_replace"), u64, u64);
-FUNCTION_PTR (i64, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), u64, u64);
-FUNCTION_PTR (i64, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), u64, u64);
-FUNCTION_PTR (i64, lua_pushcclosure, PROC_ADDRESS ("lua51.dll", "lua_pushcclosure"), u64, u64, u64);
+FUNCTION_PTR (i64, GetPlayDataManagerRef, ASLR (0x140024AC0), i64);
 
-FUNCTION_PTR (i64, lua_toboolean, PROC_ADDRESS ("lua51.dll", "lua_toboolean"), u64, u64);
-FUNCTION_PTR (i64, lua_tolstring, PROC_ADDRESS ("lua51.dll", "lua_tolstring"), u64, u64, u64);
+i64 lua_State = 0;
+HOOK (i64, luaL_newstate, PROC_ADDRESS ("lua51.dll", "luaL_newstate")) { return lua_State = originalluaL_newstate.call<i64> (); }
+FUNCTION_PTR (void, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), i64, i32);
+FUNCTION_PTR (void, lua_replace, PROC_ADDRESS ("lua51.dll", "lua_replace"), i64, i32);
+FUNCTION_PTR (void, lua_pushcclosure, PROC_ADDRESS ("lua51.dll", "lua_pushcclosure"), i64, i64, i32);
+FUNCTION_PTR (void, lua_pushboolean, PROC_ADDRESS ("lua51.dll", "lua_pushboolean"), i64, i32);
+FUNCTION_PTR (const char *, lua_pushstring, PROC_ADDRESS ("lua51.dll", "lua_pushstring"), i64, const char *);
+FUNCTION_PTR (i32, lua_toboolean, PROC_ADDRESS ("lua51.dll", "lua_toboolean"), i64, i32);
+FUNCTION_PTR (const char *, lua_tolstring, PROC_ADDRESS ("lua51.dll", "lua_tolstring"), u64, i32, size_t *);
+FUNCTION_PTR (i32, lua_pcall, PROC_ADDRESS ("lua51.dll", "lua_pcall"), i64, i32, i32, i32);
+FUNCTION_PTR (i32, luaL_loadstring, PROC_ADDRESS ("lua51.dll", "luaL_loadstring"), i64, const char *);
+#define LUA_MULTRET         (-1)
+#define luaL_dostring(L, s) (luaL_loadstring (L, s) || lua_pcall (L, 0, LUA_MULTRET, 0))
 
 i64
 lua_pushtrue (i64 a1) {
@@ -35,40 +42,6 @@ HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) { return lua_pu
 HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) { return lua_pushtrue (a1); }
 HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) { return lua_pushtrue (a1); }
 
-const i32 datatableBufferSize = 1024 * 1024 * 12;
-safetyhook::Allocation datatableBuffer1;
-safetyhook::Allocation datatableBuffer2;
-safetyhook::Allocation datatableBuffer3;
-const std::vector<uintptr_t> datatableBuffer1Addresses = {0x1400ABE40, 0x1400ABEB1, 0x1400ABEDB, 0x1400ABF4C};
-const std::vector<uintptr_t> datatableBuffer2Addresses = {0x1400ABE2C, 0x1400ABF5B, 0x1400ABF8E};
-const std::vector<uintptr_t> datatableBuffer3Addresses = {0x1400ABF7F, 0x1400ABF95, 0x1400ABFBF};
-const std::vector<uintptr_t> memsetSizeAddresses       = {0x1400ABE26, 0x1400ABE3A, 0x1400ABF79};
-
-void
-AllocateStaticBufferNear (void *target_address, size_t size, safetyhook::Allocation *newBuffer) {
-    auto allocator                = safetyhook::Allocator::global ();
-    std::vector desired_addresses = {(uint8_t *)target_address};
-    auto allocation_result        = allocator->allocate_near (desired_addresses, size);
-    if (allocation_result.has_value ()) *newBuffer = std::move (*allocation_result);
-}
-
-void
-ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *newBufferAddress) {
-    for (auto bufferAddress : bufferAddresses) {
-        uintptr_t lea_instruction_dst = ASLR (bufferAddress) + 3;
-        uintptr_t lea_instruction_end = ASLR (bufferAddress) + 7;
-        intptr_t offset               = (intptr_t)newBufferAddress - lea_instruction_end;
-        WRITE_MEMORY (lea_instruction_dst, i32, (i32)offset);
-    }
-}
-
-// -------------- MidHook Area --------------
-
-MID_HOOK (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
-    int *pFontType = (int *)ctx.rax;
-    if (*pFontType == 4) *pFontType = 2;
-}
-
 i64
 lua_freeze_timer (i64 a1) {
     return lua_pushtrue (a1);
@@ -79,6 +52,141 @@ MID_HOOK (FreezeTimer, ASLR (0x14019FF51), SafetyHookContext &ctx) {
     int v9  = (int)(ctx.rax + 1);
     lua_pushcclosure (a1, reinterpret_cast<i64> (&lua_freeze_timer), v9);
     ctx.rip = ASLR (0x14019FF65);
+}
+
+void
+ExecuteSendResultData () {
+    luaL_dostring(lua_State, R"(
+    local currentGameMode = PlayDataManager.GetPlayMode()
+
+    if currentGameMode == GameMode.kEnso then
+		if g_entryType == 0 then
+            NetAccess.SendResultData(0)
+        elseif g_entryType == 1 then
+            NetAccess.SendResultData(1)
+        else
+            NetAccess.SendResultData(0)
+            NetAccess.SendResultData(1)
+        end
+	elseif currentGameMode == GameMode.kAI then
+		if g_joinSide_ == 1 then
+            NetAccess.SendAiResultData(0)
+        elseif g_joinSide_ == 2 then
+            NetAccess.SendAiResultData(1)
+        end
+	elseif currentGameMode == GameMode.kCollabo025 then
+		if g_joinSide_ == 1 then
+            NetAccess.SendCollabo025AiResultData(0)
+        elseif g_joinSide_ == 2 then
+            NetAccess.SendCollabo025AiResultData(1)
+        end
+	elseif currentGameMode == GameMode.kCollabo026 then
+		if g_joinSide_ == 1 then
+            NetAccess.SendCollabo026AiResultData(0)
+        elseif g_joinSide_ == 2 then
+            NetAccess.SendCollabo026AiResultData(1)
+        end
+	elseif currentGameMode == GameMode.kAprilFool001 then
+		if g_entryType == 0 then
+            NetAccess.SendAprilFoolResultData(0)
+        elseif g_entryType == 1 then
+            NetAccess.SendAprilFoolResultData(1)
+        else
+            NetAccess.SendAprilFoolResultData(0)
+            NetAccess.SendAprilFoolResultData(1)
+        end
+    end
+
+    QR.StartQRExecAll(SceneType.kResult)
+    )"
+    );
+}
+
+bool sendFlag = false;
+#define SCENE_RESULT_HOOK(functionName, location)                 \
+    HOOK (void, functionName, location, i64 a1, i64 a2, i64 a3) { \
+        sendFlag = true;                                          \
+        original##functionName.call (a1, a2, a3);                 \
+        ExecuteSendResultData ();                                 \
+    }
+
+SCENE_RESULT_HOOK (SceneResultInitialize_Enso, ASLR (0x140411FD0));
+SCENE_RESULT_HOOK (SceneResultInitialize_AI, ASLR (0x140411FD0));
+SCENE_RESULT_HOOK (SceneResultInitialize_Collabo025, ASLR (0x140411FD0));
+SCENE_RESULT_HOOK (SceneResultInitialize_Collabo026, ASLR (0x140411FD0));
+SCENE_RESULT_HOOK (SceneResultInitialize_AprilFool, ASLR (0x140411FD0));
+
+#define SEND_RESULT_HOOK(functionName, location)  \
+    HOOK (void, functionName, location, i64 a1) { \
+        if (sendFlag) {                           \
+            sendFlag = false;                     \
+            original##functionName.call (a1);     \
+        }                                         \
+    }
+
+SEND_RESULT_HOOK (SendResultData_Enso, ASLR (0x1401817B0));
+SEND_RESULT_HOOK (SendResultData_AI, ASLR (0x1401755E0));
+SEND_RESULT_HOOK (SendResultData_Collabo025_026, ASLR (0x140179A00));
+SEND_RESULT_HOOK (SendResultData_AprilFool, ASLR (0x140177800));
+
+#define CHANGE_RESULT_SIZE_HOOK(functionName, location, target)          \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {          \
+        i64 instance          = GetPlayDataManagerRef (*(i64 *)ctx.r12); \
+        u32 currentStageCount = *(u32 *)(instance + 8);                  \
+        ctx.target &= 0xFFFFFFFF00000000;                                \
+        ctx.target |= currentStageCount;                                 \
+    }
+
+CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_Enso, ASLR (0x140180074), rax);
+CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_AI, ASLR (0x140173774), rax);
+CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_Collabo025_026, ASLR (0x140178244), rax);
+CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_AprilFool, ASLR (0x140176044), rax);
+
+#define CHANGE_RESULT_INDEX_HOOK(functionName, location, target, offset, skip) \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                \
+        i64 instance          = GetPlayDataManagerRef (*(i64 *)ctx.r12);       \
+        u32 currentStageCount = *(u32 *)(instance + 8);                        \
+        ctx.target &= 0xFFFFFFFF00000000;                                      \
+        ctx.target |= currentStageCount - 1;                                   \
+        *(u32 *)(ctx.rsp + offset) = currentStageCount - 1;                    \
+        ctx.rip += skip;                                                       \
+    }
+
+CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_Enso, ASLR (0x14018074B), rax, 0x34, 0x07);
+CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_AI, ASLR (0x140173EDD), r13, 0x24, 0x08);
+CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_Collabo025_026, ASLR (0x1401789AD), r13, 0x24, 0x08);
+CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_AprilFool, ASLR (0x140176716), rax, 0x34, 0x06);
+
+int language = 0;
+const char *
+languageStr () {
+    switch (language) {
+    case 1: return "en_us";
+    case 2: return "cn_tw";
+    case 3: return "kor";
+    case 4: return "cn_cn";
+    default: return "jpn";
+    }
+}
+HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
+    auto result = originalGetLanguage.call<i64> (a1);
+    language    = *((u32 *)result);
+    return result;
+}
+HOOK (i64, GetRegionLanguage, ASLR (0x1401CE9B0), i64 a1) {
+    lua_settop (a1, 0);
+    lua_pushstring (a1, languageStr ());
+    return 1;
+}
+HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
+    lua_settop (a2, 0);
+    lua_pushstring (a2, languageStr ());
+    return 1;
+}
+
+MID_HOOK (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
+    int *pFontType = (int *)ctx.rax;
+    if (*pFontType == 4) *pFontType = 2;
 }
 
 std::map<std::string, int> nus3bankMap;
@@ -145,35 +253,6 @@ MID_HOOK (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
     }
 }
 
-// -------------- MidHook Area End --------------
-
-int language = 0;
-const char *
-languageStr () {
-    switch (language) {
-    case 1: return "en_us";
-    case 2: return "cn_tw";
-    case 3: return "kor";
-    case 4: return "cn_cn";
-    default: return "jpn";
-    }
-}
-HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
-    auto result = originalGetLanguage.call<i64> (a1);
-    language    = *((u32 *)result);
-    return result;
-}
-HOOK (i64, GetRegionLanguage, ASLR (0x1401CE9B0), i64 a1) {
-    lua_settop (a1, 0);
-    lua_pushstring (a1, (u64)languageStr ());
-    return 1;
-}
-HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
-    lua_settop (a2, 0);
-    lua_pushstring (a2, (u64)languageStr ());
-    return 1;
-}
-
 std::string
 FixToneName (std::string bankName, std::string toneName) {
     if (language == 2 || language == 4) {
@@ -182,12 +261,12 @@ FixToneName (std::string bankName, std::string toneName) {
     return toneName;
 }
 
-int commonSize = 0;
+size_t commonSize = 0;
 HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
     if (enableSwitchVoice && language != 0) {
-        std::string bankName ((char *)lua_tolstring (a1, -3, (u64)&commonSize));
+        std::string bankName (lua_tolstring (a1, -3, &commonSize));
         if (bankName[0] == 'v') {
-            lua_pushstring (a1, (u64)(FixToneName (bankName, (char *)lua_tolstring (a1, -2, (u64)&commonSize)).c_str ()));
+            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize)).c_str ());
             lua_replace (a1, -3);
         }
     }
@@ -196,9 +275,9 @@ HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
 
 HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
     if (enableSwitchVoice && language != 0) {
-        std::string bankName ((char *)lua_tolstring (a1, -3, (u64)&commonSize));
+        std::string bankName ((char *)lua_tolstring (a1, -3, &commonSize));
         if (bankName[0] == 'v') {
-            lua_pushstring (a1, (u64)(FixToneName (bankName, (char *)lua_tolstring (a1, -2, (u64)&commonSize)).c_str ()));
+            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize)).c_str ());
             lua_replace (a1, -3);
         }
     }
@@ -249,6 +328,33 @@ HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
     return 1;
 }
 
+const i32 datatableBufferSize = 1024 * 1024 * 12;
+safetyhook::Allocation datatableBuffer1;
+safetyhook::Allocation datatableBuffer2;
+safetyhook::Allocation datatableBuffer3;
+const std::vector<uintptr_t> datatableBuffer1Addresses = {0x1400ABE40, 0x1400ABEB1, 0x1400ABEDB, 0x1400ABF4C};
+const std::vector<uintptr_t> datatableBuffer2Addresses = {0x1400ABE2C, 0x1400ABF5B, 0x1400ABF8E};
+const std::vector<uintptr_t> datatableBuffer3Addresses = {0x1400ABF7F, 0x1400ABF95, 0x1400ABFBF};
+const std::vector<uintptr_t> memsetSizeAddresses       = {0x1400ABE26, 0x1400ABE3A, 0x1400ABF79};
+
+void
+AllocateStaticBufferNear (void *target_address, size_t size, safetyhook::Allocation *newBuffer) {
+    auto allocator                = safetyhook::Allocator::global ();
+    std::vector desired_addresses = {(uint8_t *)target_address};
+    auto allocation_result        = allocator->allocate_near (desired_addresses, size);
+    if (allocation_result.has_value ()) *newBuffer = std::move (*allocation_result);
+}
+
+void
+ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *newBufferAddress) {
+    for (auto bufferAddress : bufferAddresses) {
+        uintptr_t lea_instruction_dst = ASLR (bufferAddress) + 3;
+        uintptr_t lea_instruction_end = ASLR (bufferAddress) + 7;
+        intptr_t offset               = (intptr_t)newBufferAddress - lea_instruction_end;
+        WRITE_MEMORY (lea_instruction_dst, i32, (i32)offset);
+    }
+}
+
 void
 Init () {
     i32 xRes              = 1920;
@@ -258,6 +364,7 @@ Init () {
     bool fixLanguage      = false;
     bool freezeTimer      = false;
     bool chsPatch         = false;
+    bool instantResult    = false;
     bool modeCollabo025   = false;
     bool modeCollabo026   = false;
     bool modeAprilFool001 = false;
@@ -275,6 +382,7 @@ Init () {
                 fixLanguage      = readConfigBool (jpn39, "fix_language", fixLanguage);
                 freezeTimer      = readConfigBool (jpn39, "freeze_timer", freezeTimer);
                 chsPatch         = readConfigBool (jpn39, "chs_patch", chsPatch);
+                instantResult    = readConfigBool (jpn39, "instant_result", instantResult);
                 modeCollabo025   = readConfigBool (jpn39, "mode_collabo025", modeCollabo025);
                 modeCollabo026   = readConfigBool (jpn39, "mode_collabo026", modeCollabo026);
                 modeAprilFool001 = readConfigBool (jpn39, "mode_aprilfool001", modeAprilFool001);
@@ -351,6 +459,28 @@ Init () {
 
     // Freeze Timer
     if (freezeTimer) INSTALL_MID_HOOK (FreezeTimer);
+
+    // Send result per song
+    if (instantResult) {
+        INSTALL_HOOK (luaL_newstate);
+        INSTALL_HOOK (SceneResultInitialize_Enso);
+        INSTALL_HOOK (SceneResultInitialize_AI);
+        INSTALL_HOOK (SceneResultInitialize_Collabo025);
+        INSTALL_HOOK (SceneResultInitialize_Collabo026);
+        INSTALL_HOOK (SceneResultInitialize_AprilFool);
+        INSTALL_HOOK (SendResultData_Enso);
+        INSTALL_HOOK (SendResultData_AI);
+        INSTALL_HOOK (SendResultData_Collabo025_026);
+        INSTALL_HOOK (SendResultData_AprilFool);
+        INSTALL_MID_HOOK (ChangeResultDataSize_Enso);
+        INSTALL_MID_HOOK (ChangeResultDataSize_AI);
+        INSTALL_MID_HOOK (ChangeResultDataSize_Collabo025_026);
+        INSTALL_MID_HOOK (ChangeResultDataSize_AprilFool);
+        INSTALL_MID_HOOK (ChangeResultDataIndex_Enso);
+        INSTALL_MID_HOOK (ChangeResultDataIndex_AI);
+        INSTALL_MID_HOOK (ChangeResultDataIndex_Collabo025_026);
+        INSTALL_MID_HOOK (ChangeResultDataIndex_AprilFool);
+    }
 
     // Use chs font/wordlist instead of cht
     if (chsPatch) {

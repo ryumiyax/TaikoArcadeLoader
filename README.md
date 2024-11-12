@@ -10,8 +10,8 @@ It currently supports the following versions:
 
 ## Setup
 
-Copy the extracted contents of `dist.zip` to the same directory as Taiko.exe
-If your game hangs on a black screen at launch for more than a minute, Start Taiko.exe as Administrator !
+Copy the extracted contents of `dist.zip` to the same directory as Taiko.exe  
+If your game hangs on a black screen at launch for more than a minute, Start Taiko.exe as Administrator.
 
 ### config.toml
 
@@ -58,6 +58,8 @@ unlock_songs = true
   freeze_timer = false
   # use cn font and chineseS wordlist value
   chs_patch = false
+  # send result per song
+  instant_result = false
   # enable one piece collab mode
   mode_collabo025 = false
   # enable ai soshina mode
