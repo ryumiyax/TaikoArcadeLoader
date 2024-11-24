@@ -14,6 +14,7 @@ extern char chipId2[33];
 extern bool autoIme;
 extern bool emulateUsio;
 extern bool emulateCardReader;
+extern bool acceptInvalidCards;
 
 typedef i32 (*callbackAttach) (i32, i32, i32 *);
 typedef void (*callbackTouch) (i32, i32, u8[168], u64);
@@ -40,10 +41,10 @@ Keybindings P1_LEFT_BLUE  = {.keycodes = {'D'}, .axis = {SDL_AXIS_LEFT_DOWN}};
 Keybindings P1_LEFT_RED   = {.keycodes = {'F'}, .axis = {SDL_AXIS_LEFT_RIGHT}};
 Keybindings P1_RIGHT_RED  = {.keycodes = {'J'}, .axis = {SDL_AXIS_RIGHT_RIGHT}};
 Keybindings P1_RIGHT_BLUE = {.keycodes = {'K'}, .axis = {SDL_AXIS_RIGHT_DOWN}};
-Keybindings P2_LEFT_BLUE  = {};
-Keybindings P2_LEFT_RED   = {};
-Keybindings P2_RIGHT_RED  = {};
-Keybindings P2_RIGHT_BLUE = {};
+Keybindings P2_LEFT_BLUE  = {.keycodes = {'Z'}};
+Keybindings P2_LEFT_RED   = {.keycodes = {'X'}};
+Keybindings P2_RIGHT_RED  = {.keycodes = {'C'}};
+Keybindings P2_RIGHT_BLUE = {.keycodes = {'V'}};
 
 bool testEnabled  = false;
 int coin_count    = 0;
@@ -187,6 +188,30 @@ u16 __fastcall bnusio_GetCoin (i32 a1) { return coin_count; }
 u16 __fastcall bnusio_GetService (i32 a1) { return service_count; }
 }
 
+void
+InspectWaitTouch (i32 a1, i32 a2, u8 _cardData[168], u64 _touchData) {
+    if (AreAllBytesZero (_cardData, 0x00, 168)) // This happens when you enter test mode.
+        return touchCallback (a1, a2, _cardData, _touchData);
+
+    bool valid = !AreAllBytesZero (_cardData, 0x50, 21);
+    if (valid) {
+        LogMessage (LOG_LEVEL_DEBUG, "Card is valid");
+    } else {
+        memcpy (_cardData + 0x50, _cardData + 0x2C, 16); // 16 to match felica lite serial number length
+        LogMessage (LOG_LEVEL_DEBUG, "Card is usually not supported");
+    }
+
+    std::ostringstream oss;
+    for (size_t i = 0; i < 168; ++i) {
+        oss << std::setw (2) << std::setfill ('0') << std::hex << static_cast<int> (_cardData[i]) << " ";
+        if ((i + 1) % 21 == 0) oss << "\n";
+    }
+
+    LogMessage (LOG_LEVEL_DEBUG, "A1: %d, A2: %d, Card data: \n%s", a1, a2, oss.str ().c_str ());
+
+    if (touchCallback) return valid ? touchCallback (a1, a2, _cardData, _touchData) : touchCallback (0, 0, _cardData, _touchData);
+}
+
 FUNCTION_PTR (i64, bnusio_Open_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_Open"));
 FUNCTION_PTR (i64, bnusio_Close_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_Close"));
 FUNCTION_PTR (u64, bnusio_Communication_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_Communication"), i32);
@@ -238,9 +263,9 @@ HOOK (void, bngrw_Fin, PROC_ADDRESS ("bngrw.dll", "BngRwFin")) { return; }
 HOOK (u64, bngrw_IsCmdExec, PROC_ADDRESS ("bngrw.dll", "BngRwIsCmdExec")) { return 0xFFFFFFFF; }
 HOOK (i32, bngrw_ReqCancel, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel")) { return 1; }
 HOOK (i32, bngrw_ReqSendUrl, PROC_ADDRESS ("bngrw.dll", "BngRwReqSendUrlTo")) { return 1; }
-HOOK (u64, bngrw_ReqLed, PROC_ADDRESS ("bngrw.dll", "BngRwReqLed")) { return 1; }
-HOOK (u64, bngrw_ReqBeep, PROC_ADDRESS ("bngrw.dll", "BngRwReqBeep")) { return 1; }
-HOOK (u64, bngrw_ReqAction, PROC_ADDRESS ("bngrw.dll", "BngRwReqAction")) { return 1; }
+HOOK (u64, bngrw_ReqLed, PROC_ADDRESS ("bngrw.dll", "BngRwReqLed"), u32 a1, u32 ledType, i64 a3, i64 a4) { return 1; }
+HOOK (u64, bngrw_ReqBeep, PROC_ADDRESS ("bngrw.dll", "BngRwReqBeep"), u32 a1, u32 beepType, i64 a3, i64 a4) { return 1; }
+HOOK (u64, bngrw_ReqAction, PROC_ADDRESS ("bngrw.dll", "BngRwReqAction"), u32 a1, u32 actionType, i64 a3, i64 a4) { return 1; }
 HOOK (u64, bngrw_SetLedPower, PROC_ADDRESS ("bngrw.dll", "BngRwSetLedPower")) { return 0; }
 HOOK (u64, bngrw_GetRetryCount, PROC_ADDRESS ("bngrw.dll", "BngRwGetTotalRetryCount")) { return 0; }
 HOOK (u64, bngrw_GetFwVersion, PROC_ADDRESS ("bngrw.dll", "BngRwGetFwVersion")) { return 0; }
@@ -252,22 +277,28 @@ HOOK (i32, bngrw_ReqSendMail, PROC_ADDRESS ("bngrw.dll", "BngRwReqSendMailTo")) 
 HOOK (i32, bngrw_ReqLatchID, PROC_ADDRESS ("bngrw.dll", "BngRwReqLatchID")) { return 1; }
 HOOK (u64, bngrw_ReqAiccAuth, PROC_ADDRESS ("bngrw.dll", "BngRwReqAiccAuth")) { return 1; }
 HOOK (u64, bngrw_DevReset, PROC_ADDRESS ("bngrw.dll", "BngRwDevReset")) { return 1; }
-HOOK (u64, bngrw_Attach, PROC_ADDRESS ("bngrw.dll", "BngRwAttach"), i32 a1, char *a2, i32 a3, i32 a4, i32 (*callback) (i32, i32, i32 *), i32 *a6) {
+HOOK (u64, bngrw_Attach, PROC_ADDRESS ("bngrw.dll", "BngRwAttach"), i32 a1, char *a2, i32 a3, i32 a4, callbackAttach callback, i32 *_attachData) {
+    LogMessage (LOG_LEVEL_DEBUG, "BngRwAttach");
     // This is way too fucking jank
     attachCallback = callback;
-    attachData     = a6;
+    attachData     = _attachData;
     return 1;
 }
-HOOK (u64, bngrw_ReqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, void (*callback) (i32, i32, u8[168], u64),
-      u64 a5) {
-    waitingForTouch = true;
-    touchCallback   = callback;
-    touchData       = a5;
-    for (auto plugin : plugins) {
-        FARPROC touchEvent = GetProcAddress (plugin, "WaitTouch");
-        if (touchEvent) ((waitTouchEvent *)touchEvent) (callback, a5);
+HOOK (u64, bngrw_ReqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, callbackTouch _callback, u64 _touchData) {
+    LogMessage (LOG_LEVEL_DEBUG, "BngRwReqWaitTouch");
+    touchCallback = _callback;
+    if (emulateCardReader) {
+        waitingForTouch = true;
+        touchData       = _touchData;
+        for (auto plugin : plugins) {
+            FARPROC touchEvent = GetProcAddress (plugin, "WaitTouch");
+            if (touchEvent) ((waitTouchEvent *)touchEvent) (_callback, _touchData);
+        }
+        return 1;
+    } else {
+        // This is called when we use an original card reader and acceptInvalidCards is set to true
+        return originalbngrw_ReqWaitTouch.call<u64> (a1, a2, a3, InspectWaitTouch, _touchData);
     }
-    return 1;
 }
 
 void
@@ -278,12 +309,11 @@ Init () {
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         toml_table_t *config = config_ptr.get ();
-        auto drum            = openConfigSection (config, "drum");
-        if (drum) drumWaitPeriod = readConfigInt (drum, "wait_period", drumWaitPeriod);
-        auto controller = openConfigSection (config, "controller");
+        auto controller      = openConfigSection (config, "controller");
         if (controller) {
-            analogInput = readConfigBool (controller, "analog_input", analogInput);
-            if (analogInput) printf ("Using analog input mode. All the keyboard drum inputs have been disabled.\n");
+            drumWaitPeriod = readConfigInt (controller, "wait_period", drumWaitPeriod);
+            analogInput    = readConfigBool (controller, "analog_input", analogInput);
+            if (analogInput) LogMessage (LOG_LEVEL_WARN, "Using analog input mode. All the keyboard drum inputs have been disabled.");
         }
     }
 
@@ -317,7 +347,7 @@ Init () {
 
     if (!emulateUsio && !std::filesystem::exists (std::filesystem::current_path () / "bnusio_original.dll")) {
         emulateUsio = true;
-        std::cerr << "[Init] bnusio_original.dll not found! usio emulation enabled" << std::endl;
+        LogMessage (LOG_LEVEL_ERROR, "bnusio_original.dll not found! usio emulation enabled");
     }
 
     if (!emulateUsio) {
@@ -367,7 +397,7 @@ Init () {
         INSTALL_HOOK_DIRECT (bnusio_DecService, bnusio_DecService_Original);
         INSTALL_HOOK_DIRECT (bnusio_ResetCoin, bnusio_ResetCoin_Original);
 
-        std::cout << "[Init] USIO emulation disabled" << std::endl;
+        LogMessage (LOG_LEVEL_WARN, "USIO emulation disabled");
     }
 
     if (emulateCardReader) {
@@ -393,7 +423,11 @@ Init () {
         INSTALL_HOOK (bngrw_Attach);
         INSTALL_HOOK (bngrw_DevReset);
     } else {
-        std::cout << "[Init] Card reader emulation disabled" << std::endl;
+        LogMessage (LOG_LEVEL_WARN, "Card reader emulation disabled");
+        if (acceptInvalidCards) {
+            LogMessage (LOG_LEVEL_WARN, "Original reader will accept invalid cards!");
+            INSTALL_HOOK (bngrw_ReqWaitTouch);
+        }
     }
 }
 
@@ -422,48 +456,34 @@ Update () {
     if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
     if (IsButtonTapped (EXIT)) ExitProcess (0);
     if (waitingForTouch) {
-        static u8 cardData[168]
-            = {0x01, 0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x92, 0x2E, 0x58, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00,
-               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7F, 0x5C, 0x97, 0x44, 0xF0, 0x88, 0x04, 0x00, 0x43, 0x26, 0x2C, 0x33, 0x00, 0x04,
-               0x06, 0x10, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-               0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x30, 0x30, 0x30, 0x30,
-               0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
-               0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4E, 0x42, 0x47, 0x49, 0x43, 0x36,
-               0x00, 0x00, 0xFA, 0xE9, 0x69, 0x00, 0xF6, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         bool hasInserted = false;
-        if (IsButtonTapped (CARD_INSERT_1)) {
+        if (IsButtonTapped (CARD_INSERT_1) || IsButtonTapped (CARD_INSERT_2)) {
+            bool p1 = IsButtonTapped (CARD_INSERT_1);
+            static u8 cardData[168]
+                = {0x01, 0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x92, 0x2E, 0x58, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00,
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7F, 0x5C, 0x97, 0x44, 0xF0, 0x88, 0x04, 0x00, 0x43, 0x26, 0x2C, 0x33, 0x00, 0x04,
+                   0x06, 0x10, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
+                   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x30, 0x30, 0x30, 0x30,
+                   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
+                   0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4E, 0x42, 0x47, 0x49, 0x43, 0x36,
+                   0x00, 0x00, 0xFA, 0xE9, 0x69, 0x00, 0xF6, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
             for (auto plugin : plugins) {
-                FARPROC insertEvent = GetProcAddress (plugin, "BeforeCard1Insert");
+                FARPROC insertEvent = GetProcAddress (plugin, p1 ? "BeforeCard1Insert" : "BeforeCard2Insert");
                 if (insertEvent) ((event *)insertEvent) ();
-            }
-            for (auto plugin : plugins) {
-                FARPROC insertEvent = GetProcAddress (plugin, "Card1Insert");
+                insertEvent = GetProcAddress (plugin, p1 ? "Card1Insert" : "Card2Insert");
                 if (insertEvent) {
                     ((event *)insertEvent) ();
                     hasInserted = true;
+                    break;
                 }
             }
+
             if (!hasInserted) {
-                memcpy (cardData + 0x2C, chipId1, 33);
-                memcpy (cardData + 0x50, accessCode1, 21);
-                touchCallback (0, 0, cardData, touchData);
-            }
-        } else if (IsButtonTapped (CARD_INSERT_2)) {
-            for (auto plugin : plugins) {
-                FARPROC insertEvent = GetProcAddress (plugin, "BeforeCard2Insert");
-                if (insertEvent) ((event *)insertEvent) ();
-            }
-            for (auto plugin : plugins) {
-                FARPROC insertEvent = GetProcAddress (plugin, "Card2Insert");
-                if (insertEvent) {
-                    ((event *)insertEvent) ();
-                    hasInserted = true;
-                }
-            }
-            if (!hasInserted) {
-                memcpy (cardData + 0x2C, chipId2, 33);
-                memcpy (cardData + 0x50, accessCode2, 21);
+                LogMessage (LOG_LEVEL_INFO, "Inserting card for player %d: %s", p1 ? "1" : "2", p1 ? accessCode1 : accessCode2);
+                memcpy (cardData + 0x2C, p1 ? chipId1 : chipId2, 33);
+                memcpy (cardData + 0x50, p1 ? accessCode1 : accessCode2, 21);
                 touchCallback (0, 0, cardData, touchData);
             }
         }
@@ -486,5 +506,7 @@ Close () {
         FARPROC exitEvent = GetProcAddress (plugin, "Exit");
         if (exitEvent) ((event *)exitEvent) ();
     }
+
+    CleanupLogger ();
 }
 } // namespace bnusio

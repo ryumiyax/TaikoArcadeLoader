@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <toml.h>
+#include "constants.h"
+#include "logger.h"
 
 typedef int8_t i8;
 typedef int16_t i16;
@@ -59,8 +61,11 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
     void *where##functionName = NULL;       \
     void implOf##functionName (SafetyHookContext &ctx)
 
-#define INSTALL_HOOK(functionName) \
-    { original##functionName = safetyhook::create_inline (where##functionName, implOf##functionName); }
+#define INSTALL_HOOK(functionName)                                                                      \
+    {                                                                                                   \
+        LogMessage (LOG_LEVEL_DEBUG, (std::string ("Installing hook for ") + #functionName).c_str ());  \
+        original##functionName = safetyhook::create_inline (where##functionName, implOf##functionName); \
+    }
 
 #define INSTALL_HOOK_DYNAMIC(functionName, location) \
     {                                                \
@@ -68,8 +73,11 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
         INSTALL_HOOK (functionName);                 \
     }
 
-#define INSTALL_HOOK_DIRECT(location, locationOfHook) \
-    { directHooks.push_back (safetyhook::create_inline ((void *)location, (void *)locationOfHook)); }
+#define INSTALL_HOOK_DIRECT(location, locationOfHook)                                                     \
+    {                                                                                                     \
+        LogMessage (LOG_LEVEL_DEBUG, (std::string ("Installing direct hook for ") + #location).c_str ()); \
+        directHooks.push_back (safetyhook::create_inline ((void *)location, (void *)locationOfHook));     \
+    }
 
 #define INSTALL_VTABLE_HOOK(className, object, functionName, functionIndex)                     \
     {                                                                                           \
@@ -77,13 +85,60 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
         INSTALL_HOOK (className##functionName);                                                 \
     }
 
-#define INSTALL_MID_HOOK(functionName) \
-    { midHook##functionName = safetyhook::create_mid (where##functionName, implOf##functionName); }
+#define INSTALL_MID_HOOK(functionName)                                                                     \
+    {                                                                                                      \
+        LogMessage (LOG_LEVEL_DEBUG, (std::string ("Installing mid hook for ") + #functionName).c_str ()); \
+        midHook##functionName = safetyhook::create_mid (where##functionName, implOf##functionName);        \
+    }
 
 #define INSTALL_MID_HOOK_DYNAMIC(functionName, location) \
     {                                                    \
         where##functionName = (void *)location;          \
         INSTALL_MID_HOOK (functionName);                 \
+    }
+
+bool sendFlag = false;
+#define SCENE_RESULT_HOOK(functionName, location)                                                                                \
+    HOOK (void, functionName, location, i64 a1, i64 a2, i64 a3) {                                                                \
+        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { \
+            original##functionName.call (a1, a2, a3);                                                                            \
+            return;                                                                                                              \
+        }                                                                                                                        \
+        sendFlag = true;                                                                                                         \
+        original##functionName.call (a1, a2, a3);                                                                                \
+        ExecuteSendResultData ();                                                                                                \
+    }
+
+#define SEND_RESULT_HOOK(functionName, location)                                                                                 \
+    HOOK (void, functionName, location, i64 a1) {                                                                                \
+        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { \
+            original##functionName.call (a1);                                                                                    \
+            return;                                                                                                              \
+        }                                                                                                                        \
+        if (sendFlag) {                                                                                                          \
+            sendFlag = false;                                                                                                    \
+            original##functionName.call (a1);                                                                                    \
+        }                                                                                                                        \
+    }
+
+#define CHANGE_RESULT_SIZE_HOOK(functionName, location, target)                                                                            \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                                                                            \
+        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { return; } \
+        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);                                                                      \
+        u32 currentStageCount = *(u32 *)(instance + 8);                                                                                    \
+        ctx.target &= 0xFFFFFFFF00000000;                                                                                                  \
+        ctx.target |= currentStageCount;                                                                                                   \
+    }
+
+#define CHANGE_RESULT_INDEX_HOOK(functionName, location, target, offset, skip)                                                             \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                                                                            \
+        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { return; } \
+        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);                                                                      \
+        u32 currentStageCount = *(u32 *)(instance + 8);                                                                                    \
+        ctx.target &= 0xFFFFFFFF00000000;                                                                                                  \
+        ctx.target |= currentStageCount - 1;                                                                                               \
+        *(u32 *)(ctx.rsp + offset) = currentStageCount - 1;                                                                                \
+        ctx.rip += skip;                                                                                                                   \
     }
 
 #define READ_MEMORY(location, type) *(type *)location
@@ -124,14 +179,7 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
     }
 
 #define COUNTOFARR(arr) sizeof (arr) / sizeof (arr[0])
-
-#define INFO_COLOUR               FOREGROUND_GREEN
-#define WARNING_COLOUR            (FOREGROUND_RED | FOREGROUND_GREEN)
-#define ERROR_COLOUR              FOREGROUND_RED
-#define printInfo(format, ...)    printColour (INFO_COLOUR, format, __VA_ARGS__)
-#define printWarning(format, ...) printColour (WARNING_COLOUR, format, __VA_ARGS__)
-#define printError(format, ...)   printColour (ERROR_COLOUR, format, __VA_ARGS__)
-#define round(num)                ((num > 0) ? (int)(num + 0.5) : (int)(num - 0.5))
+#define round(num)      ((num > 0) ? (int)(num + 0.5) : (int)(num - 0.5))
 
 toml_table_t *openConfig (std::filesystem::path path);
 toml_table_t *openConfigSection (toml_table_t *config, const std::string &sectionName);
@@ -139,7 +187,10 @@ bool readConfigBool (toml_table_t *table, const std::string &key, bool notFoundV
 int64_t readConfigInt (toml_table_t *table, const std::string &key, int64_t notFoundValue);
 const std::string readConfigString (toml_table_t *table, const std::string &key, const std::string &notFoundValue);
 std::vector<int64_t> readConfigIntArray (toml_table_t *table, const std::string &key, std::vector<int64_t> notFoundValue);
-void printColour (int colour, const char *format, ...);
 std::wstring replace (const std::wstring orignStr, const std::wstring oldStr, const std::wstring newStr);
 std::string replace (const std::string orignStr, const std::string oldStr, const std::string newStr);
 std::vector<SafetyHookInline> directHooks = {};
+const char *GameVersionToString (GameVersion version);
+const char *languageStr (int language);
+std::string ConvertWideToUtf8 (const std::wstring &wstr);
+bool AreAllBytesZero (const uint8_t *array, size_t offset, size_t length);
