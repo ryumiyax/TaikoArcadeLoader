@@ -1,15 +1,8 @@
+#include <winsock2.h>
 #include "helpers.h"
-#include <bits/stdc++.h>
-#include <format>
-#include <MinHook.h>
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <toml.h>
-#include <windows.h>
-#include <winsock2.h>
 #include <ws2tcpip.h>
 
 /*
@@ -29,9 +22,9 @@ namespace patches::AmAuth {
 
 char server_ip[16];
 
-const GUID IID_CAuth{0x045A5150, 0xD2B3, 0x4590, {0xA3, 0x8B, 0xC1, 0x15, 0x86, 0x78, 0xE1, 0xAC}};
+constexpr GUID IID_CAuth{0x045A5150, 0xD2B3, 0x4590, {0xA3, 0x8B, 0xC1, 0x15, 0x86, 0x78, 0xE1, 0xAC}};
 
-const GUID IID_CAuthFactory{0x4603BB03, 0x058D, 0x43D9, {0xB9, 0x6F, 0x63, 0x9B, 0xE9, 0x08, 0xC1, 0xED}};
+constexpr GUID IID_CAuthFactory{0x4603BB03, 0x058D, 0x43D9, {0xB9, 0x6F, 0x63, 0x9B, 0xE9, 0x08, 0xC1, 0xED}};
 
 typedef struct amcus_network_state {
     char mode[16];
@@ -44,11 +37,11 @@ typedef struct amcus_network_state {
     char gateway[16];
     char primary_dns[16];
     int hop_count;
-    uint32_t line_type;
-    uint32_t line_status;
-    uint32_t content_router_status;
-    uint32_t shop_router_status;
-    uint32_t hop_status;
+    u32 line_type;
+    u32 line_status;
+    u32 content_router_status;
+    u32 shop_router_status;
+    u32 hop_status;
 } amcus_network_state_t;
 
 typedef struct amcus_auth_server_resp {
@@ -84,57 +77,58 @@ struct allnet_state {};
 
 /* Memory Size: 144 */
 struct mucha_state {
-    /* Offset: 0 */ /* ENUM32 */ uint32_t state;
-    /* Offset: 4 */ /* ENUM32 */ uint32_t error;
-    /* Offset: 8  */ int32_t auth_state;
-    /* Offset: 12 */ int32_t auth_count;
-    /* Offset: 16 */ int32_t state_dlexec;
-    /* Offset: 20 */ int32_t state_dlstep;
-    /* Offset: 24 */ int32_t state_dllan;
-    /* Offset: 28 */ int32_t state_dlwan;
-    /* Offset: 32 */ int32_t state_io;
-    /* Offset: 36 */ int16_t cacfg_ver_major;
-    /* Offset: 38 */ int16_t cacfg_ver_minor;
-    /* Offset: 40 */ int16_t app_ver_major;
-    /* Offset: 42 */ int16_t app_ver_minor;
-    /* Offset: 44 */ int16_t dl_ver_major;
-    /* Offset: 46 */ int16_t dl_ver_minor;
-    /* Offset: 48 */ int32_t dl_ver_total;
-    /* Offset: 52 */ int32_t dl_ver_done;
-    /* Offset: 56 */ int64_t dl_total;
-    /* Offset: 64 */ int64_t dl_done;
-    /* Offset: 72 */ int64_t dl_pc_done;
-    /* Offset: 80 */ int64_t dl_io_total;
-    /* Offset: 88 */ int64_t dl_io_done;
-    /* Offset: 96 */ int32_t dl_check_complete;
-    /* Offset: 100 */ int32_t token_consumed;
-    /* Offset: 104 */ int32_t token_charged;
-    /* Offset: 108 */ int32_t token_unit;
-    /* Offset: 112 */ int32_t token_lower;
-    /* Offset: 116 */ int32_t token_upper;
-    /* Offset: 120 */ int32_t token_added;
-    /* Offset: 124 */ int32_t token_month_lower;
-    /* Offset: 128 */ int32_t token_month_upper;
-    /* Offset: 132 */ int32_t is_forced_boot;
-    /* Offset: 136 */ int32_t Member88;
-    /* Offset: 140 */ int32_t unknown_a;
-    /* Offset: 144 */ int32_t unknown_b;
+    /* Offset: 0 */ /* ENUM32 */ u32 state;
+    /* Offset: 4 */ /* ENUM32 */ u32 error;
+    /* Offset: 8  */ i32 auth_state;
+    /* Offset: 12 */ i32 auth_count;
+    /* Offset: 16 */ i32 state_dlexec;
+    /* Offset: 20 */ i32 state_dlstep;
+    /* Offset: 24 */ i32 state_dllan;
+    /* Offset: 28 */ i32 state_dlwan;
+    /* Offset: 32 */ i32 state_io;
+    /* Offset: 36 */ i16 cacfg_ver_major;
+    /* Offset: 38 */ i16 cacfg_ver_minor;
+    /* Offset: 40 */ i16 app_ver_major;
+    /* Offset: 42 */ i16 app_ver_minor;
+    /* Offset: 44 */ i16 dl_ver_major;
+    /* Offset: 46 */ i16 dl_ver_minor;
+    /* Offset: 48 */ i32 dl_ver_total;
+    /* Offset: 52 */ i32 dl_ver_done;
+    /* Offset: 56 */ i64 dl_total;
+    /* Offset: 64 */ i64 dl_done;
+    /* Offset: 72 */ i64 dl_pc_done;
+    /* Offset: 80 */ i64 dl_io_total;
+    /* Offset: 88 */ i64 dl_io_done;
+    /* Offset: 96 */ i32 dl_check_complete;
+    /* Offset: 100 */ i32 token_consumed;
+    /* Offset: 104 */ i32 token_charged;
+    /* Offset: 108 */ i32 token_unit;
+    /* Offset: 112 */ i32 token_lower;
+    /* Offset: 116 */ i32 token_upper;
+    /* Offset: 120 */ i32 token_added;
+    /* Offset: 124 */ i32 token_month_lower;
+    /* Offset: 128 */ i32 token_month_upper;
+    /* Offset: 132 */ i32 is_forced_boot;
+    /* Offset: 136 */ i32 Member88;
+    /* Offset: 140 */ i32 unknown_a;
+    /* Offset: 144 */ i32 unknown_b;
 };
 
 /* Memory Size: 208 */
 typedef struct amcus_state {
-    /* Offset: 0 */ /* ENUM32 */ uint32_t allnet_state;
-    /* Offset: 4 */ /* ENUM32 */ uint32_t allnet_error;
-    /* Offset: 8 */ int32_t allnet_auth_state;
-    /* Offset: 12 */ int32_t allnet_auth_count;
-    /* Offset: 16 */ int32_t allnet_last_error;
-    /* Offset: 24 */ struct mucha_state mucha_state;
-    /* Offset: 176 */ int64_t clock_status;
-    /* Offset: 184 */ int64_t name_resolution_timeout;
-    /* Offset: 192 */ /* ENUM32 */ uint32_t auth_type;
-    /* Offset: 196 */ /* ENUM32 */ uint32_t cab_mode;
-    /* Offset: 200 */ /* ENUM32 */ uint32_t state;
-    /* Offset: 204 */ /* ENUM32 */ uint32_t err;
+    /* Offset: 0 */ /* ENUM32 */ u32 allnet_state;
+    /* Offset: 4 */ /* ENUM32 */ u32 allnet_error;
+    /* Offset: 8 */ i32 allnet_auth_state;
+    /* Offset: 12 */ i32 allnet_auth_count;
+    /* Offset: 16 */ i32 allnet_last_error;
+    /* Offset: 24 */
+    mucha_state mucha_state;
+    /* Offset: 176 */ i64 clock_status;
+    /* Offset: 184 */ i64 name_resolution_timeout;
+    /* Offset: 192 */ /* ENUM32 */ u32 auth_type;
+    /* Offset: 196 */ /* ENUM32 */ u32 cab_mode;
+    /* Offset: 200 */ /* ENUM32 */ u32 state;
+    /* Offset: 204 */ /* ENUM32 */ u32 err;
 } amcus_state_t;
 
 typedef struct mucha_boardauth_resp {
@@ -266,22 +260,21 @@ enum daemon_mode {
 class CAuth : public IUnknown {
 public:
     STDMETHODIMP
-    QueryInterface (REFIID riid, LPVOID *ppvObj) {
+    QueryInterface (REFIID riid, LPVOID *ppvObj) override {
         wchar_t *iid_str;
-        StringFromCLSID (riid, &iid_str);
+        [[maybe_unused]] auto _ = StringFromCLSID (riid, &iid_str);
 
         if (riid == IID_IUnknown || riid == IID_CAuth) {
             *ppvObj = this;
             this->AddRef ();
             return 0;
-        } else {
-            *ppvObj = 0;
-            return E_NOINTERFACE;
         }
+        *ppvObj = nullptr;
+        return E_NOINTERFACE;
     }
 
-    STDMETHODIMP_ (ULONG) AddRef () { return this->refCount++; }
-    STDMETHODIMP_ (ULONG) Release () {
+    STDMETHODIMP_ (ULONG) AddRef () override { return this->refCount++; }
+    STDMETHODIMP_ (ULONG) Release () override {
         this->refCount--;
         if (this->refCount <= 0) {
             // delete this;
@@ -290,25 +283,25 @@ public:
         return this->refCount;
     }
 
-    virtual int64_t Unk3 (uint32_t a1) { return 1; }
+    virtual i64 Unk3 (u32 a1) { return 1; }
 
-    virtual int64_t Unk4 () { return 1; }
+    virtual i64 Unk4 () { return 1; }
 
-    virtual int32_t Unk5 () { return 0; }
+    virtual i32 Unk5 () { return 0; }
 
-    virtual int64_t Unk6 () { return 1; }
+    virtual i64 Unk6 () { return 1; }
 
-    virtual int32_t Unk7 () { return 0; }
+    virtual i32 Unk7 () { return 0; }
 
-    virtual int32_t Unk8 () { return 0; }
+    virtual i32 Unk8 () { return 0; }
 
-    virtual int32_t IAuth_GetUpdaterState (amcus_state_t *arr) {
+    virtual i32 IAuth_GetUpdaterState (amcus_state_t *arr) {
         memset (arr, 0, sizeof (*arr));
         // Convert gameVerNum from string to double
-        double ver_d = std::stod (gameVerNum.c_str ());
+        const double ver_d = std::stod (gameVerNum.c_str ());
 
-        int ver_top = (int)ver_d;
-        int ver_btm = (int)(ver_d * 100);
+        const int ver_top = static_cast<int> (ver_d);
+        int ver_btm       = static_cast<int> (ver_d * 100);
 
         if (ver_top != 0) ver_btm %= (ver_top * 100);
 
@@ -338,7 +331,7 @@ public:
         arr->cab_mode     = DAEMON_MODE_STANDALONE;
         arr->state        = DAEMON_IDLE;
 
-        /*memset(a1, 0, sizeof(int32_t) * 0x31);
+        /*memset(a1, 0, sizeof(i32) * 0x31);
         a1[0] = 15;
         a1[2] = 2;
         a1[3] = 1;
@@ -358,7 +351,7 @@ public:
         return 0;
     }
 
-    virtual int32_t IAuth_GetCabinetConfig (amcus_network_state_t *state) {
+    virtual i32 IAuth_GetCabinetConfig (amcus_network_state_t *state) {
         memset (state, 0, sizeof (*state));
         strcpy_s (state->mode, "STANDALONE");
         strcpy_s (state->pcbid, "ABLN1080001");
@@ -379,7 +372,7 @@ public:
         return 0;
     }
 
-    virtual int32_t IAuth_GetVersionInfo (amcus_version_info_t *version) {
+    virtual i32 IAuth_GetVersionInfo (amcus_version_info_t *version) {
         memset (version, 0, sizeof (*version));
         strcpy_s (version->game_rev, "1");
         strcpy_s (version->auth_type, "ALL.NET");
@@ -393,11 +386,11 @@ public:
         return 0;
     }
 
-    virtual int32_t Unk12 () { return 1; }
+    virtual i32 Unk12 () { return 1; }
 
-    virtual int32_t Unk13 () { return 1; }
+    virtual i32 Unk13 () { return 1; }
 
-    virtual int32_t IAuth_GetAuthServerResp (amcus_auth_server_resp_t *resp) {
+    virtual i32 IAuth_GetAuthServerResp (amcus_auth_server_resp_t *resp) {
         memset (resp, 0, sizeof (*resp));
         strcpy_s (resp->uri, fullAddress);
         strcpy_s (resp->host, fullAddress);
@@ -419,13 +412,13 @@ public:
         return 0;
     }
 
-    virtual int32_t Unk15 () { return 0; }
+    virtual i32 Unk15 () { return 0; }
 
-    virtual int32_t Unk16 () { return 0; }
+    virtual i32 Unk16 () { return 0; }
 
-    virtual int32_t Unk17 () { return 0; }
+    virtual i32 Unk17 () { return 0; }
 
-    virtual int32_t IAuth_GetMuchaAuthResponse (mucha_boardauth_resp_t *arr) {
+    virtual i32 IAuth_GetMuchaAuthResponse (mucha_boardauth_resp_t *arr) {
         memset (arr, 0, sizeof (*arr));
         strcpy_s (arr->shop_name, sizeof (arr->shop_name), shopId.c_str ());
         strcpy_s (arr->shop_name_en, sizeof (arr->shop_name_en), shopId.c_str ());
@@ -460,94 +453,91 @@ public:
         return 0;
     }
 
-    virtual int32_t Unk19 (uint8_t *a1) {
+    virtual i32 Unk19 (u8 *a1) {
         memset (a1, 0, 0x38);
         a1[0] = 1;
         return 1;
     }
 
-    virtual int32_t Unk20 () { return 0; }
+    virtual i32 Unk20 () { return 0; }
 
-    virtual int32_t Unk21 () { return 1; }
+    virtual i32 Unk21 () { return 1; }
 
-    virtual int32_t Unk22 () { return 0; }
+    virtual i32 Unk22 () { return 0; }
 
-    virtual int32_t Unk23 () { return 0; }
+    virtual i32 Unk23 () { return 0; }
 
-    virtual int32_t Unk24 () { return 0; }
+    virtual i32 Unk24 () { return 0; }
 
-    virtual int32_t Unk25 () { return 1; }
+    virtual i32 Unk25 () { return 1; }
 
-    virtual int32_t Unk26 () { return 0; }
+    virtual i32 Unk26 () { return 0; }
 
-    virtual int32_t Unk27 () { return 1; }
+    virtual i32 Unk27 () { return 1; }
 
-    virtual int32_t Unk28 () { return 0; }
+    virtual i32 Unk28 () { return 0; }
 
-    virtual int32_t Unk29 () { return 0; }
+    virtual i32 Unk29 () { return 0; }
 
-    virtual int32_t Unk30 () { return 0; }
+    virtual i32 Unk30 () { return 0; }
 
-    virtual int32_t PrintDebugInfo () { return 0; }
+    virtual i32 PrintDebugInfo () { return 0; }
 
-    virtual int32_t Unk32 (void *a1) { return 0; }
+    virtual i32 Unk32 (void *a1) { return 0; }
 
     virtual void Unk33 () {}
 
-public:
     CAuth () {}
 
     virtual ~CAuth () {}
 
 private:
-    int32_t refCount = 0;
+    i32 refCount = 0;
 };
 
 class CAuthFactory final : public IClassFactory {
 public:
     virtual ~CAuthFactory () = default;
     STDMETHODIMP
-    QueryInterface (REFIID riid, LPVOID *ppvObj) {
+    QueryInterface (REFIID riid, LPVOID *ppvObj) override {
         wchar_t *iid_str;
-        StringFromCLSID (riid, &iid_str);
+        [[maybe_unused]] auto _ = StringFromCLSID (riid, &iid_str);
 
         if (riid == IID_IUnknown || riid == IID_IClassFactory || riid == IID_CAuthFactory) {
             *ppvObj = this;
             return 0;
-        } else {
-            *ppvObj = 0;
-            return E_NOINTERFACE;
         }
+        *ppvObj = nullptr;
+        return E_NOINTERFACE;
     }
 
-    STDMETHODIMP_ (ULONG) AddRef () { return 2; }
-    STDMETHODIMP_ (ULONG) Release () { return 1; }
+    STDMETHODIMP_ (ULONG) AddRef () override { return 2; }
+    STDMETHODIMP_ (ULONG) Release () override { return 1; }
 
-    virtual HRESULT CreateInstance (IUnknown *outer, REFIID riid, void **object) {
+    HRESULT CreateInstance (IUnknown *outer, REFIID riid, void **object) override {
         if (outer != nullptr) return CLASS_E_NOAGGREGATION;
 
-        CAuth *auth = new CAuth ();
+        const auto auth = new CAuth ();
         return auth->QueryInterface (riid, object);
     }
 
-    virtual HRESULT LockServer (int32_t lock) { return 0; }
+    HRESULT LockServer (i32 lock) override { return 0; }
 };
 
-static HRESULT (STDAPICALLTYPE *g_origCoCreateInstance) (const IID *const rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, const IID *const riid,
-                                                         LPVOID *ppv);
+static HRESULT (STDAPICALLTYPE *g_origCoCreateInstance) (const IID *rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, const IID *riid, LPVOID *ppv);
 
 static HRESULT STDAPICALLTYPE
-CoCreateInstanceHook (const IID *const rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, const IID *const riid, LPVOID *ppv) {
+CoCreateInstanceHook (const IID *const rclsid, const LPUNKNOWN pUnkOuter, const DWORD dwClsContext, const IID *const riid, LPVOID *ppv) {
     HRESULT result;
 
-    LPOLESTR clsidStr = nullptr;
-    LPOLESTR iidStr   = nullptr;
-    StringFromIID (*rclsid, &clsidStr);
-    StringFromIID (*riid, &iidStr);
+    LPOLESTR clsidStr       = nullptr;
+    LPOLESTR iidStr         = nullptr;
+    [[maybe_unused]] auto _ = StringFromIID (*rclsid, &clsidStr);
+    _                       = StringFromIID (*riid, &iidStr);
 
     if (IsEqualGUID (*rclsid, IID_CAuthFactory) && IsEqualGUID (*riid, IID_CAuth)) {
-        auto cauth = new CAuth ();
-        result     = cauth->QueryInterface (*riid, ppv);
+        const auto cauth = new CAuth ();
+        result           = cauth->QueryInterface (*riid, ppv);
     } else {
         result = g_origCoCreateInstance (rclsid, pUnkOuter, dwClsContext, riid, ppv);
     }
@@ -559,18 +549,18 @@ CoCreateInstanceHook (const IID *const rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsC
 
 void
 Init () {
-    LogMessage (LOG_LEVEL_INFO, "Init AmAuth patches");
+    LogMessage (LogLevel::INFO, "Init AmAuth patches");
 
     MH_Initialize ();
-    MH_CreateHookApi (L"ole32.dll", "CoCreateInstance", (LPVOID)CoCreateInstanceHook,
-                      (void **)&g_origCoCreateInstance); // NOLINT(clang-diagnostic-microsoft-cast)
+    MH_CreateHookApi (L"ole32.dll", "CoCreateInstance", reinterpret_cast<LPVOID> (CoCreateInstanceHook),
+                      reinterpret_cast<void **> (&g_origCoCreateInstance));
     MH_EnableHook (nullptr);
 
-    struct addrinfo *res = 0;
-    getaddrinfo (server.c_str (), "", 0, &res);
-    for (struct addrinfo *i = res; i != 0; i = i->ai_next) {
+    addrinfo *res = nullptr;
+    getaddrinfo (server.c_str (), "", nullptr, &res);
+    for (const addrinfo *i = res; i != nullptr; i = i->ai_next) {
         if (res->ai_addr->sa_family != AF_INET) continue;
-        struct sockaddr_in *p = (struct sockaddr_in *)res->ai_addr;
+        const sockaddr_in *p = reinterpret_cast<struct sockaddr_in *> (res->ai_addr);
         inet_ntop (AF_INET, &p->sin_addr, server_ip, 0x10);
         break;
     }
