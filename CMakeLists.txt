@@ -133,7 +133,9 @@ set(SOURCES
     src/patches/dxgi.cpp
     src/patches/fpslimiter.cpp
     src/patches/audio.cpp
-    src/patches/qr.cpp
+    src/patches/plugins.cpp
+    src/patches/scanner.cpp
+    # src/patches/qr.cpp
     src/patches/layeredfs.cpp
     src/patches/testmode.cpp
     src/patches/versions/JPN00.cpp

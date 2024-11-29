@@ -31,7 +31,7 @@ version = "auto"            # Patch version
                             # | - JPN08: For use with Taiko JPN 08.18
                             # | - JPN39: For use with Taiko JPN 39.06
                             # | - CHN00: For use with Taiko CHN 00.32
-unlock_songs = true
+unlock_songs = true         # not active for JPN39 (see TestMode)
 
 [patches.chn00]             # These patches are only available for version CHN00
 fix_language = false        # Sync test mode language to attract etc
@@ -40,7 +40,6 @@ mode_collabo025 = false     # Enable one piece collab mode
 mode_collabo026 = false     # Enable ai soshina mode
 
 [patches.jpn39]             # These patches are only available for version JPN39
-fix_language = false        # Sync test mode language to attract etc
 chs_patch = false           # Use Chinese font and Simplified Chinese values from the wordlist
                             # More options are available in the ModManager, in the TestMode menu (Default key is F1)
 
@@ -53,6 +52,7 @@ qr = true                   # Disable this if you have an original namco qr code
 [graphics]
 res = { x = 1920, y = 1080 }
 windowed = false
+cursor = true
 vsync = false
 fpslimit = 120
 
@@ -100,6 +100,8 @@ TaikoArcadeLoader offers several patches to select in TestMode
 
 The follow options are available in "MOD MANAGER" menu:
 
+* FIX LANGUAGE (sync test mode language to attract etc)
+* UNLOCK SONGS (show all of the songs)
 * FREEZE TIMER (stop timer count down)
 * KIMETSU MODE (enable collabo024, will show a blank title)
 * ONE PIECE MODE (enable collabo025)
@@ -110,6 +112,7 @@ The follow options are available in "MOD MANAGER" menu:
 Enhanced original option:
 
 * Louder volume (Speaker Volume is now up to 300%, **WARNING: May damage your speakers**)
+* Attract demo (Only available if FIX LANGUAGE is ON)
 
 ## Building Manually
 

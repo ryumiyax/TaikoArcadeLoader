@@ -25,6 +25,7 @@ char chipId2[33]        = "00000000000000000000000000000002";
 bool windowed           = false;
 bool autoIme            = false;
 bool jpLayout           = false;
+bool cursor             = true;
 bool emulateUsio        = true;
 bool emulateCardReader  = true;
 bool emulateQr          = true;
@@ -177,7 +178,10 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
                 acceptInvalidCards = readConfigBool (emulation, "accept_invalid", acceptInvalidCards);
                 emulateQr          = readConfigBool (emulation, "qr", emulateQr);
             }
-            if (const auto graphics = openConfigSection (config, "graphics")) windowed = readConfigBool (graphics, "windowed", windowed);
+            if (const auto graphics = openConfigSection (config, "graphics")) {
+                windowed = readConfigBool (graphics, "windowed", windowed);
+                cursor   = readConfigBool (graphics, "cursor", cursor);
+            }
             if (const auto keyboard = openConfigSection (config, "keyboard")) {
                 autoIme  = readConfigBool (keyboard, "auto_ime", autoIme);
                 jpLayout = readConfigBool (keyboard, "jp_layout", jpLayout);
@@ -210,20 +214,8 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         }
         LogMessage (LogLevel::INFO, "GameVersion is %s", GameVersionToString (gameVersion));
 
-        if (const auto pluginPath = std::filesystem::current_path () / "plugins"; exists (pluginPath)) {
-            for (const auto &entry : std::filesystem::directory_iterator (pluginPath)) {
-                if (entry.path ().extension () == ".dll") {
-                    auto name      = entry.path ().wstring ();
-                    auto shortName = entry.path ().filename ().wstring ();
-                    if (HMODULE hModule = LoadLibraryW (name.c_str ()); !hModule) {
-                        LogMessage (LogLevel::ERROR, L"Failed to load plugin " + shortName);
-                    } else {
-                        plugins.push_back (hModule);
-                        LogMessage (LogLevel::INFO, L"Loaded plugin " + shortName);
-                    }
-                }
-            }
-        }
+        patches::Plugins::LoadPlugins ();
+        patches::Plugins::InitVersion (gameVersion);
 
         if (!std::filesystem::exists (".\\card.ini")) CreateCard ();
         GetPrivateProfileStringA ("card", "accessCode1", accessCode1, accessCode1, 21, ".\\card.ini");
@@ -233,7 +225,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
 
         LogMessage (LogLevel::WARN, "Loading patches, please wait...");
 
-        INSTALL_HOOK (ShowMouse);
+        if (cursor) INSTALL_HOOK (ShowMouse);
         INSTALL_HOOK (ExitWindows);
         INSTALL_HOOK (CreateWindow);
         INSTALL_HOOK (SetWindowPosition);
@@ -262,7 +254,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         case GameVersion::CHN00: patches::CHN00::Init (); break;
         }
 
-        patches::Qr::Init ();
+        patches::Scanner::Init ();
         patches::Audio::Init ();
         patches::Dxgi::Init ();
         patches::AmAuth::Init ();

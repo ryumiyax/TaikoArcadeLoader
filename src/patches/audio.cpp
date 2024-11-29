@@ -22,6 +22,8 @@ bool wasapiShared      = true;
 bool asio              = false;
 std::string asioDriver;
 
+float volumeRate       = 0.0f;
+
 HOOK_DYNAMIC (i64, NUSCDeviceInit, void *a1, nusc_init_config_t *a2, nusc_init_config_t *a3, void *a4) {
     LogMessage (LogLevel::INFO, std::string ("Device mode is ") + (asio ? "ASIO" : wasapiShared ? "wasapi shared" : "wasapi exclusive"));
     if (asio) LogMessage (LogLevel::INFO, (std::string ("ASIO driver is ") + asioDriver).c_str ());
@@ -38,6 +40,19 @@ HOOK_DYNAMIC (bool, LoadASIODriver, void *a1, const char *a2) {
         ExitProcess (0);
     }
     return result;
+}
+HOOK_DYNAMIC (u64, NuscBusVolume, u64 a1, u64 a2, float a3) {
+    if (volumeRate == 0.0f) {
+        int value = patches::TestMode::ReadTestModeValue (L"OutputLevelSpeakerItem");
+        if (value == -1) return originalNuscBusVolume (a1, a2, a3);
+        volumeRate = value <= 100 ? 1.0f : value / 100.0f;
+    }
+    return originalNuscBusVolume (a1, a2, a3 * volumeRate);
+}
+
+void
+SetVolumeRate (float rate) {
+    volumeRate = rate;
 }
 
 void
@@ -68,6 +83,7 @@ Init () {
     case GameVersion::JPN39: {
         INSTALL_HOOK_DYNAMIC (NUSCDeviceInit, ASLR (0x1407C8620));
         INSTALL_HOOK_DYNAMIC (LoadASIODriver, ASLR (0x1407D0F70));
+        INSTALL_HOOK_DYNAMIC (NuscBusVolume,  ASLR (0x1407B1C30));
         break;
     }
     case GameVersion::CHN00: {

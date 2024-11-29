@@ -212,16 +212,19 @@ Init () {
     }
 
     FpsLimiterEnable = fpsLimit > 0;
-    FpsLimiter::Init (static_cast<float> (fpsLimit));
 
-    MH_Initialize ();
-    MH_CreateHookApi (L"dxgi.dll", "CreateDXGIFactory", reinterpret_cast<LPVOID> (CreateDXGIFactoryWrap),
-                      reinterpret_cast<void **> (&g_origCreateDXGIFactory));
-    MH_CreateHookApi (L"dxgi.dll", "CreateDXGIFactory2", reinterpret_cast<LPVOID> (CreateDXGIFactory2Wrap),
-                      reinterpret_cast<void **> (&g_origCreateDXGIFactory2));
-    MH_CreateHookApi (L"d3d11.dll", "D3D11CreateDeviceAndSwapChain", reinterpret_cast<LPVOID> (D3D11CreateDeviceAndSwapChainWrap),
-                      reinterpret_cast<void **> (&g_origD3D11CreateDeviceAndSwapChain));
-    MH_EnableHook (nullptr);
+    if (FpsLimiterEnable) {
+        FpsLimiter::Init (static_cast<float> (fpsLimit));
+
+        MH_Initialize ();
+        MH_CreateHookApi (L"dxgi.dll", "CreateDXGIFactory", reinterpret_cast<LPVOID> (CreateDXGIFactoryWrap),
+                        reinterpret_cast<void **> (&g_origCreateDXGIFactory));
+        MH_CreateHookApi (L"dxgi.dll", "CreateDXGIFactory2", reinterpret_cast<LPVOID> (CreateDXGIFactory2Wrap),
+                        reinterpret_cast<void **> (&g_origCreateDXGIFactory2));
+        MH_CreateHookApi (L"d3d11.dll", "D3D11CreateDeviceAndSwapChain", reinterpret_cast<LPVOID> (D3D11CreateDeviceAndSwapChainWrap),
+                        reinterpret_cast<void **> (&g_origD3D11CreateDeviceAndSwapChain));
+        MH_EnableHook (nullptr);
+    }
 }
 
 } // namespace patches::Dxgi

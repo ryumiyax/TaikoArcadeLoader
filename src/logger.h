@@ -3,6 +3,7 @@
 #include "helpers.h"
 #include <source_location>
 #include <string_view>
+#include <format>
 #include <wincon.h>
 
 #define STRING(x)  #x
@@ -41,14 +42,16 @@ void LogMessageHandler (const char *function, const char *codeFile, int codeLine
  */
 template <typename... Args>
 struct LogMessage {
-    LogMessage (const LogLevel level, const std::string_view format, Args &&...ts,
+    LogMessage (const LogLevel level, const std::string_view format, Args &&...args,
                 const std::source_location &loc = std::source_location::current ()) {
-        LogMessageHandler (loc.function_name (), loc.file_name (), loc.line (), level, format.data (), std::forward<Args> (ts)...);
+        std::string formatted_message = std::vformat(std::string(format), std::make_format_args(args...));
+        LogMessageHandler (loc.function_name (), loc.file_name (), loc.line (), level, formatted_message.c_str ());
     }
 
-    LogMessage (const LogLevel level, const std::wstring_view format, Args &&...ts,
+    LogMessage (const LogLevel level, const std::wstring_view format, Args &&...args,
                 const std::source_location &loc = std::source_location::current ()) {
-        LogMessageHandler (loc.function_name (), loc.file_name (), loc.line (), level, format.data (), std::forward<Args> (ts)...);
+        std::wstring formatted_message = std::vformat(std::wstring(format), std::make_wformat_args(args...));
+        LogMessageHandler (loc.function_name (), loc.file_name (), loc.line (), level, formatted_message.c_str ());
     }
 };
 

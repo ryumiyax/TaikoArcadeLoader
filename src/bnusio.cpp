@@ -2,9 +2,10 @@
 #include "constants.h"
 #include "helpers.h"
 #include "patches/patches.h"
+#include "bnusio.h"
 #include "poll.h"
 
-extern GameVersion version;
+extern GameVersion gameVersion;
 extern std::vector<HMODULE> plugins;
 extern u64 song_data_size;
 extern void *song_data;
@@ -47,10 +48,12 @@ Keybindings P2_LEFT_RED   = {.keycodes = {'X'}};
 Keybindings P2_RIGHT_RED  = {.keycodes = {'C'}};
 Keybindings P2_RIGHT_BLUE = {.keycodes = {'V'}};
 
+int exited        = 0;
 bool testEnabled  = false;
 int coin_count    = 0;
 int service_count = 0;
 bool inited       = false;
+bool updateByCoin = false;
 HWND windowHandle = nullptr;
 HKL currentLayout;
 
@@ -183,7 +186,10 @@ bnusio_GetAnalogIn (const u8 which) {
     return 0;
 }
 
-u16 __fastcall bnusio_GetCoin (i32 a1) { return coin_count; }
+u16 __fastcall bnusio_GetCoin (i32 a1) {
+    if (updateByCoin) bnusio::Update ();
+    return coin_count;
+}
 u16 __fastcall bnusio_GetService (i32 a1) { return service_count; }
 }
 
@@ -257,50 +263,11 @@ FUNCTION_PTR (i64, bnusio_DecCoin_Original, PROC_ADDRESS ("bnusio_original.dll",
 FUNCTION_PTR (u64, bnusio_DecService_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_DecService"), i32, u16);
 FUNCTION_PTR (i64, bnusio_ResetCoin_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_ResetCoin"));
 
-HOOK (u64, bngrw_Init, PROC_ADDRESS ("bngrw.dll", "BngRwInit")) { return 0; }
-HOOK (void, bngrw_Fin, PROC_ADDRESS ("bngrw.dll", "BngRwFin")) {}
-HOOK (u64, bngrw_IsCmdExec, PROC_ADDRESS ("bngrw.dll", "BngRwIsCmdExec")) { return 0xFFFFFFFF; }
-HOOK (i32, bngrw_ReqCancel, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel")) { return 1; }
-HOOK (i32, bngrw_ReqSendUrl, PROC_ADDRESS ("bngrw.dll", "BngRwReqSendUrlTo")) { return 1; }
-HOOK (u64, bngrw_ReqLed, PROC_ADDRESS ("bngrw.dll", "BngRwReqLed"), u32 a1, u32 ledType, i64 a3, i64 a4) { return 1; }
-HOOK (u64, bngrw_ReqBeep, PROC_ADDRESS ("bngrw.dll", "BngRwReqBeep"), u32 a1, u32 beepType, i64 a3, i64 a4) { return 1; }
-HOOK (u64, bngrw_ReqAction, PROC_ADDRESS ("bngrw.dll", "BngRwReqAction"), u32 a1, u32 actionType, i64 a3, i64 a4) { return 1; }
-HOOK (u64, bngrw_SetLedPower, PROC_ADDRESS ("bngrw.dll", "BngRwSetLedPower")) { return 0; }
-HOOK (u64, bngrw_GetRetryCount, PROC_ADDRESS ("bngrw.dll", "BngRwGetTotalRetryCount")) { return 0; }
-HOOK (u64, bngrw_GetFwVersion, PROC_ADDRESS ("bngrw.dll", "BngRwGetFwVersion")) { return 0; }
-HOOK (u64, bngrw_ReqFwVersionUp, PROC_ADDRESS ("bngrw.dll", "BngRwReqFwVersionUp")) { return 1; }
-HOOK (u64, bngrw_ReqFwCleanup, PROC_ADDRESS ("bngrw.dll", "BngRwReqFwCleanup")) { return 1; }
-HOOK (u64, bngrw_ReadMifare, PROC_ADDRESS ("bngrw.dll", "BngRwExReadMifareAllBlock")) { return 0xFFFFFF9C; }
-HOOK (u64, bngrw_GetStationID, PROC_ADDRESS ("bngrw.dll", "BngRwGetStationID")) { return 0; }
-HOOK (i32, bngrw_ReqSendMail, PROC_ADDRESS ("bngrw.dll", "BngRwReqSendMailTo")) { return 1; }
-HOOK (i32, bngrw_ReqLatchID, PROC_ADDRESS ("bngrw.dll", "BngRwReqLatchID")) { return 1; }
-HOOK (u64, bngrw_ReqAiccAuth, PROC_ADDRESS ("bngrw.dll", "BngRwReqAiccAuth")) { return 1; }
-HOOK (u64, bngrw_DevReset, PROC_ADDRESS ("bngrw.dll", "BngRwDevReset")) { return 1; }
-HOOK (u64, bngrw_Attach, PROC_ADDRESS ("bngrw.dll", "BngRwAttach"), i32 a1, char *a2, i32 a3, i32 a4, callbackAttach callback, i32 *attachDataH) {
-    LogMessage (LogLevel::DEBUG, "BngRwAttach");
-    // This is way too fucking jank
-    attachCallback = callback;
-    attachData     = attachDataH;
-    return 1;
-}
-HOOK (u64, bngrw_ReqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, callbackTouch callbackH, u64 touchDataH) {
-    LogMessage (LogLevel::DEBUG, "BngRwReqWaitTouch");
-    touchCallback = callbackH;
-    if (emulateCardReader) {
-        waitingForTouch = true;
-        touchData       = touchDataH;
-        for (const auto plugin : plugins)
-            if (const FARPROC touchEvent = GetProcAddress (plugin, "WaitTouch"))
-                reinterpret_cast<waitTouchEvent *> (touchEvent) (callbackH, touchDataH);
-        return 1;
-    }
-    // This is called when we use an original card reader and acceptInvalidCards is set to true
-    return originalbngrw_ReqWaitTouch (a1, a2, a3, InspectWaitTouch, touchDataH);
-}
-
 void
 Init () {
     SetKeyboardButtons ();
+
+    int fpsLimit = 120;
 
     const auto configPath = std::filesystem::current_path () / "config.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -311,8 +278,16 @@ Init () {
             analogInput    = readConfigBool (controller, "analog_input", analogInput);
             if (analogInput) LogMessage (LogLevel::WARN, "Using analog input mode. All the keyboard drum inputs have been disabled.");
         }
+        auto graphics = openConfigSection (config, "graphics");
+        if (graphics) {
+            fpsLimit = readConfigInt (graphics, "fpslimit", fpsLimit);
+        }
     }
 
+    updateByCoin = fpsLimit == 0;
+    if (updateByCoin) {
+        LogMessage (LogLevel::INFO, "fpsLimit is set to 0, bnusio::Update() will invoke in getCoin callback");
+    }
     const auto keyConfigPath = std::filesystem::current_path () / "keyconfig.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
@@ -392,113 +367,50 @@ Init () {
         INSTALL_HOOK_DIRECT (bnusio_DecCoin, bnusio_DecCoin_Original);
         INSTALL_HOOK_DIRECT (bnusio_DecService, bnusio_DecService_Original);
         INSTALL_HOOK_DIRECT (bnusio_ResetCoin, bnusio_ResetCoin_Original);
-
         LogMessage (LogLevel::WARN, "USIO emulation disabled");
-    }
-
-    if (emulateCardReader) {
-        INSTALL_HOOK (bngrw_Init)
-        INSTALL_HOOK (bngrw_Fin);
-        INSTALL_HOOK (bngrw_IsCmdExec);
-        INSTALL_HOOK (bngrw_ReqCancel);
-        INSTALL_HOOK (bngrw_ReqWaitTouch);
-        INSTALL_HOOK (bngrw_ReqSendUrl);
-        INSTALL_HOOK (bngrw_ReqLed);
-        INSTALL_HOOK (bngrw_ReqBeep);
-        INSTALL_HOOK (bngrw_ReqAction);
-        INSTALL_HOOK (bngrw_SetLedPower);
-        INSTALL_HOOK (bngrw_GetRetryCount);
-        INSTALL_HOOK (bngrw_GetFwVersion);
-        INSTALL_HOOK (bngrw_ReqFwVersionUp);
-        INSTALL_HOOK (bngrw_ReqFwCleanup);
-        INSTALL_HOOK (bngrw_ReadMifare);
-        INSTALL_HOOK (bngrw_GetStationID);
-        INSTALL_HOOK (bngrw_ReqSendMail);
-        INSTALL_HOOK (bngrw_ReqLatchID);
-        INSTALL_HOOK (bngrw_ReqAiccAuth);
-        INSTALL_HOOK (bngrw_Attach);
-        INSTALL_HOOK (bngrw_DevReset);
-    } else {
-        LogMessage (LogLevel::WARN, "Card reader emulation disabled");
-        if (acceptInvalidCards) {
-            LogMessage (LogLevel::WARN, "Original reader will accept invalid cards!");
-            INSTALL_HOOK (bngrw_ReqWaitTouch);
-        }
     }
 }
 
 void
 Update () {
+    if (exited && ++exited >= 50) ExitProcess (0);
     if (!inited) {
         windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
         InitializePoll (windowHandle);
         if (autoIme) {
-            currentLayout        = GetKeyboardLayout (0);
-            const auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
+            currentLayout  = GetKeyboardLayout (0);
+            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
             ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
         }
 
-        for (const auto plugin : plugins)
-            if (const auto initEvent = GetProcAddress (plugin, "Init")) initEvent ();
-
+        patches::Plugins::Init ();
         inited = true;
     }
 
     UpdatePoll (windowHandle);
+    std::vector<uint8_t> buffer = {};
     if (IsButtonTapped (COIN_ADD) && !testEnabled) coin_count++;
-    if (IsButtonTapped (SERVICE) && !testEnabled) service_count++;
+    if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
     if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) ExitProcess (0);
-    if (waitingForTouch) {
-        if (IsButtonTapped (CARD_INSERT_1) || IsButtonTapped (CARD_INSERT_2)) {
-            bool hasInserted = false;
-            const bool p1    = IsButtonTapped (CARD_INSERT_1);
-            static u8 cardData[168]
-                = {0x01, 0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x92, 0x2E, 0x58, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00,
-                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7F, 0x5C, 0x97, 0x44, 0xF0, 0x88, 0x04, 0x00, 0x43, 0x26, 0x2C, 0x33, 0x00, 0x04,
-                   0x06, 0x10, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30,
-                   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x30, 0x30, 0x30, 0x30,
-                   0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00,
-                   0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4E, 0x42, 0x47, 0x49, 0x43, 0x36,
-                   0x00, 0x00, 0xFA, 0xE9, 0x69, 0x00, 0xF6, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-            for (const auto plugin : plugins) {
-                FARPROC insertEvent = GetProcAddress (plugin, p1 ? "BeforeCard1Insert" : "BeforeCard2Insert");
-                if (insertEvent) reinterpret_cast<event *> (insertEvent) ();
-                insertEvent = GetProcAddress (plugin, p1 ? "Card1Insert" : "Card2Insert");
-                if (insertEvent) {
-                    reinterpret_cast<event *> (insertEvent) ();
-                    hasInserted     = true;
-                    waitingForTouch = false;
-                    break;
-                }
-            }
-
-            if (!hasInserted) {
-                LogMessage (LogLevel::INFO, "Inserting card for player %d: %s", p1 ? 1 : 2, p1 ? accessCode1 : accessCode2);
-                memcpy (cardData + 0x2C, p1 ? chipId1 : chipId2, 33);
-                memcpy (cardData + 0x50, p1 ? accessCode1 : accessCode2, 21);
-                touchCallback (0, 0, cardData, touchData);
-                waitingForTouch = false;
-            }
-        }
+    if (IsButtonTapped (EXIT)) { exited += 1; testEnabled = 1; }
+    if (GameVersion::CHN00 == gameVersion) {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
+    } else {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
     }
+    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
+    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
 
-    for (const auto plugin : plugins)
-        if (const auto updateEvent = GetProcAddress (plugin, "Update")) updateEvent ();
-
-    patches::Qr::Update ();
-
-    if (attachCallback) attachCallback (0, 0, attachData);
+    patches::Plugins::Update ();
+    patches::Scanner::Update ();
 }
 
 void
 Close () {
     if (autoIme) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);
-    for (const auto plugin : plugins)
-        if (const FARPROC exitEvent = GetProcAddress (plugin, "Exit")) reinterpret_cast<event *> (exitEvent) ();
-
+    patches::Plugins::Exit ();
     CleanupLogger ();
 }
 } // namespace bnusio

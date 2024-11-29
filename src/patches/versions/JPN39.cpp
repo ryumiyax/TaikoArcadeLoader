@@ -61,6 +61,18 @@ GetUserStatus () {
     return -1;
 }
 
+HOOK (bool, IsSongRelease, ASLR (0x1403F4510), i64 a1, i64 a2, int a3) {
+    if (TestMode::ReadTestModeValue (L"ModUnlockSongs") == 1) return true;
+    return originalIsSongRelease (a1, a2, a3);
+}
+HOOK (bool, IsSongReleasePlayer, ASLR (0x1403F45F0), i64 a1, u64 a2, i32 a3) {
+    if (TestMode::ReadTestModeValue (L"ModUnlockSongs") == 2) return true;
+    return originalIsSongReleasePlayer (a1, a2, a3);
+}
+MID_HOOK (DifficultyPanelCrown, ASLR (0x1403F2A25), SafetyHookContext &ctx) {
+    if (TestMode::ReadTestModeValue (L"ModUnlockSongs") != 1) return;
+    ctx.r15 |= 1;
+}
 HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo024 was called");
     if (const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode"); tournamentMode == 1) return originalAvailableMode_Collabo024 (a1);
@@ -184,15 +196,20 @@ HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
 }
 HOOK (i64, GetRegionLanguage, ASLR (0x1401CE9B0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "GetRegionLanguage was called");
-    lua_settop (a1, 0);
-    lua_pushstring (a1, languageStr (language));
-    return 1;
+    if (patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
+        lua_settop (a1, 0);
+        lua_pushstring (a1, languageStr (language));
+        return 1;
+    } else return originalGetRegionLanguage (a1);
 }
-HOOK (i64, GetCabinetLanguage, ASLR (0x1401D1A60), i64, i64 a2) {
+FUNCTION_PTR (void **, std_string_assign, ASLR (0x1400209E0), void **, const void *, size_t);
+HOOK (i64, GetCabinetLanguage, ASLR (0x14014DB80), u64 *a1, i64 a2) {
     LogMessage (LogLevel::HOOKS, "GetCabinetLanguage was called");
-    lua_settop (a2, 0);
-    lua_pushstring (a2, languageStr (language));
-    return 1;
+    i64 result = originalGetCabinetLanguage (a1, a2);
+    if (patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
+        std_string_assign ((void **)result, (const void*)languageStr (language), (language == 0 || language == 3) ? 3 : 5);
+    }
+    return result;
 }
 
 MID_HOOK (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
@@ -353,13 +370,8 @@ HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
 float soundRate = 1.0F;
 HOOK (i32, SetMasterVolumeSpeaker, ASLR (0x140160330), i32 a1) {
     LogMessage (LogLevel::HOOKS, "SetMasterVolumeSpeaker was called");
-    soundRate = static_cast<float> (a1 <= 100 ? 1.0F : a1 / 100.0);
+    patches::Audio::SetVolumeRate (a1 <= 100 ? 1.0f : a1 / 100.0f);
     return originalSetMasterVolumeSpeaker (a1 > 100 ? 100 : a1);
-}
-
-HOOK (u64, NuscBusVolume, ASLR (0x1407B1C30), u64 a1, u64 a2, float a3) {
-    LogMessage (LogLevel::HOOKS, "NuscBusVolume was called");
-    return originalNuscBusVolume (a1, a2, a3 * soundRate);
 }
 
 std::string *fontName = nullptr;
@@ -375,6 +387,17 @@ HOOK (u32, ReadFontInfoInt, ASLR (0x14049EAC0), u64 a1, u64 a2) {
     const std::string attribute (reinterpret_cast<char *> (a2));
     u32 result = originalReadFontInfoInt (a1, a2);
     if (fontName->starts_with ("cn_") && attribute == "offsetV") result += 1;
+    return result;
+}
+
+MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
+    if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
+}
+
+HOOK (float, InitPlay, ASLR (0x1401345A0), u64 a1, i64 a2, i32 a3) {
+    LogMessage (LogLevel::DEBUG, "Enter InitPlay");
+    float result = originalInitPlay (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "Exit InitPlay");
     return result;
 }
 
@@ -441,6 +464,7 @@ Init () {
     // Hook to get AppAccessor and ComponentAccessor
     INSTALL_HOOK (DeviceCheck);
     INSTALL_HOOK (luaL_newstate);
+    INSTALL_HOOK (InitPlay);
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
@@ -499,44 +523,66 @@ Init () {
         ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
     }
 
+    // Fix Language
+    TestMode::RegisterItem(
+        L"<select-item label=\"FIX LANGUAGE\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" group=\"Setting\" id=\"ModFixLanguage\" max=\"1\" min=\"0\" default=\"1\"/>",
+        [&]() { INSTALL_HOOK (GetLanguage); INSTALL_HOOK (GetRegionLanguage); INSTALL_HOOK (GetCabinetLanguage); }
+    );
+    // Unlock Songs
+    TestMode::RegisterItem(
+        L"<select-item label=\"UNLOCK SONGS\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON, 2:FORCE\" group=\"Setting\" id=\"ModUnlockSongs\" max=\"2\" min=\"0\" default=\"1\"/>",
+        [&]() { INSTALL_HOOK (IsSongRelease); INSTALL_HOOK (IsSongReleasePlayer); INSTALL_MID_HOOK (DifficultyPanelCrown); }
+    );
     // Freeze Timer
-    TestMode::RegisterItem (L"<select-item label=\"FREEZE TIMER\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
-                            L"group=\"Setting\" id=\"ModFreezeTimer\" max=\"1\" min=\"0\" default=\"0\"/>",
-                            [&] { INSTALL_MID_HOOK (FreezeTimer); });
+    TestMode::RegisterItem (
+        L"<select-item label=\"FREEZE TIMER\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
+        L"group=\"Setting\" id=\"ModFreezeTimer\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&] { INSTALL_MID_HOOK (FreezeTimer); }
+    );
     // Mode Unlock
-    TestMode::RegisterItem (L"<select-item label=\"KIMETSU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
-                            L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo024\" max=\"1\" min=\"0\" default=\"0\"/>",
-                            [&] { INSTALL_HOOK (AvailableMode_Collabo024); });
-    TestMode::RegisterItem (L"<select-item label=\"ONE PIECE MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
-                            L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo025\" max=\"1\" min=\"0\" default=\"0\"/>",
-                            [&] { INSTALL_HOOK (AvailableMode_Collabo025); });
-    TestMode::RegisterItem (L"<select-item label=\"AI SOSHINA MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
-                            L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo026\" max=\"1\" min=\"0\" default=\"0\"/>",
-                            [&] { INSTALL_HOOK (AvailableMode_Collabo026); });
-    TestMode::RegisterItem (L"<select-item label=\"AOHARU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
-                            L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeAprilFool001\" max=\"1\" min=\"0\" default=\"0\"/>",
-                            [&] { INSTALL_HOOK (AvailableMode_AprilFool001); });
-    TestMode::RegisterItem (L"<select-item label=\"INSTANT RESULT\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
-                            L"group=\"Setting\" id=\"ModInstantResult\" max=\"1\" min=\"0\" default=\"0\"/>",
-                            [&] {
-                                INSTALL_HOOK (SceneResultInitialize_Enso);
-                                INSTALL_HOOK (SceneResultInitialize_AI);
-                                INSTALL_HOOK (SceneResultInitialize_Collabo025);
-                                INSTALL_HOOK (SceneResultInitialize_Collabo026);
-                                INSTALL_HOOK (SceneResultInitialize_AprilFool);
-                                INSTALL_HOOK (SendResultData_Enso);
-                                INSTALL_HOOK (SendResultData_AI);
-                                INSTALL_HOOK (SendResultData_Collabo025_026);
-                                INSTALL_HOOK (SendResultData_AprilFool);
-                                INSTALL_MID_HOOK (ChangeResultDataSize_Enso);
-                                INSTALL_MID_HOOK (ChangeResultDataSize_AI);
-                                INSTALL_MID_HOOK (ChangeResultDataSize_Collabo025_026);
-                                INSTALL_MID_HOOK (ChangeResultDataSize_AprilFool);
-                                INSTALL_MID_HOOK (ChangeResultDataIndex_Enso);
-                                INSTALL_MID_HOOK (ChangeResultDataIndex_AI);
-                                INSTALL_MID_HOOK (ChangeResultDataIndex_Collabo025_026);
-                                INSTALL_MID_HOOK (ChangeResultDataIndex_AprilFool);
-                            });
+    TestMode::RegisterItem (
+        L"<select-item label=\"KIMETSU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
+        L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo024\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&] { INSTALL_HOOK (AvailableMode_Collabo024); }
+    );
+    TestMode::RegisterItem (
+        L"<select-item label=\"ONE PIECE MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
+        L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo025\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&] { INSTALL_HOOK (AvailableMode_Collabo025); }
+    );
+    TestMode::RegisterItem (
+        L"<select-item label=\"AI SOSHINA MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
+        L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo026\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&] { INSTALL_HOOK (AvailableMode_Collabo026); }
+    );
+    TestMode::RegisterItem (
+        L"<select-item label=\"AOHARU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
+        L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeAprilFool001\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&] { INSTALL_HOOK (AvailableMode_AprilFool001); }
+    );
+    TestMode::RegisterItem (
+        L"<select-item label=\"INSTANT RESULT\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
+        L"group=\"Setting\" id=\"ModInstantResult\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&] {
+            INSTALL_HOOK (SceneResultInitialize_Enso);
+            INSTALL_HOOK (SceneResultInitialize_AI);
+            INSTALL_HOOK (SceneResultInitialize_Collabo025);
+            INSTALL_HOOK (SceneResultInitialize_Collabo026);
+            INSTALL_HOOK (SceneResultInitialize_AprilFool);
+            INSTALL_HOOK (SendResultData_Enso);
+            INSTALL_HOOK (SendResultData_AI);
+            INSTALL_HOOK (SendResultData_Collabo025_026);
+            INSTALL_HOOK (SendResultData_AprilFool);
+            INSTALL_MID_HOOK (ChangeResultDataSize_Enso);
+            INSTALL_MID_HOOK (ChangeResultDataSize_AI);
+            INSTALL_MID_HOOK (ChangeResultDataSize_Collabo025_026);
+            INSTALL_MID_HOOK (ChangeResultDataSize_AprilFool);
+            INSTALL_MID_HOOK (ChangeResultDataIndex_Enso);
+            INSTALL_MID_HOOK (ChangeResultDataIndex_AI);
+            INSTALL_MID_HOOK (ChangeResultDataIndex_Collabo025_026);
+            INSTALL_MID_HOOK (ChangeResultDataIndex_AprilFool);
+        }
+    );
     // Unlimit Volume
     TestMode::RegisterModify (
         L"/root/menu[@id='SoundTestMenu']/layout[@type='Center']/select-item[@id='OutputLevelSpeakerItem']",
@@ -545,10 +591,14 @@ Init () {
             node.attribute (L"max").set_value (L"300");
             node.attribute (L"delta").set_value (L"1");
         },
-        [&] () {
-            INSTALL_HOOK (SetMasterVolumeSpeaker);
-            INSTALL_HOOK (NuscBusVolume);
-        });
+        [&] () { INSTALL_HOOK (SetMasterVolumeSpeaker); }
+    );
+    TestMode::RegisterItemAfter(
+        L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractMovieItem']",
+        L"<select-item label=\"ATTRACT DEMO\" disable=\"True/ModFixLanguage:0\" param-offset-x=\"35\" replace-text=\"0:ON, 1:OFF\" group=\"Setting\" id=\"AttractDemoItem\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&](){ INSTALL_MID_HOOK (AttractDemo); }
+    );
+
     // Instant Result
     // TestMode::RegisterModify(
     //     L"/root/menu[@id='GameOptionsMenu']/layout[@type='Center']/select-item[@id='NumberOfStageItem']",
