@@ -1,4 +1,5 @@
 #include <iostream>
+#include <regex>
 #include "logger.h"
 
 static Logger *loggerInstance = nullptr;
@@ -45,14 +46,10 @@ LogMessageHandler (const char *function, const char *codeFile, int codeLine, Log
     // Determine log type string
     std::string logType = GetLogLevelString (messageLevel);
 
-    int find_idx = 0, begin = -2, end = 0;
-    while (function[find_idx] != 0) {
-        if (begin == -2 && function[find_idx] == ' ') begin = -1;
-        else if (begin == -1 && function[find_idx] == ' ') begin = find_idx + 1;
-        else if (end == 0 && ((begin > 0 && function[find_idx] == ' ') || function[find_idx] == '(')) end = find_idx;
-        find_idx ++;
-    }
-    std::string short_function = std::string(function + begin, end - begin);
+    // Shrink function name by regex
+    std::string short_function (function);
+    std::regex re(R"(.*? (([\w<>]+::)*[\w]+( [()<>+-]+)?)\(\w+.*?\))");
+    short_function = std::regex_replace (short_function, re, "$1");
 
     // Remove the absolute path of the build dir
     constexpr std::string_view build_dir = XSTRING (SOURCE_ROOT);
