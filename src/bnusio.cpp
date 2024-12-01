@@ -280,7 +280,7 @@ Init () {
         }
         auto graphics = openConfigSection (config, "graphics");
         if (graphics) {
-            fpsLimit = readConfigInt (graphics, "fpslimit", fpsLimit);
+            fpsLimit = (int)readConfigInt (graphics, "fpslimit", fpsLimit);
         }
     }
 

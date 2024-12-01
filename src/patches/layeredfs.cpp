@@ -282,7 +282,7 @@ HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPC
 
 void
 Init () {
-    LogMessage (LogLevel::INFO, "Init LayeredFs patches");
+    // LogMessage (LogLevel::INFO, "Init LayeredFs patches");
 
     const auto configPath = std::filesystem::current_path () / "config.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -291,7 +291,11 @@ Init () {
             useLayeredFs = readConfigBool (layeredFs, "enabled", useLayeredFs);
     }
     register_cipher (&aes_desc);
-    INSTALL_HOOK (CreateFileAHook);
+    if (useLayeredFs || !beforeHandlers.empty () || !afterHandlers.empty ()) {
+        LogMessage (LogLevel::INFO, "using LayeredFs! Data_mods={} beforHandlers={} afterHandlers={}", 
+            useLayeredFs ? "enabled" : "disabled", beforeHandlers.size (), afterHandlers.size ());
+        INSTALL_HOOK (CreateFileAHook);
+    }
 }
 
 void
