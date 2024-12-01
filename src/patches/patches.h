@@ -42,14 +42,31 @@ void RegisterBefore (const std::function<std::string (const std::string, const s
 void RegisterAfter  (const std::function<std::string (const std::string, const std::string)> &fileHandler);
 } // namespace LayeredFs
 namespace TestMode {
+class Applicable {
+public:
+    virtual pugi::xml_node *Apply (pugi::xml_node *doc, pugi::xml_node *node) = 0;
+};
+class Menu : public Applicable {
+public:
+    virtual void RegisterItem (Applicable *item) = 0;
+};
 typedef u64 (*RefTestModeMain) (u64);
 void Init              ();
 void Append            (const pugi::xml_node &node, const wchar_t *attr, const std::wstring &append);
 void SetupAccessor     (u64 appAccessor, RefTestModeMain refTestMode);
 int  ReadTestModeValue (const wchar_t *itemId);
+Menu *CreateMenu       (const std::wstring &menuName, const std::wstring &menuId);
+void RegisterItem      (const std::wstring &item, const std::function<void ()> &initMethod, Menu *menu);
 void RegisterItem      (const std::wstring &item, const std::function<void ()> &initMethod);
+void RegisterItem      (const std::wstring &item, Menu *menu);
+void RegisterItem      (const std::wstring &item);
+void RegisterItem      (Applicable *item, Menu *menu);
+void RegisterItem      (Applicable *item);
 void RegisterItemAfter (const std::wstring &query, const std::wstring &item, const std::function<void()> &initMethod);
+void RegisterItemAfter (const std::wstring &query, const std::wstring &item);
+void RegisterItemAfter (const std::wstring &query, Applicable *item);
 void RegisterModify    (const std::wstring &query, const std::function<void (pugi::xml_node &)> &nodeModify, const std::function<void ()> &initMethod);
+void RegisterModify    (const std::wstring &query, const std::function<void (pugi::xml_node &)> &nodeModify);
 } // namespace TestMode
 namespace Plugins {
 // typedefs

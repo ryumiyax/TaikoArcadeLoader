@@ -394,10 +394,38 @@ MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
 }
 
-HOOK (float, InitPlay, ASLR (0x1401345A0), u64 a1, i64 a2, i32 a3) {
-    LogMessage (LogLevel::DEBUG, "Enter InitPlay");
-    float result = originalInitPlay (a1, a2, a3);
-    LogMessage (LogLevel::DEBUG, "Exit InitPlay");
+HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerInitialize");
+    u64 result = originalEnsoGameManagerInitialize (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerInitialize result={}", result);
+    return result;
+}
+
+HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerLoading");
+    u64 result = originalEnsoGameManagerLoading (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerLoading result={}", result);
+    return result;
+}
+
+HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerPreparing");    
+    bool result = originalEnsoGameManagerPreparing (a1);  // crashes here
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerPreparing result={}", result);
+    return result;
+}
+
+HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerStart");
+    u64 result = originalEnsoGameManagerStart (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerStart result={}", result);
+    return result;
+}
+
+HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerChechEnsoEnd");
+    u64 result = originalEnsoGameManagerChechEnsoEnd (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerChechEnsoEnd result={}", result);
     return result;
 }
 
@@ -464,7 +492,11 @@ Init () {
     // Hook to get AppAccessor and ComponentAccessor
     INSTALL_HOOK (DeviceCheck);
     INSTALL_HOOK (luaL_newstate);
-    INSTALL_HOOK (InitPlay);
+    INSTALL_HOOK (EnsoGameManagerInitialize);
+    INSTALL_HOOK (EnsoGameManagerLoading);
+    INSTALL_HOOK (EnsoGameManagerPreparing);
+    INSTALL_HOOK (EnsoGameManagerStart);
+    INSTALL_HOOK (EnsoGameManagerChechEnsoEnd);
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
@@ -525,13 +557,23 @@ Init () {
 
     // Fix Language
     TestMode::RegisterItem(
-        L"<select-item label=\"FIX LANGUAGE\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" group=\"Setting\" id=\"ModFixLanguage\" max=\"1\" min=\"0\" default=\"1\"/>",
-        [&]() { INSTALL_HOOK (GetLanguage); INSTALL_HOOK (GetRegionLanguage); INSTALL_HOOK (GetCabinetLanguage); }
+        L"<select-item label=\"FIX LANGUAGE\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
+        L"group=\"Setting\" id=\"ModFixLanguage\" max=\"1\" min=\"0\" default=\"1\"/>",
+        [&]() { 
+            INSTALL_HOOK (GetLanguage); 
+            INSTALL_HOOK (GetRegionLanguage); 
+            INSTALL_HOOK (GetCabinetLanguage); 
+        }
     );
     // Unlock Songs
     TestMode::RegisterItem(
-        L"<select-item label=\"UNLOCK SONGS\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON, 2:FORCE\" group=\"Setting\" id=\"ModUnlockSongs\" max=\"2\" min=\"0\" default=\"1\"/>",
-        [&]() { INSTALL_HOOK (IsSongRelease); INSTALL_HOOK (IsSongReleasePlayer); INSTALL_MID_HOOK (DifficultyPanelCrown); }
+        L"<select-item label=\"UNLOCK SONGS\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON, "
+        L"2:FORCE\" group=\"Setting\" id=\"ModUnlockSongs\" max=\"2\" min=\"0\" default=\"1\"/>",
+        [&]() { 
+            INSTALL_HOOK (IsSongRelease); 
+            INSTALL_HOOK (IsSongReleasePlayer); 
+            INSTALL_MID_HOOK (DifficultyPanelCrown); 
+        }
     );
     // Freeze Timer
     TestMode::RegisterItem (
@@ -540,26 +582,29 @@ Init () {
         [&] { INSTALL_MID_HOOK (FreezeTimer); }
     );
     // Mode Unlock
+    // TestMode::Menu *modeUnlock = TestMode::CreateMenu (L"MODE UNLOCK", L"ModeUnlockMenu");
     TestMode::RegisterItem (
         L"<select-item label=\"KIMETSU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
         L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo024\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_Collabo024); }
+        [&] { INSTALL_HOOK (AvailableMode_Collabo024); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"ONE PIECE MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
         L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo025\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_Collabo025); }
+        [&] { INSTALL_HOOK (AvailableMode_Collabo025); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"AI SOSHINA MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
         L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo026\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_Collabo026); }
+        [&] { INSTALL_HOOK (AvailableMode_Collabo026); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"AOHARU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
         L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeAprilFool001\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_AprilFool001); }
+        [&] { INSTALL_HOOK (AvailableMode_AprilFool001); }//, modeUnlock
     );
+    // TestMode::RegisterItem (modeUnlock);
+    // InstantResult
     TestMode::RegisterItem (
         L"<select-item label=\"INSTANT RESULT\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
         L"group=\"Setting\" id=\"ModInstantResult\" max=\"1\" min=\"0\" default=\"0\"/>",
@@ -595,9 +640,11 @@ Init () {
     );
     TestMode::RegisterItemAfter(
         L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractMovieItem']",
-        L"<select-item label=\"ATTRACT DEMO\" disable=\"True/ModFixLanguage:0\" param-offset-x=\"35\" replace-text=\"0:ON, 1:OFF\" group=\"Setting\" id=\"AttractDemoItem\" max=\"1\" min=\"0\" default=\"0\"/>",
+        L"<select-item label=\"ATTRACT DEMO\" disable=\"True/(ModFixLanguage:0 or LanguageItem:0)\" param-offset-x=\"35\" "
+        L"replace-text=\"0:ON, 1:OFF\" group=\"Setting\" id=\"AttractDemoItem\" max=\"1\" min=\"0\" default=\"0\"/>",
         [&](){ INSTALL_MID_HOOK (AttractDemo); }
     );
+    // for (size_t i=0; i < 40; i++) TestMode::RegisterItem(std::format (L"<text-item label=\"TEST{}\"/>", i + 1));
 
     // Instant Result
     // TestMode::RegisterModify(
