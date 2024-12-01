@@ -93,7 +93,7 @@ namespace Card {
             if (chipId.length () < 32) chipId = accessCodeTemplate.substr (0, 32 - chipId.length ()) + chipId;
             for (size_t i = 0; i < 32; i++) *(cardData + 0x2C + i) = i < chipId.length() ? chipId[i] : 0;
             for (size_t i = 0; i < 20; i++) *(cardData + 0x50 + i) = i < accessCode.length() ? accessCode[i] : 0;
-            if (!internalInvoke) LogMessage (LogLevel::INFO, "[Card] Insert Card accessCode: \"{}\" chipId: \"{}\"\n", accessCode, chipId);
+            if (!internalInvoke) LogMessage (LogLevel::INFO, "[Card] Insert Card accessCode: \"{}\" chipId: \"{}\"", accessCode, chipId);
             patches::Scanner::Card::Internal::AgentInsertCard (cardData, internalInvoke);
             return true;
         }
@@ -118,7 +118,6 @@ namespace Card {
     HOOK (u64, bngrw_ReqAiccAuth, PROC_ADDRESS ("bngrw.dll", "BngRwReqAiccAuth")) { return 1; }
     HOOK (u64, bngrw_DevReset, PROC_ADDRESS ("bngrw.dll", "BngRwDevReset")) { return 1; }       // Invoke when enter testmode
     HOOK (i32, bngrw_ReqCancel, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel")) { 
-        LogMessage (LogLevel::DEBUG, "[Card] Cancel!\n");
         if (state != State::Disable) {
             state = State::Disable;
             patches::Scanner::Card::Internal::Commit0 (accessCodeTemplate, chipIdTemplate, true);
@@ -157,19 +156,19 @@ namespace Card {
     bool
     Commit(std::string accessCode, std::string chipId) {
         if (!emulateCardReader) {
-            LogMessage (LogLevel::DEBUG, "[Card] Not emulate CardReader!\n");
+            LogMessage (LogLevel::DEBUG, "[Card] Not emulate CardReader!");
             return false;
         }
         if (state != State::Ready) {
-            LogMessage (LogLevel::DEBUG, "[Card] Not Waiting for Touch, please wait!\n");
+            LogMessage (LogLevel::DEBUG, "[Card] Not Waiting for Touch, please wait!");
             return false;
         }
         if (accessCode.length() == 0 || accessCode.length() > 20) {
-            LogMessage (LogLevel::ERROR, "[Card] Not an effective accessCode: \"{}\"\n", accessCode);
+            LogMessage (LogLevel::ERROR, "[Card] Not an effective accessCode: \"{}\"", accessCode);
             return false;
         }
         if (chipId.length() > 32) {
-            LogMessage (LogLevel::ERROR, "[Card] Not an effective chipId: \"{}\"\n", chipId);
+            LogMessage (LogLevel::ERROR, "[Card] Not an effective chipId: \"{}\"", chipId);
             return false;
         }
         return patches::Scanner::Card::Internal::Commit0 (accessCode, chipId, false);
@@ -184,7 +183,7 @@ namespace Card {
     Init() {
         LogMessage (LogLevel::INFO, "Init Card patches");
         if (!emulateCardReader) {
-            LogMessage (LogLevel::WARN, "[Card] Card reader emulation disabled!\n");
+            LogMessage (LogLevel::WARN, "[Card] Card reader emulation disabled!");
             INSTALL_HOOK (bngrw_ReqCancelOfficial);
             INSTALL_HOOK (bngrw_ReqWaitTouchOfficial);
             // patches::Plugins::InitCardReader (patches::Scanner::Card::Commit);
@@ -248,7 +247,7 @@ namespace Qr {
         if (state == State::CopyWait && scanQueue.size () > 0) {
             std::vector<uint8_t> data = scanQueue.front ();
             if ((int)data.size () > length) {
-                LogMessage (LogLevel::ERROR, "[QR] Not an effective code, length: {} require: {}\n", data.size (), length);
+                LogMessage (LogLevel::ERROR, "[QR] Not an effective code, length: {} require: {}", data.size (), length);
             }
             std::stringstream hexStream;
             hexStream << std::hex << std::uppercase << std::setfill ('0') << std::setw (2);
@@ -269,15 +268,15 @@ namespace Qr {
     bool
     Commit (std::vector<uint8_t> &buffer) {
         if (!emulateQr) {
-            LogMessage (LogLevel::DEBUG, "[QR] Not emulate QR Scanner!\n");
+            LogMessage (LogLevel::DEBUG, "[QR] Not emulate QR Scanner!");
             return false;
         }
         if (state == State::Disable) {
-            LogMessage (LogLevel::DEBUG, "[QR] Not Ready to accept QRData!\n");
+            LogMessage (LogLevel::DEBUG, "[QR] Not Ready to accept QRData!");
             return false;
         }
         if (buffer.size () == 0) {
-            LogMessage (LogLevel::ERROR, "[QR] Not an effective code, length: 0\n");
+            LogMessage (LogLevel::ERROR, "[QR] Not an effective code, length: 0");
             return false;
         }
         if (scanQueue.empty() || scanQueue.back() != buffer) {
@@ -293,7 +292,7 @@ namespace Qr {
     bool
     CommitLogin (std::string accessCode) {
         if (!emulateQr) {
-            LogMessage (LogLevel::DEBUG, "[QR] Not emulate QR Scanner!\n");
+            LogMessage (LogLevel::DEBUG, "[QR] Not emulate QR Scanner!");
             return false;
         }
         std::vector<uint8_t> buffer = {};
@@ -375,7 +374,7 @@ namespace Qr {
         std::u8string u8PathStr (imagePath.begin (), imagePath.end ());
         std::filesystem::path u8Path (u8PathStr);
         if (!std::filesystem::is_regular_file (u8Path)) {
-            LogMessage (LogLevel::ERROR, "Failed to open image: {} (file not found)\n", u8Path.string());
+            LogMessage (LogLevel::ERROR, "Failed to open image: {} (file not found)", u8Path.string());
             return buffer;
         }
         int width, height, channels;
@@ -399,7 +398,7 @@ namespace Qr {
         LogMessage (LogLevel::INFO, "Init Qr patches");
 
         if (!emulateQr) {
-            LogMessage (LogLevel::WARN, "[QR] QR emulation disabled!\n");
+            LogMessage (LogLevel::WARN, "[QR] QR emulation disabled!");
             return;
         }
         patches::Plugins::InitQr (gameVersion);
