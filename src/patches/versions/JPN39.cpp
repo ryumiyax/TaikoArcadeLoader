@@ -394,48 +394,48 @@ MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
 }
 
-// HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerInitialize");
-//     u64 result = originalEnsoGameManagerInitialize (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerInitialize result={}", result);
-//     return result;
-// }
+HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerInitialize");
+    u64 result = originalEnsoGameManagerInitialize (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerInitialize result={}", result);
+    return result;
+}
 
-// HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerLoading");
-//     u64 result = originalEnsoGameManagerLoading (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerLoading result={}", result);
-//     return result;
-// }
+HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerLoading");
+    u64 result = originalEnsoGameManagerLoading (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerLoading result={}", result);
+    return result;
+}
 
-// HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerPreparing");    
-//     bool result = originalEnsoGameManagerPreparing (a1);  // crashes here
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerPreparing result={}", result);
-//     return result;
-// }
+HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerPreparing");    
+    bool result = originalEnsoGameManagerPreparing (a1, a2, a3);  // crashes here
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerPreparing result={}", result);
+    return result;
+}
 
-// HOOK (u64, EnsoGraphicManagerPreparing, ASLR (0x1400F0AB0), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGraphicManagerPreparing");    
-//     u64 result = originalEnsoGraphicManagerPreparing (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGraphicManagerPreparing result={}", result);
-//     return result;
-// }
+HOOK (u64, EnsoGraphicManagerPreparing, ASLR (0x1400F0AB0), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGraphicManagerPreparing");    
+    u64 result = originalEnsoGraphicManagerPreparing (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGraphicManagerPreparing result={}", result);
+    return result;
+}
 
 
-// HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerStart");
-//     u64 result = originalEnsoGameManagerStart (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerStart result={}", result);
-//     return result;
-// }
+HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerStart");
+    u64 result = originalEnsoGameManagerStart (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerStart result={}", result);
+    return result;
+}
 
-// HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerChechEnsoEnd");
-//     u64 result = originalEnsoGameManagerChechEnsoEnd (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerChechEnsoEnd result={}", result);
-//     return result;
-// }
+HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerChechEnsoEnd");
+    u64 result = originalEnsoGameManagerChechEnsoEnd (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerChechEnsoEnd result={}", result);
+    return result;
+}
 
 constexpr i32 datatableBufferSize = 1024 * 1024 * 12;
 safetyhook::Allocation datatableBuffer1;
@@ -500,12 +500,12 @@ Init () {
     // Hook to get AppAccessor and ComponentAccessor
     INSTALL_HOOK (DeviceCheck);
     INSTALL_HOOK (luaL_newstate);
-    // INSTALL_HOOK (EnsoGameManagerInitialize);
-    // INSTALL_HOOK (EnsoGameManagerLoading);
-    // INSTALL_HOOK (EnsoGameManagerPreparing);
-    // INSTALL_HOOK (EnsoGraphicManagerPreparing);
-    // INSTALL_HOOK (EnsoGameManagerStart);
-    // INSTALL_HOOK (EnsoGameManagerChechEnsoEnd);
+    INSTALL_HOOK (EnsoGameManagerInitialize);
+    INSTALL_HOOK (EnsoGameManagerLoading);
+    INSTALL_HOOK (EnsoGameManagerPreparing);
+    INSTALL_HOOK (EnsoGraphicManagerPreparing);
+    INSTALL_HOOK (EnsoGameManagerStart);
+    INSTALL_HOOK (EnsoGameManagerChechEnsoEnd);
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);

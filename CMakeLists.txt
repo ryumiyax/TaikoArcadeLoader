@@ -17,7 +17,8 @@ else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# Add project definitions
+# Add project definitions (Add ASYNC_UPDATE/ASYNC_IO to enable new async feature [experimental])
+# add_definitions(-DNOMINMAX -DLTC_NO_PROTOTYPES -D_CRT_SECURE_NO_WARNINGS -DASYNC_UPDATE)
 add_definitions(-DNOMINMAX -DLTC_NO_PROTOTYPES -D_CRT_SECURE_NO_WARNINGS)
 
 # Include FetchContent module
@@ -128,6 +129,7 @@ set(SOURCES
     src/helpers.cpp
     src/logger.cpp
     src/poll.cpp
+    src/pollasync.cpp
     src/bnusio.cpp
     src/patches/amauth.cpp
     src/patches/dxgi.cpp

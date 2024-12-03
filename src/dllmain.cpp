@@ -149,6 +149,11 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         InitializeLogger (GetLogLevel (logLevelStr), logToFile);
         LogMessage (LogLevel::INFO, "Loading config...");
 
+        #ifdef ASYNC_IO
+        LogMessage (LogLevel::WARN, "Using Async IO (experimental)!");
+        InitializeKeyboard ();
+        #endif
+
         std::string version                    = "auto";
         const std::filesystem::path configPath = std::filesystem::current_path () / "config.toml";
         const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -223,7 +228,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         GetPrivateProfileStringA ("card", "accessCode2", accessCode2, accessCode2, 21, ".\\card.ini");
         GetPrivateProfileStringA ("card", "chipId2", chipId2, chipId2, 33, ".\\card.ini");
 
-        LogMessage (LogLevel::WARN, "Loading patches, please wait...");
+        LogMessage (LogLevel::INFO, "==== Loading patches, please wait...");
 
         if (cursor) INSTALL_HOOK (ShowMouse);
         INSTALL_HOOK (ExitWindows);
@@ -260,6 +265,8 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         patches::AmAuth::Init ();
         patches::LayeredFs::Init ();
         patches::TestMode::Init ();
+
+        LogMessage (LogLevel::INFO, "==== Finished Loading patches!");
     }
     return true;
 }

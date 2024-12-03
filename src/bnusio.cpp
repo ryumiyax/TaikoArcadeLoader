@@ -17,6 +17,7 @@ extern bool autoIme;
 extern bool emulateUsio;
 extern bool emulateCardReader;
 extern bool acceptInvalidCards;
+extern HWND hGameWnd;
 
 typedef i32 (*callbackAttach) (i32, i32, i32 *);
 typedef void (*callbackTouch) (i32, i32, u8[168], u64);
@@ -263,6 +264,61 @@ FUNCTION_PTR (i64, bnusio_DecCoin_Original, PROC_ADDRESS ("bnusio_original.dll",
 FUNCTION_PTR (u64, bnusio_DecService_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_DecService"), i32, u16);
 FUNCTION_PTR (i64, bnusio_ResetCoin_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_ResetCoin"));
 
+#ifndef ASYNC_UPDATE
+void
+Update () {
+#else
+std::thread pollThread;
+std::thread updateThread;
+std::mutex syncMtx;
+std::condition_variable syncCV;
+
+void
+UpdateLoop () {
+    LogMessage (LogLevel::WARN, "Using Async Update (experimental)!");
+    std::unique_lock<std::mutex> syncLock(syncMtx);
+    while (exited < 50) {
+        syncCV.wait (syncLock);
+#endif
+    if (exited && ++exited >= 50) ExitProcess (0);
+    if (!inited) {
+        windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
+        InitializePoll (windowHandle);
+        if (autoIme) {
+            currentLayout  = GetKeyboardLayout (0);
+            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
+            ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
+        }
+
+        patches::Plugins::Init ();
+        inited = true;
+    }
+
+#ifndef ASYNC_UPDATE
+    UpdatePoll (windowHandle);
+#endif
+    std::vector<uint8_t> buffer = {};
+    if (IsButtonTapped (COIN_ADD)) coin_count++;
+    if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
+    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
+    if (IsButtonTapped (EXIT)) { exited += 1; testEnabled = 1; patches::Plugins::Exit (); }
+    if (GameVersion::CHN00 == gameVersion) {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
+    } else {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
+    }
+    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
+    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
+
+    patches::Plugins::Update ();
+    patches::Scanner::Update ();
+#ifdef ASYNC_UPDATE
+    }
+#endif
+}
+
 void
 Init () {
     SetKeyboardButtons ();
@@ -369,48 +425,26 @@ Init () {
         INSTALL_HOOK_DIRECT (bnusio_ResetCoin, bnusio_ResetCoin_Original);
         LogMessage (LogLevel::WARN, "USIO emulation disabled");
     }
+#ifdef ASYNC_UPDATE
+    else {
+        updateThread = std::thread (bnusio::UpdateLoop);
+        updateThread.detach ();
+    }
+#endif
 }
 
+#ifdef ASYNC_UPDATE
 void
 Update () {
-    if (exited && ++exited >= 50) ExitProcess (0);
-    if (!inited) {
-        windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
-        InitializePoll (windowHandle);
-        if (autoIme) {
-            currentLayout  = GetKeyboardLayout (0);
-            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
-            ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
-        }
-
-        patches::Plugins::Init ();
-        inited = true;
-    }
-
-    UpdatePoll (windowHandle);
-    std::vector<uint8_t> buffer = {};
-    if (IsButtonTapped (COIN_ADD) && !testEnabled) coin_count++;
-    if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
-    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) { exited += 1; testEnabled = 1; }
-    if (GameVersion::CHN00 == gameVersion) {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
-    } else {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
-    }
-    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
-    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
-
-    patches::Plugins::Update ();
-    patches::Scanner::Update ();
+    if (inited) UpdatePoll (windowHandle);
+    syncCV.notify_all ();
 }
+#endif
 
 void
 Close () {
     if (autoIme) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);
-    patches::Plugins::Exit ();
+    // patches::Plugins::Exit ();
     CleanupLogger ();
 }
 } // namespace bnusio
