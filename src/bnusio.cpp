@@ -294,7 +294,7 @@ UpdateLoop () {
         inited = true;
     }
 
-#ifndef ASYNC_UPDATE
+#ifndef ASYNC_IO
     UpdatePoll (windowHandle);
 #endif
     std::vector<uint8_t> buffer = {};
