@@ -82,7 +82,10 @@ public:
         if (size == 0) return node;
         size_t maxPage = size <= 14 ? 1 : (size / 13 + (size % 13 > 0));
         LogMessage (LogLevel::DEBUG, "Render testmode menu with items(size={}, page={})", size, maxPage);
-        std::wstring parentId = node->parent ().parent ().attribute (L"id").value ();
+        std::wstring menuName = L"menu";
+        pugi::xml_node parentNode = node->parent ();
+        while (parentNode.name() != menuName) parentNode = parentNode.parent ();
+        std::wstring parentId = parentNode.attribute (L"id").value ();
 
         pugi::xml_document menuItem;
         menuItem.load_string (std::format (L"<root><menu-item label=\"{}\" menu=\"{}\"/></root>", this->menuName, this->menuId).c_str ());
@@ -289,6 +292,16 @@ HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFi
     originalTestModeSetMenuHook (testModeLibrary, fileName.c_str ());
 }
 
+// HOOK_DYNAMIC (void, TestModeGetValueHook, u64 *reader, const wchar_t *lItemName, int *value) {
+//     originalTestModeGetValueHook (reader, lItemName, value);
+//     LogMessage (LogLevel::DEBUG, L"TestMode get Item: {} Value: {}", lItemName, *value);
+// }
+
+// HOOK_DYNAMIC (void, TestModeSetValueHook, u64 *reader, const wchar_t *lItemName, int value) {
+//     LogMessage (LogLevel::DEBUG, L"TestMode set Item: {} Value: {}", lItemName, value);
+//     originalTestModeSetValueHook (reader, lItemName, value);
+// }
+
 void
 CommonModify () {
     // Default off Close time
@@ -424,7 +437,14 @@ Init () {
     const auto configPath = std::filesystem::current_path () / "config.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
 
-    const u64 testModeSetMenuAddress = PROC_ADDRESS_OFFSET ("TestModeLibrary.dll", 0x99D0);
+    const u64 testModeLibrary = (u64)GetModuleHandle ("TestModeLibrary.dll");
+    const u64 testModeSetMenu = testModeLibrary + 0x99D0;
+    // const u64 testModeGetValue = testModeLibrary + 0x6FB18;
+    // const u64 testModeSetValue = testModeLibrary + 0x6FAC8;
+
+    LogMessage (LogLevel::DEBUG, "TestModeLibrary: {}", testModeLibrary);
+    // LogMessage (LogLevel::DEBUG, "TestModeLibrary set: {}", testModeSetValue);
+    // LogMessage (LogLevel::DEBUG, "TestModeLibrary get: {}", testModeGetValue);
     switch (gameVersion) {
     case GameVersion::UNKNOWN: break;
     case GameVersion::JPN00: break;
@@ -442,7 +462,9 @@ Init () {
 
     CommonModify ();
 
-    INSTALL_HOOK_DYNAMIC (TestModeSetMenuHook, testModeSetMenuAddress);
+    INSTALL_HOOK_DYNAMIC (TestModeSetMenuHook, testModeSetMenu);
+    // INSTALL_HOOK_DYNAMIC (TestModeGetValueHook, testModeGetValue);
+    // INSTALL_HOOK_DYNAMIC (TestModeSetValueHook, testModeSetValue);
 }
 
 void
@@ -457,12 +479,25 @@ ReadTestModeValue (const wchar_t *itemId) {
         if (const u64 testModeMain = refTestMode (appAccessor)) {
             int value   = 0;
             u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
+            // LogMessage (LogLevel::DEBUG, "TestMode get:{} set:{}", *reader + 256, *reader + 176);
             (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int *)> (*reader + 256)) (reader, itemId, &value);
+            // originalTestModeGetValueHook (reader, itemId, &value);
             return value;
         }
     }
     LogMessage (LogLevel::ERROR, (std::wstring (L"Read TestMode(") + itemId + L") failed!").c_str ());
     return -1;
+}
+
+void
+SetTestModeValue (const wchar_t *itemId, int value) {
+    if (appAccessor) {
+        if (const u64 testModeMain = refTestMode (appAccessor)) {
+            u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
+            (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int)> (*reader + 176)) (reader, itemId, value);
+            // ((TestModeSetValueHook)whereTestModeSetMenuHook) (reader, itemId, value);
+        }
+    }
 }
 
 Menu *

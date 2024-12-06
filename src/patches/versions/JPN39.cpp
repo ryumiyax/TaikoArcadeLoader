@@ -16,6 +16,10 @@ HOOK_DYNAMIC (i64, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
     originalcurl_easy_setopt (a1, 81, 0, 0, 0);
     return originalcurl_easy_setopt (a1, a2, a3, a4, a5);
 }
+HOOK_DYNAMIC (void, garmc_logger_log, i64 a1, int a2, void *a3, char a4) {
+    // remove garmc log
+    return;
+}
 
 FUNCTION_PTR (i64, GetPlayDataManagerRef, ASLR (0x140024AC0), i64);
 
@@ -50,6 +54,7 @@ HOOK (i64, DeviceCheck, ASLR (0x140464FC0), i64 a1, i64 a2, i64 a3) {
     LogMessage (LogLevel::HOOKS, "DeviceCheck was called");
     TestMode::SetupAccessor (a3, RefTestModeMain);
     componentAccessor = a2;
+    appAccessor = a3;
     return originalDeviceCheck (a1, a2, a3);
 }
 
@@ -75,7 +80,8 @@ MID_HOOK (DifficultyPanelCrown, ASLR (0x1403F2A25), SafetyHookContext &ctx) {
 }
 HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo024 was called");
-    if (const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode"); tournamentMode == 1) return originalAvailableMode_Collabo024 (a1);
+    const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
+    if (tournamentMode == 1) return originalAvailableMode_Collabo024 (a1);
     const int status = TestMode::ReadTestModeValue (L"ModModeCollabo024");
     if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
     return originalAvailableMode_Collabo024 (a1);
@@ -240,7 +246,7 @@ get_bank_id (const std::string &bankName) {
 void
 check_voice_tail (const std::string &bankName, u8 *pBinfBlock, std::map<std::string, bool> &voiceExist, const std::string &tail) {
     // check if any voice_xxx.nus3bank has xxx_cn audio inside while loading
-    if (enableSwitchVoice && bankName.starts_with ("voice_")) {
+    if (bankName.starts_with ("voice_")) {
         const int binfLength = *reinterpret_cast<int *> (pBinfBlock + 4);
         u8 *pGrpBlock        = pBinfBlock + 8 + binfLength;
         const int grpLength  = *reinterpret_cast<int *> (pGrpBlock + 4);
@@ -261,7 +267,10 @@ check_voice_tail (const std::string &bankName, u8 *pBinfBlock, std::map<std::str
             if (titleOffset > 0) {
                 std::string title (reinterpret_cast<char *> (currToneBase + titleOffset));
                 if (title.ends_with (tail)) {
-                    if (!voiceExist.contains (bankName) || !voiceExist[bankName]) voiceExist[bankName] = true;
+                    if (!voiceExist.contains (bankName) || !voiceExist[bankName]) {
+                        voiceExist[bankName] = true;
+                        enableSwitchVoice = true;
+                    }
                     return;
                 }
             }
@@ -288,32 +297,34 @@ MID_HOOK (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
 }
 
 std::string
-FixToneName (const std::string &bankName, std::string toneName) {
-    if (language == 2 || language == 4) {
+FixToneName (const std::string &bankName, std::string toneName, int voiceLang) {
+    if (voiceLang == 1) {
         if (voiceCnExist.contains (bankName) && voiceCnExist[bankName]) return toneName + "_cn";
     }
     return toneName;
 }
 
 size_t commonSize = 0;
-HOOK (i64, PlaySound, ASLR (0x1404C6DC0), i64 a1) {
-    LogMessage (LogLevel::HOOKS, "PlaySound was called");
-    if (enableSwitchVoice && language != 0) {
+HOOK (i64, PlaySoundMain, ASLR (0x1404C6DC0), i64 a1) {
+    LogMessage (LogLevel::HOOKS, "PlaySoundMain was called");
+    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    if (enableSwitchVoice && lang != 0) {
         const std::string bankName (lua_tolstring (a1, -3, &commonSize));
         if (bankName[0] == 'v') {
-            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize)).c_str ());
+            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize), lang).c_str ());
             lua_replace (a1, -3);
         }
     }
-    return originalPlaySound (a1);
+    return originalPlaySoundMain (a1);
 }
 
 HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
     LogMessage (LogLevel::HOOKS, "PlaySoundMulti was called");
-    if (enableSwitchVoice && language != 0) {
+    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    if (enableSwitchVoice && lang != 0) {
         const std::string bankName (const_cast<char *> (lua_tolstring (a1, -3, &commonSize)));
         if (bankName[0] == 'v') {
-            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize)).c_str ());
+            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize), lang).c_str ());
             lua_replace (a1, -3);
         }
     }
@@ -323,8 +334,8 @@ HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
 FUNCTION_PTR (u64 *, append_chars_to_basic_string, ASLR (0x140028DA0), u64 *, const char *, size_t);
 
 u64 *
-FixToneNameEnso (u64 *Src, const std::string &bankName) {
-    if (language == 2 || language == 4) {
+FixToneNameEnso (u64 *Src, const std::string &bankName, int voiceLang) {
+    if (voiceLang == 1) {
         if (voiceCnExist.contains (bankName) && voiceCnExist[bankName]) Src = append_chars_to_basic_string (Src, "_cn", 3);
     }
     return Src;
@@ -332,18 +343,20 @@ FixToneNameEnso (u64 *Src, const std::string &bankName) {
 
 HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64 *a1, u64 *a2, i64 a3) {
     LogMessage (LogLevel::HOOKS, "PlaySoundEnso was called");
-    if (enableSwitchVoice && language != 0) {
+    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    if (enableSwitchVoice && lang != 0) {
         const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
-        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);
     }
     return originalPlaySoundEnso (a1, a2, a3);
 }
 
 HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64 *a1, u64 *a2) {
     LogMessage (LogLevel::HOOKS, "PlaySoundSpecial was called");
-    if (enableSwitchVoice && language != 0) {
+    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    if (enableSwitchVoice && lang != 0) {
         const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
-        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName);
+        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);
     }
     return originalPlaySoundSpecial (a1, a2);
 }
@@ -437,6 +450,23 @@ HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 
     return result;
 }
 
+HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
+    LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    a3[2] = (DWORD)(int)120.0f;
+    LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    return originalAcquireMostCompatibleDisplayMode (a1, a2, a3);
+}
+
+HOOK (char, SceneTestModeLoading, ASLR (0x1404793D0), u64 a1, u64 a2, u64 a3) {
+    LogMessage (LogLevel::DEBUG, "Begin SceneTestModeLoading");
+    char result = originalSceneTestModeLoading (a1, a2, a3);
+    LogMessage (LogLevel::DEBUG, "End originalSceneTestModeLoading");
+    TestMode::SetTestModeValue (L"EnableSwitchVoice", (int)enableSwitchVoice);
+    if (!enableSwitchVoice) TestMode::SetTestModeValue (L"VoiceLanguageItem", 0);
+    LogMessage (LogLevel::DEBUG, "End SceneTestModeLoading");
+    return result;
+}
+
 constexpr i32 datatableBufferSize = 1024 * 1024 * 12;
 safetyhook::Allocation datatableBuffer1;
 safetyhook::Allocation datatableBuffer2;
@@ -506,15 +536,13 @@ Init () {
     INSTALL_HOOK (EnsoGraphicManagerPreparing);
     INSTALL_HOOK (EnsoGameManagerStart);
     INSTALL_HOOK (EnsoGameManagerChechEnsoEnd);
+    INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
+    INSTALL_HOOK (SceneTestModeLoading);
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
     WRITE_MEMORY (ASLR (0x14049453A), i32, yRes);
     if (!vsync) WRITE_MEMORY (ASLR (0x14064C7E9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
-    if (unlockSongs) {
-        WRITE_MEMORY (ASLR (0x1403F45CF), u8, 0xB0, 0x01);
-        INSTALL_MID_HOOK (CountLockedCrown);
-    }
 
     // Bypass errors
     WRITE_MEMORY (ASLR (0x140041A00), u8, 0xC3);
@@ -564,18 +592,39 @@ Init () {
         ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
     }
 
-    // Fix Language
-    TestMode::RegisterItem(
+    // Language
+    TestMode::Menu *langPatchesMenu = TestMode::CreateMenu (L"LANGUAGE PATCHES", L"LanguagePatchesMenu");
+    TestMode::Menu *langResourceIndicator = TestMode::CreateMenu (L"RESOURCE INDICATOR", L"LanguageResourceIndicatorMenu");
+    TestMode::RegisterItem (
         L"<select-item label=\"FIX LANGUAGE\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
         L"group=\"Setting\" id=\"ModFixLanguage\" max=\"1\" min=\"0\" default=\"1\"/>",
         [&]() { 
             INSTALL_HOOK (GetLanguage); 
             INSTALL_HOOK (GetRegionLanguage); 
             INSTALL_HOOK (GetCabinetLanguage); 
+        }, langPatchesMenu
+    );
+    TestMode::RegisterItem(
+        L"<select-item label=\"CHS_VOICE FILE\" param-offset-x=\"35\" id=\"EnableSwitchVoice\" select-skip=\"True\" "
+        L"replace-text=\"0:@Color/Red;NONE@Color/Default;, 1:@Color/Lime;FOUND@Color/Default;\" param-color=\"Color/White\"/>",
+        langResourceIndicator
+    );
+    TestMode::RegisterItemAfter(
+        L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='LanguageItem']",
+        L"<select-item label=\"VOICE\" param-offset-x=\"35\" invisible=\"True/EnableSwitchVoice:0\" disable=\"True/EnableSwitchVoice:0\" "
+        L"replace-text=\"0:JPN, 1:CHN\" group=\"Setting\" id=\"VoiceLanguageItem\" max=\"1\" min=\"0\" default=\"0\"/>",
+        [&](){
+            INSTALL_HOOK (PlaySoundMain);
+            INSTALL_HOOK (PlaySoundMulti);
+            INSTALL_HOOK (PlaySoundEnso);
+            INSTALL_HOOK (PlaySoundSpecial);
         }
     );
+    TestMode::RegisterItem(langResourceIndicator, langPatchesMenu);
+    TestMode::RegisterItem(langPatchesMenu);
+
     // Unlock Songs
-    TestMode::RegisterItem(
+    TestMode::RegisterItem (
         L"<select-item label=\"UNLOCK SONGS\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON, "
         L"2:FORCE\" group=\"Setting\" id=\"ModUnlockSongs\" max=\"2\" min=\"0\" default=\"1\"/>",
         [&]() { 
@@ -653,6 +702,7 @@ Init () {
         L"replace-text=\"0:ON, 1:OFF\" group=\"Setting\" id=\"AttractDemoItem\" max=\"1\" min=\"0\" default=\"0\"/>",
         [&](){ INSTALL_MID_HOOK (AttractDemo); }
     );
+    
     // for (size_t i=0; i < 40; i++) TestMode::RegisterItem(std::format (L"<text-item label=\"TEST{}\"/>", i + 1));
 
     // Instant Result
@@ -696,23 +746,6 @@ Init () {
         });
     }
 
-    // Fix language
-    if (fixLanguage) {
-        INSTALL_HOOK (GetLanguage); // Language will use in other place
-        INSTALL_HOOK (GetRegionLanguage);
-        INSTALL_HOOK (GetCabinetLanguage);
-    }
-
-    // if both chsPatch & fixLanguage enabled, try use cn voice from nus3bank
-    // don't worry, we will check if cn voice existed
-    if (chsPatch && fixLanguage) {
-        enableSwitchVoice = true;
-        INSTALL_HOOK (PlaySound);
-        INSTALL_HOOK (PlaySoundMulti);
-        INSTALL_HOOK (PlaySoundEnso);
-        INSTALL_HOOK (PlaySoundSpecial);
-    }
-
     // Fix normal song play after passing through silent song
     INSTALL_MID_HOOK (GenNus3bankId);
     INSTALL_HOOK (LoadedBankAll);
@@ -734,5 +767,6 @@ Init () {
     // Redirect garmc requests
     auto garmcHandle = reinterpret_cast<u64> (GetModuleHandle ("garmc.dll"));
     INSTALL_HOOK_DYNAMIC (curl_easy_setopt, reinterpret_cast<void *> (garmcHandle + 0x1FBBB0));
+    INSTALL_HOOK_DYNAMIC (garmc_logger_log, reinterpret_cast<void *> (garmcHandle + 0x13AB70));
 }
 } // namespace patches::JPN39

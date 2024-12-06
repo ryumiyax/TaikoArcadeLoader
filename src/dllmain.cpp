@@ -266,6 +266,8 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         patches::LayeredFs::Init ();
         patches::TestMode::Init ();
 
+        patches::Timer::Init ();
+
         LogMessage (LogLevel::INFO, "==== Finished Loading patches!");
     }
     return true;

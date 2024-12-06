@@ -5,6 +5,10 @@
 extern bool jpLayout;
 extern int exited;
 
+#ifndef MIN
+#define MIN(a,b) ((a)<(b)?(a):(b))
+#endif
+
 bool wndForeground = false;
 
 bool currentKeyboardState[0xFF] = { false };
@@ -13,6 +17,12 @@ int keyboardDiff[0xFF] = { 0 };
 bool currentControllerButtonsState[SDL_CONTROLLER_BUTTON_MAX] = { false };
 int controllerCount[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
 int controllerDiff[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
+char currentMouseWheelDirection = 0;
+int mouseWheelCount[2] = { 0 };
+int mouseWheelDiff[2] = { 0 };
+
+int maxCount = 1;
+
 SDLAxisState currentControllerAxisState;
 
 SDL_Window *window;
@@ -96,7 +106,7 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         DWORD keyCode = pKeyboard->vkCode;
         switch (wParam) {
             case WM_KEYDOWN: if (wndForeground) {
-                if (!currentKeyboardState[keyCode]) keyboardCount[keyCode] ++;
+                if (!currentKeyboardState[keyCode]) keyboardCount[keyCode] = MIN (keyboardCount[keyCode] + 1, maxCount);
                 currentKeyboardState[keyCode] = true;
             } break;
             // keyup will accepted even if you're not focus in this window
@@ -118,63 +128,14 @@ DisposeKeyboard () {
     if (keyboardHook) UnhookWindowsHookEx(keyboardHook);
 }
 
-void
-UpdateLoop () {
-    LogMessage (LogLevel::DEBUG, "Enter Controller UpdateLoop");
-    SDL_Event event;
-    SDL_GameController *controller;
-    while (!exited) {
-        while (SDL_WaitEvent (&event) != 0) {
-            switch (event.type) {
-            case SDL_CONTROLLERDEVICEADDED:
-                if (!SDL_IsGameController (event.cdevice.which)) break;
-
-                controller = SDL_GameControllerOpen (event.cdevice.which);
-                if (!controller) {
-                    LogMessage (LogLevel::ERROR, std::string ("Could not open gamecontroller ") + SDL_GameControllerNameForIndex (event.cdevice.which)
-                                                    + ": " + SDL_GetError ());
-                    continue;
-                }
-                LogMessage (LogLevel::DEBUG, "Controller connected!");
-                controllers[event.cdevice.which] = controller;
-                break;
-            case SDL_CONTROLLERDEVICEREMOVED:
-                LogMessage (LogLevel::DEBUG, "Controller removed!");
-                if (!SDL_IsGameController (event.cdevice.which)) break;
-                SDL_GameControllerClose (controllers[event.cdevice.which]);
-                break;
-            case SDL_MOUSEWHEEL:
-                if (wndForeground) {
-                    if (event.wheel.y > 0) currentMouseState.ScrolledUp = true;
-                    else if (event.wheel.y < 0) currentMouseState.ScrolledDown = true;
-                }
-                break;
-            case SDL_CONTROLLERBUTTONUP: 
-                // keyup will accepted even if you're not focus in this window
-                currentControllerButtonsState[event.cbutton.button] = false; break;
-            case SDL_CONTROLLERBUTTONDOWN: 
-                if (wndForeground) {
-                    if (!currentControllerButtonsState[event.cbutton.button]) controllerCount[event.cbutton.button]++;
-                    currentControllerButtonsState[event.cbutton.button] = true; 
-                } else LogMessage (LogLevel::WARN, "Controller button pressed but window not focused!");
-                break;
-            case SDL_CONTROLLERAXISMOTION:
-                float sensorValue = event.caxis.value == 0 ? 0 : event.caxis.value / (event.caxis.value > 0 ? 32767.0f : -32768.0f);
-                if (wndForeground || sensorValue == 0) {
-                    switch (event.caxis.axis) {
-                    case SDL_CONTROLLER_AXIS_LEFTX: currentControllerAxisState.LeftRight = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_LEFTY: currentControllerAxisState.LeftDown = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_RIGHTX: currentControllerAxisState.RightRight = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_RIGHTY: currentControllerAxisState.RightDown = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_TRIGGERLEFT: currentControllerAxisState.LTriggerDown = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: currentControllerAxisState.RTriggerDown = sensorValue; break;
-                    }
-                }
-                break;
-            }
-        }
-    }
-}
+// void
+// UpdateLoop () {
+//     LogMessage (LogLevel::DEBUG, "Enter Controller UpdateLoop");
+    
+//     while (!exited) {
+        
+//     }
+// }
 
 bool
 InitializePoll (HWND windowHandle) {
@@ -223,8 +184,8 @@ InitializePoll (HWND windowHandle) {
 
     atexit (DisposePoll);
 
-    updatePollThread = std::thread (UpdateLoop);
-    updatePollThread.detach ();
+    // updatePollThread = std::thread (UpdateLoop);
+    // updatePollThread.detach ();
 
     return hasRumble;
 }
@@ -243,15 +204,78 @@ void
 UpdatePoll (HWND windowHandle) {
     if (!CheckForegroundWindow (windowHandle)) return; 
 
-    // currentMouseState.ScrolledUp   = false;
-    // currentMouseState.ScrolledDown = false;
+    currentMouseState.ScrolledUp   = false;
+    currentMouseState.ScrolledDown = false;
     for (int i=0; i<255; i++) keyboardCount[i] -= (bool)keyboardDiff[i]; 
     for (int i=0; i<SDL_CONTROLLER_BUTTON_MAX; i++) controllerCount[i] -= (bool)controllerDiff[i];
+    for (int i=0; i<2; i++) if (mouseWheelCount[i] > 0) mouseWheelCount[i] -= (bool)mouseWheelDiff[i];
     std::fill_n (keyboardDiff, 0xFF, 0);
     std::fill_n (controllerDiff, SDL_CONTROLLER_BUTTON_MAX, 0);
+    std::fill_n (mouseWheelDiff, 2, 0);
 
     // GetCursorPos (&currentMouseState.Position);
     // ScreenToClient (windowHandle, &currentMouseState.Position);
+    SDL_Event event;
+    SDL_GameController *controller;
+    while (SDL_PollEvent (&event) != 0) {
+        // LogMessage (LogLevel::DEBUG, "Receive SDL Event! type={}", (u64)event.type);
+        switch (event.type) {
+        case SDL_CONTROLLERDEVICEADDED:
+            if (!SDL_IsGameController (event.cdevice.which)) break;
+            controller = SDL_GameControllerOpen (event.cdevice.which);
+            if (!controller) {
+                LogMessage (LogLevel::ERROR, std::string ("Could not open gamecontroller ") + SDL_GameControllerNameForIndex (event.cdevice.which)
+                                                + ": " + SDL_GetError ());
+                continue;
+            }
+            LogMessage (LogLevel::DEBUG, "Controller connected!");
+            controllers[event.cdevice.which] = controller;
+            break;
+        case SDL_CONTROLLERDEVICEREMOVED:
+            LogMessage (LogLevel::DEBUG, "Controller removed!");
+            if (!SDL_IsGameController (event.cdevice.which)) break;
+            SDL_GameControllerClose (controllers[event.cdevice.which]);
+            break;
+        case SDL_MOUSEWHEEL:
+            if (wndForeground) {
+                // LogMessage (LogLevel::DEBUG, "Mouse Wheel moves {}", event.wheel.y);
+                if (event.wheel.y > 0) {
+                    mouseWheelCount[0] = MIN (mouseWheelCount[0] + event.wheel.y, maxCount);
+                    mouseWheelCount[1] = 0;
+                    currentMouseState.ScrolledUp = true;
+                } else if (event.wheel.y < 0) {
+                    mouseWheelCount[1] = MIN (mouseWheelCount[1] - event.wheel.y, maxCount);
+                    mouseWheelCount[0] = 0;
+                    currentMouseState.ScrolledDown = true;
+                }
+            }
+            break;
+        case SDL_CONTROLLERBUTTONUP: 
+            // keyup will accepted even if you're not focus in this window
+            currentControllerButtonsState[event.cbutton.button] = false; break;
+        case SDL_CONTROLLERBUTTONDOWN: 
+            if (wndForeground) {
+                if (!currentControllerButtonsState[event.cbutton.button]) {
+                    controllerCount[event.cbutton.button] = MIN (controllerCount[event.cbutton.button] + 1, maxCount);
+                }
+                currentControllerButtonsState[event.cbutton.button] = true; 
+            } else LogMessage (LogLevel::WARN, "Controller button pressed but window not focused!");
+            break;
+        case SDL_CONTROLLERAXISMOTION:
+            float sensorValue = event.caxis.value == 0 ? 0 : event.caxis.value / (event.caxis.value > 0 ? 32767.0f : -32768.0f);
+            if (wndForeground || sensorValue == 0) {
+                switch (event.caxis.axis) {
+                case SDL_CONTROLLER_AXIS_LEFTX: currentControllerAxisState.LeftRight = sensorValue; break;
+                case SDL_CONTROLLER_AXIS_LEFTY: currentControllerAxisState.LeftDown = sensorValue; break;
+                case SDL_CONTROLLER_AXIS_RIGHTX: currentControllerAxisState.RightRight = sensorValue; break;
+                case SDL_CONTROLLER_AXIS_RIGHTY: currentControllerAxisState.RightDown = sensorValue; break;
+                case SDL_CONTROLLER_AXIS_TRIGGERLEFT: currentControllerAxisState.LTriggerDown = sensorValue; break;
+                case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: currentControllerAxisState.RTriggerDown = sensorValue; break;
+                }
+            }
+            break;
+        }
+    }
 }
 
 void
@@ -330,16 +354,22 @@ GetMouseScrollDown () {
 
 bool
 GetMouseScrollIsDown (const Scroll scroll) {
-    return false;
-    // if (scroll == MOUSE_SCROLL_UP) return GetMouseScrollUp ();
-    // else return GetMouseScrollDown ();
+    if (scroll == MOUSE_SCROLL_UP) return GetMouseScrollUp ();
+    else return GetMouseScrollDown ();
 }
 
+int maxWheelCount = 1;
 bool
 GetMouseScrollIsTapped (const Scroll scroll) {
-    return false;
-    // if (scroll == MOUSE_SCROLL_UP) return GetMouseScrollUp () && !GetWasMouseScrollUp ();
-    // else return GetMouseScrollDown () && !GetWasMouseScrollDown ();
+    if (scroll == MOUSE_SCROLL_INVALID) return false;
+    if (mouseWheelCount[scroll - 1] > 0) {
+        if (maxWheelCount < mouseWheelCount[scroll - 1]) {
+            maxWheelCount = mouseWheelCount[scroll - 1];
+            LogMessage (LogLevel::DEBUG, "MAX WHEEL COLLECTED {} {}", (int)scroll, maxWheelCount);
+        }
+        mouseWheelDiff[scroll - 1] = 1;
+        return true;
+    } return false;
 }
 
 bool

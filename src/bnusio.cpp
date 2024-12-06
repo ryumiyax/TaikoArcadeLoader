@@ -125,10 +125,14 @@ bool valueStates[] = {false, false, false, false, false, false, false, false};
 Keybindings *analogButtons[]
     = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
 
-u16 buttonWaitPeriodP1 = 0;
-u16 buttonWaitPeriodP2 = 0;
-std::queue<u8> buttonQueueP1;
-std::queue<u8> buttonQueueP2;
+u16 cooldown[8] = { 0 };
+u16 buttonWaitPeriod[] = { 0, 0 };
+std::queue<u8> buttonQueue[] = { {}, {} };
+
+// u16 buttonWaitPeriodP1 = 0;
+// u16 buttonWaitPeriodP2 = 0;
+// std::queue<u8> buttonQueueP1;
+// std::queue<u8> buttonQueueP2;
 
 bool analogInput;
 SDLAxis analogBindings[] = {
@@ -139,52 +143,39 @@ SDLAxis analogBindings[] = {
 u16
 bnusio_GetAnalogIn (const u8 which) {
     if (analogInput) {
-        if (const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which])); analogValue > 100) return analogValue;
-        return 0;
+        const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which]));
+        if (analogValue > 100) return analogValue;
+        else return 0;
     }
     const auto button = analogButtons[which];
-    if (which == 0) {
-        if (buttonWaitPeriodP1 > 0) buttonWaitPeriodP1--;
-        if (buttonWaitPeriodP2 > 0) buttonWaitPeriodP2--;
-    }
-    if (const bool isP1 = which / 4 == 0; (isP1 && !buttonQueueP1.empty ()) || (!isP1 && !buttonQueueP2.empty ())) {
-        if ((isP1 && buttonQueueP1.front () == which && buttonWaitPeriodP1 == 0)
-            || (!isP1 && buttonQueueP2.front () == which && buttonWaitPeriodP2 == 0)) {
-            if (isP1) {
-                buttonQueueP1.pop ();
-                buttonWaitPeriodP1 = drumWaitPeriod;
-            } else {
-                buttonQueueP2.pop ();
-                buttonWaitPeriodP2 = drumWaitPeriod;
-            }
+    const int blue = !(which % 4 % 3);
+    const int player = which / 4;
 
-            const u16 hitValue = !valueStates[which] ? 50 : 51;
-            valueStates[which] = !valueStates[which];
-            return (hitValue << 15) / 100 + 1;
-        }
-        if (IsButtonTapped (*button)) {
-            if (isP1) buttonQueueP1.push (which);
-            else buttonQueueP2.push (which);
-        }
-        return 0;
-    } else if (IsButtonTapped (*button)) {
-        if (isP1 && buttonWaitPeriodP1 > 0) {
-            buttonQueueP1.push (which);
-            return 0;
-        }
-        if (!isP1 && buttonWaitPeriodP2 > 0) {
-            buttonQueueP2.push (which);
-            return 0;
-        }
-        if (isP1) buttonWaitPeriodP1 = drumWaitPeriod;
-        else buttonWaitPeriodP2 = drumWaitPeriod;
+    u16 analogValue = 0;
+    if (which == 0) {
+        for (int i=0; i<2; i++) if (buttonWaitPeriod[i] > 0) buttonWaitPeriod[i]--;
+        for (int i=0; i<8; i++) if (cooldown[i] > 0) cooldown[i]--;
+    }
+    if (buttonWaitPeriod[player] == 0 && !buttonQueue[player].empty () && buttonQueue[player].front () == which) {
+        buttonQueue[player].pop ();
+        buttonWaitPeriod[player] = drumWaitPeriod;
 
         const u16 hitValue = !valueStates[which] ? 50 : 51;
         valueStates[which] = !valueStates[which];
-        return (hitValue << 15) / 100 + 1;
+        analogValue = (hitValue << 15) / 100 + 1;
     }
+    if (IsButtonTapped (*button)) {
+        if (drumWaitPeriod > 0) {
+            if (blue && buttonWaitPeriod[player] > 0) buttonQueue[player].push (which);
+            buttonWaitPeriod[player] = drumWaitPeriod;
+        } else if (blue && cooldown[which] > 0) return 0;
 
-    return 0;
+        if (blue) cooldown[which] = 4;
+        const u16 hitValue = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        analogValue = (hitValue << 15) / 100 + 1;
+    }
+    return analogValue;
 }
 
 u16 __fastcall bnusio_GetCoin (i32 a1) {
@@ -277,10 +268,10 @@ void
 UpdateLoop () {
     LogMessage (LogLevel::WARN, "Using Async Update (experimental)!");
     std::unique_lock<std::mutex> syncLock(syncMtx);
-    while (exited < 50) {
+    while (exited < 120) {
         syncCV.wait (syncLock);
 #endif
-    if (exited && ++exited >= 50) ExitProcess (0);
+    if (exited && ++exited >= 120) ExitProcess (0);
     if (!inited) {
         windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
         InitializePoll (windowHandle);
@@ -301,7 +292,10 @@ UpdateLoop () {
     if (IsButtonTapped (COIN_ADD)) coin_count++;
     if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
     if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) { exited += 1; testEnabled = 1; patches::Plugins::Exit (); }
+    if (IsButtonTapped (EXIT)) { 
+        LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
+        exited += 1; testEnabled = 1; patches::Plugins::Exit ();
+    }
     if (GameVersion::CHN00 == gameVersion) {
         if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
         if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
