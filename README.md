@@ -136,5 +136,3 @@ cmake --build build --config Release --target bnusio
 ```
 
 The compiled dll of TaikoArcadeLoader will be written in the `dist` folder.
-
-(experimental) To enable `async update` / `async io`, you can add `-DASYNC_UPDATE` or `-DASYNC_IO` into add_definitions in CMakeLists.txt

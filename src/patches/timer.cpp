@@ -29,17 +29,17 @@ namespace patches::Timer {
         NTSTATUS queryStatus = NtQueryTimerResolution(&currentResolution, &minimumResolution, &maximumResolution);
         if (queryStatus == 0) {
             bool setHighResolutionTimer = currentResolution > maximumResolution;
-            LogMessage (LogLevel::INFO, "Timer Resolution current: {}ms maximum: {}ms", currentResolution / 10000.0, maximumResolution / 10000.0);
+            LogMessage (LogLevel::WARN, "(experimental) Timer Resolution current: {}ms maximum: {}ms", currentResolution / 10000.0, maximumResolution / 10000.0);
 
             if (setHighResolutionTimer) {
                 NTSTATUS status = NtSetTimerResolution(maximumResolution, TRUE, &currentResolution);
                 if (status == 0) {
-                    LogMessage (LogLevel::INFO, "Successfully change Timer resolution to {}ms", maximumResolution / 10000.0);
+                    LogMessage (LogLevel::WARN, "(experimental) Successfully change Timer resolution to {}ms", maximumResolution / 10000.0);
                 } else {
-                    LogMessage (LogLevel::ERROR, "Failed to change Timer resolution, status={}", status);
+                    LogMessage (LogLevel::ERROR, "(experimental) Failed to change Timer resolution, status={}", status);
                 }
                 atexit (Release);
             }
-        } else LogMessage (LogLevel::ERROR, "Failed to query Timer resolution, status={}", queryStatus);
+        } else LogMessage (LogLevel::ERROR, "(experimental) Failed to query Timer resolution, status={}", queryStatus);
     }
 }

@@ -450,12 +450,12 @@ HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 
     return result;
 }
 
-HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
-    LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
-    a3[2] = (DWORD)(int)120.0f;
-    LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
-    return originalAcquireMostCompatibleDisplayMode (a1, a2, a3);
-}
+// HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
+//     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+//     a3[2] = (DWORD)(int)120.0f;
+//     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+//     return originalAcquireMostCompatibleDisplayMode (a1, a2, a3);
+// }
 
 HOOK (char, SceneTestModeLoading, ASLR (0x1404793D0), u64 a1, u64 a2, u64 a3) {
     LogMessage (LogLevel::DEBUG, "Begin SceneTestModeLoading");
@@ -534,7 +534,7 @@ Init () {
     INSTALL_HOOK (EnsoGraphicManagerPreparing);
     INSTALL_HOOK (EnsoGameManagerStart);
     INSTALL_HOOK (EnsoGameManagerChechEnsoEnd);
-    INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
+    // INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
     INSTALL_HOOK (SceneTestModeLoading);
 
     // Apply common config patch

@@ -15,7 +15,7 @@ version = "auto"            # Patch version
                             # | - JPN39: For use with Taiko JPN 39.06
                             # | - CHN00: For use with Taiko CHN 00.32
 unlock_songs = true
-
+high_res_timer = true       # (experimental) Enable High Resolution Timer, which might improve judgement timing
 
 [patches.chn00]             # These patches are only available for version CHN00
 fix_language = false        # Sync test mode language to attract etc

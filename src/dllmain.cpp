@@ -22,6 +22,7 @@ char accessCode1[21]    = "00000000000000000001";
 char accessCode2[21]    = "00000000000000000002";
 char chipId1[33]        = "00000000000000000000000000000001";
 char chipId2[33]        = "00000000000000000000000000000002";
+bool highResTimer       = true;
 bool windowed           = false;
 bool autoIme            = false;
 bool jpLayout           = false;
@@ -150,7 +151,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         LogMessage (LogLevel::INFO, "Loading config...");
 
         #ifdef ASYNC_IO
-        LogMessage (LogLevel::WARN, "Using Async IO (experimental)!");
+        LogMessage (LogLevel::WARN, "(experimental) Using Async IO!");
         InitializeKeyboard ();
         #endif
 
@@ -176,7 +177,10 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
                 std::strcat (placeId, countryCode.c_str ());
                 std::strcat (placeId, "0FF0");
             }
-            if (const auto patches = openConfigSection (config, "patches")) version = readConfigString (patches, "version", version);
+            if (const auto patches = openConfigSection (config, "patches")) {
+                version = readConfigString (patches, "version", version);
+                highResTimer = readConfigBool (patches, "high_res_timer", highResTimer);
+            }
             if (const auto emulation = openConfigSection (config, "emulation")) {
                 emulateUsio        = readConfigBool (emulation, "usio", emulateUsio);
                 emulateCardReader  = readConfigBool (emulation, "card_reader", emulateCardReader);
@@ -266,7 +270,9 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         patches::LayeredFs::Init ();
         patches::TestMode::Init ();
 
-        patches::Timer::Init ();
+        if (highResTimer) {
+            patches::Timer::Init ();
+        }
 
         LogMessage (LogLevel::INFO, "==== Finished Loading patches!");
     }

@@ -248,7 +248,7 @@ std::condition_variable syncCV;
 
 void
 UpdateLoop () {
-    LogMessage (LogLevel::WARN, "Using Async Update (experimental)!");
+    LogMessage (LogLevel::WARN, "(experimental) Using Async Update!");
     std::unique_lock<std::mutex> syncLock(syncMtx);
     while (exited < 120) {
         syncCV.wait (syncLock);
