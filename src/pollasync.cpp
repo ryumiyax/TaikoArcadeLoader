@@ -38,7 +38,7 @@ SetKeyboardButtons () {
 }
 
 void
-SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bind) {
+SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bind, bool *usePoll) {
     const toml_array_t *array = toml_array_in (table, key);
     if (!array) {
         LogMessage (LogLevel::WARN, std::string (key) + ": Cannot find array");
@@ -66,6 +66,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case button: {
+            *usePoll = true;
             for (int i = 0; i < std::size (key_bind->buttons); i++) {
                 if (key_bind->buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) {
                     key_bind->buttons[i] = value.button;
@@ -75,6 +76,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case axis: {
+            *usePoll = true;
             for (int i = 0; i < std::size (key_bind->axis); i++) {
                 if (key_bind->axis[i] == 0) {
                     key_bind->axis[i] = value.axis;
@@ -98,19 +100,35 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
 
 // 钩子句柄
 HHOOK keyboardHook;
+HHOOK mouseHook;
 
 // 钩子回调函数
-LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK InputProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
-        KBDLLHOOKSTRUCT* pKeyboard = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
-        DWORD keyCode = pKeyboard->vkCode;
         switch (wParam) {
             case WM_KEYDOWN: if (wndForeground) {
+                KBDLLHOOKSTRUCT* pKeyboard = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
+                DWORD keyCode = pKeyboard->vkCode;
                 if (!currentKeyboardState[keyCode]) keyboardCount[keyCode] = MIN (keyboardCount[keyCode] + 1, maxCount);
                 currentKeyboardState[keyCode] = true;
             } break;
             // keyup will accepted even if you're not focus in this window
-            case WM_KEYUP: currentKeyboardState[keyCode] = false; break;
+            case WM_KEYUP: {
+                KBDLLHOOKSTRUCT* pKeyboard = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
+                DWORD keyCode = pKeyboard->vkCode;
+                currentKeyboardState[keyCode] = false;
+            } break;
+            case WM_MOUSEWHEEL: if (wndForeground) {
+                MSLLHOOKSTRUCT *pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
+                int wheelDelta = GET_WHEEL_DELTA_WPARAM(pMouseStruct->mouseData);
+                if (wheelDelta > 0) {
+                        mouseWheelCount[0] = MIN (mouseWheelCount[0] + wheelDelta, maxCount);
+                        currentMouseState.ScrolledUp = true;
+                    } else if (wheelDelta < 0) {
+                        mouseWheelCount[1] = MIN (mouseWheelCount[1] - wheelDelta, maxCount);
+                        currentMouseState.ScrolledDown = true;
+                    }
+            } break;
         }
     }
     return CallNextHookEx(keyboardHook, nCode, wParam, lParam);
@@ -118,14 +136,17 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 void
 InitializeKeyboard () {
-    keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, nullptr, 0);
+    keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, InputProc, nullptr, 0);
     if (keyboardHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install keyboard hook!\n");
+    mouseHook = SetWindowsHookEx(WH_MOUSE_LL, InputProc, nullptr, 0);
+    if (maxCount > 1) LogMessage (LogLevel::ERROR, "CHEATING MODE! max count is set to {}", maxCount);
     atexit (DisposeKeyboard);
 }
 
 void
 DisposeKeyboard () {
     if (keyboardHook) UnhookWindowsHookEx(keyboardHook);
+    if (mouseHook) UnhookWindowsHookEx(mouseHook);
 }
 
 // void
@@ -201,7 +222,7 @@ CheckForegroundWindow (HWND processWindow) {
 }
 
 void
-UpdatePoll (HWND windowHandle) {
+UpdatePoll (HWND windowHandle, bool useController) {
     if (!CheckForegroundWindow (windowHandle)) return; 
 
     currentMouseState.ScrolledUp   = false;
@@ -215,65 +236,67 @@ UpdatePoll (HWND windowHandle) {
 
     // GetCursorPos (&currentMouseState.Position);
     // ScreenToClient (windowHandle, &currentMouseState.Position);
-    SDL_Event event;
-    SDL_GameController *controller;
-    while (SDL_PollEvent (&event) != 0) {
-        // LogMessage (LogLevel::DEBUG, "Receive SDL Event! type={}", (u64)event.type);
-        switch (event.type) {
-        case SDL_CONTROLLERDEVICEADDED:
-            if (!SDL_IsGameController (event.cdevice.which)) break;
-            controller = SDL_GameControllerOpen (event.cdevice.which);
-            if (!controller) {
-                LogMessage (LogLevel::ERROR, std::string ("Could not open gamecontroller ") + SDL_GameControllerNameForIndex (event.cdevice.which)
-                                                + ": " + SDL_GetError ());
-                continue;
-            }
-            LogMessage (LogLevel::DEBUG, "Controller connected!");
-            controllers[event.cdevice.which] = controller;
-            break;
-        case SDL_CONTROLLERDEVICEREMOVED:
-            LogMessage (LogLevel::DEBUG, "Controller removed!");
-            if (!SDL_IsGameController (event.cdevice.which)) break;
-            SDL_GameControllerClose (controllers[event.cdevice.which]);
-            break;
-        case SDL_MOUSEWHEEL:
-            if (wndForeground) {
-                // LogMessage (LogLevel::DEBUG, "Mouse Wheel moves {}", event.wheel.y);
-                if (event.wheel.y > 0) {
-                    mouseWheelCount[0] = MIN (mouseWheelCount[0] + event.wheel.y, maxCount);
-                    mouseWheelCount[1] = 0;
-                    currentMouseState.ScrolledUp = true;
-                } else if (event.wheel.y < 0) {
-                    mouseWheelCount[1] = MIN (mouseWheelCount[1] - event.wheel.y, maxCount);
-                    mouseWheelCount[0] = 0;
-                    currentMouseState.ScrolledDown = true;
+    if (useController) {
+        SDL_Event event;
+        SDL_GameController *controller;
+        while (SDL_PollEvent (&event) != 0) {
+            // LogMessage (LogLevel::DEBUG, "Receive SDL Event! type={}", (u64)event.type);
+            switch (event.type) {
+            case SDL_CONTROLLERDEVICEADDED:
+                if (!SDL_IsGameController (event.cdevice.which)) break;
+                controller = SDL_GameControllerOpen (event.cdevice.which);
+                if (!controller) {
+                    LogMessage (LogLevel::ERROR, std::string ("Could not open gamecontroller ") + SDL_GameControllerNameForIndex (event.cdevice.which)
+                                                    + ": " + SDL_GetError ());
+                    continue;
                 }
-            }
-            break;
-        case SDL_CONTROLLERBUTTONUP: 
-            // keyup will accepted even if you're not focus in this window
-            currentControllerButtonsState[event.cbutton.button] = false; break;
-        case SDL_CONTROLLERBUTTONDOWN: 
-            if (wndForeground) {
-                if (!currentControllerButtonsState[event.cbutton.button]) {
-                    controllerCount[event.cbutton.button] = MIN (controllerCount[event.cbutton.button] + 1, maxCount);
+                LogMessage (LogLevel::DEBUG, "Controller connected!");
+                controllers[event.cdevice.which] = controller;
+                break;
+            case SDL_CONTROLLERDEVICEREMOVED:
+                LogMessage (LogLevel::DEBUG, "Controller removed!");
+                if (!SDL_IsGameController (event.cdevice.which)) break;
+                SDL_GameControllerClose (controllers[event.cdevice.which]);
+                break;
+            // case SDL_MOUSEWHEEL:
+            //     if (wndForeground) {
+            //         // LogMessage (LogLevel::DEBUG, "Mouse Wheel moves {}", event.wheel.y);
+            //         if (event.wheel.y > 0) {
+            //             mouseWheelCount[0] = MIN (mouseWheelCount[0] + event.wheel.y, maxCount);
+            //             // mouseWheelCount[1] = 0;
+            //             currentMouseState.ScrolledUp = true;
+            //         } else if (event.wheel.y < 0) {
+            //             mouseWheelCount[1] = MIN (mouseWheelCount[1] - event.wheel.y, maxCount);
+            //             // mouseWheelCount[0] = 0;
+            //             currentMouseState.ScrolledDown = true;
+            //         }
+            //     }
+            //     break;
+            case SDL_CONTROLLERBUTTONUP: 
+                // keyup will accepted even if you're not focus in this window
+                currentControllerButtonsState[event.cbutton.button] = false; break;
+            case SDL_CONTROLLERBUTTONDOWN: 
+                if (wndForeground) {
+                    if (!currentControllerButtonsState[event.cbutton.button]) {
+                        controllerCount[event.cbutton.button] = MIN (controllerCount[event.cbutton.button] + 1, maxCount);
+                    }
+                    currentControllerButtonsState[event.cbutton.button] = true; 
+                } else LogMessage (LogLevel::WARN, "Controller button pressed but window not focused!");
+                break;
+            case SDL_CONTROLLERAXISMOTION:
+                float sensorValue = event.caxis.value == 0 ? 0 : event.caxis.value / (event.caxis.value > 0 ? 32767.0f : -32768.0f);
+                if (wndForeground || sensorValue == 0) {
+                    switch (event.caxis.axis) {
+                    case SDL_CONTROLLER_AXIS_LEFTX: currentControllerAxisState.LeftRight = sensorValue; break;
+                    case SDL_CONTROLLER_AXIS_LEFTY: currentControllerAxisState.LeftDown = sensorValue; break;
+                    case SDL_CONTROLLER_AXIS_RIGHTX: currentControllerAxisState.RightRight = sensorValue; break;
+                    case SDL_CONTROLLER_AXIS_RIGHTY: currentControllerAxisState.RightDown = sensorValue; break;
+                    case SDL_CONTROLLER_AXIS_TRIGGERLEFT: currentControllerAxisState.LTriggerDown = sensorValue; break;
+                    case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: currentControllerAxisState.RTriggerDown = sensorValue; break;
+                    }
                 }
-                currentControllerButtonsState[event.cbutton.button] = true; 
-            } else LogMessage (LogLevel::WARN, "Controller button pressed but window not focused!");
-            break;
-        case SDL_CONTROLLERAXISMOTION:
-            float sensorValue = event.caxis.value == 0 ? 0 : event.caxis.value / (event.caxis.value > 0 ? 32767.0f : -32768.0f);
-            if (wndForeground || sensorValue == 0) {
-                switch (event.caxis.axis) {
-                case SDL_CONTROLLER_AXIS_LEFTX: currentControllerAxisState.LeftRight = sensorValue; break;
-                case SDL_CONTROLLER_AXIS_LEFTY: currentControllerAxisState.LeftDown = sensorValue; break;
-                case SDL_CONTROLLER_AXIS_RIGHTX: currentControllerAxisState.RightRight = sensorValue; break;
-                case SDL_CONTROLLER_AXIS_RIGHTY: currentControllerAxisState.RightDown = sensorValue; break;
-                case SDL_CONTROLLER_AXIS_TRIGGERLEFT: currentControllerAxisState.LTriggerDown = sensorValue; break;
-                case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: currentControllerAxisState.RTriggerDown = sensorValue; break;
-                }
+                break;
             }
-            break;
         }
     }
 }

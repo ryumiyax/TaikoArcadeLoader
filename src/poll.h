@@ -65,11 +65,10 @@ struct InternalButtonState {
 };
 
 bool InitializePoll (HWND windowHandle);
-void UpdatePoll (HWND windowHandle);
 void DisposePoll ();
 void SetKeyboardButtons ();
 ConfigValue StringToConfigEnum (const char *value);
-void SetConfigValue (const toml_table_t *table, const char *key, Keybindings *keybind);
+void SetConfigValue (const toml_table_t *table, const char *key, Keybindings *keybind, bool *usePoll);
 InternalButtonState GetInternalButtonState (const Keybindings &bindings);
 void SetRumble (int left, int right, int length);
 
@@ -87,6 +86,7 @@ bool IsButtonTapped (const Keybindings &bindings);
 float IsButtonDown (const Keybindings &bindings);
 
 #ifndef ASYNC_IO
+void UpdatePoll (HWND windowHandle);
 bool KeyboardIsUp (const u8 keycode);
 bool KeyboardIsReleased (u8 keycode);
 bool KeyboardWasDown (u8 keycode);
@@ -108,6 +108,7 @@ bool ControllerAxisWasUp (const SDLAxis axis);
 bool ControllerAxisIsReleased (const SDLAxis axis);
 bool IsButtonReleased (const Keybindings &bindings);
 #else
+void UpdatePoll (HWND windowHandle, bool useController);
 void InitializeKeyboard ();
 void DisposeKeyboard ();
 #endif

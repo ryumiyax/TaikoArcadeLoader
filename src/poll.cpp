@@ -23,7 +23,7 @@ SetKeyboardButtons () {
 }
 
 void
-SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bind) {
+SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bind, bool *usePoll) {
     const toml_array_t *array = toml_array_in (table, key);
     if (!array) {
         LogMessage (LogLevel::WARN, std::string (key) + ": Cannot find array");
@@ -42,6 +42,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
 
         switch (value.type) {
         case keycode: {
+            *usePoll = true;
             for (int i = 0; i < std::size (key_bind->keycodes); i++) {
                 if (key_bind->keycodes[i] == 0) {
                     key_bind->keycodes[i] = value.keycode;
@@ -51,6 +52,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case button: {
+            *usePoll = true;
             for (int i = 0; i < std::size (key_bind->buttons); i++) {
                 if (key_bind->buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) {
                     key_bind->buttons[i] = value.button;
@@ -60,6 +62,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case axis: {
+            *usePoll = true;
             for (int i = 0; i < std::size (key_bind->axis); i++) {
                 if (key_bind->axis[i] == 0) {
                     key_bind->axis[i] = value.axis;
@@ -68,6 +71,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             }
         }
         case scroll: {
+            *usePoll = true;
             for (int i = 0; i < std::size (key_bind->scroll); i++) {
                 if (key_bind->scroll[i] == 0) {
                     key_bind->scroll[i] = value.scroll;

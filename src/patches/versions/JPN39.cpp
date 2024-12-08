@@ -387,21 +387,21 @@ HOOK (i32, SetMasterVolumeSpeaker, ASLR (0x140160330), i32 a1) {
     return originalSetMasterVolumeSpeaker (a1 > 100 ? 100 : a1);
 }
 
-std::string *fontName = nullptr;
-HOOK (u8, SetupFontInfo, ASLR (0x14049D820), u64 a1, u64 a2, size_t a3, u64 a4) {
-    LogMessage (LogLevel::HOOKS, "SetupFontInfo was called");
-    if (fontName != nullptr) delete fontName;
-    fontName = new std::string (reinterpret_cast<char *> (a1) + 120);
-    return originalSetupFontInfo (a1, a2, a3, a4);
-}
+// std::string *fontName = nullptr;
+// HOOK (u8, SetupFontInfo, ASLR (0x14049D820), u64 a1, u64 a2, size_t a3, u64 a4) {
+//     LogMessage (LogLevel::HOOKS, "SetupFontInfo was called");
+//     if (fontName != nullptr) delete fontName;
+//     fontName = new std::string (reinterpret_cast<char *> (a1) + 120);
+//     return originalSetupFontInfo (a1, a2, a3, a4);
+// }
 
-HOOK (u32, ReadFontInfoInt, ASLR (0x14049EAC0), u64 a1, u64 a2) {
-    LogMessage (LogLevel::HOOKS, "ReadFontInfoInt was called");
-    const std::string attribute (reinterpret_cast<char *> (a2));
-    u32 result = originalReadFontInfoInt (a1, a2);
-    if (fontName->starts_with ("cn_") && attribute == "offsetV") result += 1;
-    return result;
-}
+// HOOK (u32, ReadFontInfoInt, ASLR (0x14049EAC0), u64 a1, u64 a2) {
+//     LogMessage (LogLevel::HOOKS, "ReadFontInfoInt was called");
+//     const std::string attribute (reinterpret_cast<char *> (a2));
+//     u32 result = originalReadFontInfoInt (a1, a2);
+//     if (fontName->starts_with ("cn_") && attribute == "offsetV") result += 1;
+//     return result;
+// }
 
 MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
@@ -501,7 +501,6 @@ Init () {
     i32 yRes          = 1080;
     bool vsync        = false;
     bool unlockSongs  = true;
-    bool fixLanguage  = false;
     bool chsPatch     = false;
     bool useLayeredfs = false;
 
@@ -511,7 +510,6 @@ Init () {
         if (auto patches = openConfigSection (config_ptr.get (), "patches")) {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
             if (auto jpn39 = openConfigSection (patches, "jpn39")) {
-                fixLanguage = readConfigBool (jpn39, "fix_language", fixLanguage);
                 chsPatch    = readConfigBool (jpn39, "chs_patch", chsPatch);
             }
         }
@@ -733,8 +731,8 @@ Init () {
             WRITE_MEMORY (ASLR (0x140CD1E68), wchar_t, L"加載中..\0");
             WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加載中...\0");
             INSTALL_MID_HOOK (ChangeLanguageType);
-            INSTALL_HOOK (SetupFontInfo);
-            INSTALL_HOOK (ReadFontInfoInt);
+            // INSTALL_HOOK (SetupFontInfo);
+            // INSTALL_HOOK (ReadFontInfoInt);
         }
 
         LayeredFs::RegisterBefore ([=] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
