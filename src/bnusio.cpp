@@ -17,6 +17,7 @@ extern bool autoIme;
 extern bool emulateUsio;
 extern bool emulateCardReader;
 extern bool acceptInvalidCards;
+extern HWND hGameWnd;
 
 typedef i32 (*callbackAttach) (i32, i32, i32 *);
 typedef void (*callbackTouch) (i32, i32, u8[168], u64);
@@ -47,6 +48,9 @@ Keybindings P2_LEFT_BLUE  = {.keycodes = {'Z'}};
 Keybindings P2_LEFT_RED   = {.keycodes = {'X'}};
 Keybindings P2_RIGHT_RED  = {.keycodes = {'C'}};
 Keybindings P2_RIGHT_BLUE = {.keycodes = {'V'}};
+// Keybindings ALL[] = { EXIT, TEST, SERVICE, DEBUG_UP, DEBUG_DOWN, DEBUG_ENTER, COIN_ADD, 
+//     CARD_INSERT_1, CARD_INSERT_2, QR_DATA_READ, QR_IMAGE_READ, P1_LEFT_BLUE, P1_LEFT_RED,
+//     P1_RIGHT_RED, P1_RIGHT_BLUE, P2_LEFT_BLUE, P2_LEFT_RED, P2_RIGHT_RED, P2_RIGHT_BLUE };
 
 int exited        = 0;
 bool testEnabled  = false;
@@ -55,6 +59,7 @@ int service_count = 0;
 bool inited       = false;
 bool updateByCoin = false;
 HWND windowHandle = nullptr;
+bool usePoll      = false;
 HKL currentLayout;
 
 namespace bnusio {
@@ -118,16 +123,21 @@ bnusio_GetSwIn () {
     return sw;
 }
 
+bool waitAll = false;
 u16 drumWaitPeriod = 4;
 bool valueStates[] = {false, false, false, false, false, false, false, false};
 
 Keybindings *analogButtons[]
     = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
 
-u16 buttonWaitPeriodP1 = 0;
-u16 buttonWaitPeriodP2 = 0;
-std::queue<u8> buttonQueueP1;
-std::queue<u8> buttonQueueP2;
+u16 cooldown[8] = { 0 };
+u16 buttonWaitPeriod[] = { 0, 0 };
+std::queue<u8> buttonQueue[] = { {}, {} };
+
+// u16 buttonWaitPeriodP1 = 0;
+// u16 buttonWaitPeriodP2 = 0;
+// std::queue<u8> buttonQueueP1;
+// std::queue<u8> buttonQueueP2;
 
 bool analogInput;
 SDLAxis analogBindings[] = {
@@ -138,52 +148,40 @@ SDLAxis analogBindings[] = {
 u16
 bnusio_GetAnalogIn (const u8 which) {
     if (analogInput) {
-        if (const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which])); analogValue > 100) return analogValue;
-        return 0;
+        const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which]));
+        if (analogValue > 100) return analogValue;
+        else return 0;
     }
     const auto button = analogButtons[which];
-    if (which == 0) {
-        if (buttonWaitPeriodP1 > 0) buttonWaitPeriodP1--;
-        if (buttonWaitPeriodP2 > 0) buttonWaitPeriodP2--;
-    }
-    if (const bool isP1 = which / 4 == 0; (isP1 && !buttonQueueP1.empty ()) || (!isP1 && !buttonQueueP2.empty ())) {
-        if ((isP1 && buttonQueueP1.front () == which && buttonWaitPeriodP1 == 0)
-            || (!isP1 && buttonQueueP2.front () == which && buttonWaitPeriodP2 == 0)) {
-            if (isP1) {
-                buttonQueueP1.pop ();
-                buttonWaitPeriodP1 = drumWaitPeriod;
-            } else {
-                buttonQueueP2.pop ();
-                buttonWaitPeriodP2 = drumWaitPeriod;
-            }
+    const bool blue = !(which % 4 % 3);
+    const int player = which / 4;
 
-            const u16 hitValue = !valueStates[which] ? 50 : 51;
-            valueStates[which] = !valueStates[which];
-            return (hitValue << 15) / 100 + 1;
-        }
-        if (IsButtonTapped (*button)) {
-            if (isP1) buttonQueueP1.push (which);
-            else buttonQueueP2.push (which);
-        }
-        return 0;
-    } else if (IsButtonTapped (*button)) {
-        if (isP1 && buttonWaitPeriodP1 > 0) {
-            buttonQueueP1.push (which);
-            return 0;
-        }
-        if (!isP1 && buttonWaitPeriodP2 > 0) {
-            buttonQueueP2.push (which);
-            return 0;
-        }
-        if (isP1) buttonWaitPeriodP1 = drumWaitPeriod;
-        else buttonWaitPeriodP2 = drumWaitPeriod;
+    u16 analogValue = 0;
+    if (which == 0) {
+        for (int i=0; i<2; i++) if (buttonWaitPeriod[i] > 0) buttonWaitPeriod[i]--;
+        for (int i=0; i<8; i++) if (cooldown[i] > 0) cooldown[i]--;
+    }
+    if (buttonWaitPeriod[player] == 0 && !buttonQueue[player].empty () && buttonQueue[player].front () == which) {
+        buttonWaitPeriod[player] = drumWaitPeriod;
+        buttonQueue[player].pop ();
 
         const u16 hitValue = !valueStates[which] ? 50 : 51;
         valueStates[which] = !valueStates[which];
-        return (hitValue << 15) / 100 + 1;
+        analogValue = (hitValue << 15) / 100 + 1;
     }
+    if (IsButtonTapped (*button)) {
+        if ((waitAll || blue) && buttonWaitPeriod[player] > 0) {
+            buttonQueue[player].push (which);
+            return analogValue;
+        } else if ((waitAll || blue) && cooldown[which] > 0) return 0;
+        buttonWaitPeriod[player] = drumWaitPeriod;
+        if (waitAll || blue) cooldown[which] = 4;
 
-    return 0;
+        const u16 hitValue = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        analogValue = (hitValue << 15) / 100 + 1;
+    }
+    return analogValue;
 }
 
 u16 __fastcall bnusio_GetCoin (i32 a1) {
@@ -191,30 +189,6 @@ u16 __fastcall bnusio_GetCoin (i32 a1) {
     return coin_count;
 }
 u16 __fastcall bnusio_GetService (i32 a1) { return service_count; }
-}
-
-void
-InspectWaitTouch (const i32 a1, const i32 a2, u8 _cardData[168], const u64 _touchData) {
-    if (AreAllBytesZero (_cardData, 0x00, 168)) // This happens when you enter test mode.
-        return touchCallback (a1, a2, _cardData, _touchData);
-
-    const bool valid = !AreAllBytesZero (_cardData, 0x50, 21);
-    if (valid) {
-        LogMessage (LogLevel::DEBUG, "Card is valid");
-    } else {
-        memcpy (_cardData + 0x50, _cardData + 0x2C, 16); // 16 to match felica lite serial number length
-        LogMessage (LogLevel::DEBUG, "Card is usually not supported");
-    }
-
-    std::ostringstream oss;
-    for (size_t i = 0; i < 168; ++i) {
-        oss << std::setw (2) << std::setfill ('0') << std::hex << static_cast<int> (_cardData[i]) << " ";
-        if ((i + 1) % 21 == 0) oss << "\n";
-    }
-
-    LogMessage (LogLevel::DEBUG, "A1: %d, A2: %d, Card data: \n%s", a1, a2, oss.str ().c_str ());
-
-    if (touchCallback) return valid ? touchCallback (a1, a2, _cardData, _touchData) : touchCallback (0, 0, _cardData, _touchData);
 }
 
 FUNCTION_PTR (i64, bnusio_Open_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_Open"));
@@ -263,6 +237,65 @@ FUNCTION_PTR (i64, bnusio_DecCoin_Original, PROC_ADDRESS ("bnusio_original.dll",
 FUNCTION_PTR (u64, bnusio_DecService_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_DecService"), i32, u16);
 FUNCTION_PTR (i64, bnusio_ResetCoin_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_ResetCoin"));
 
+#ifndef ASYNC_UPDATE
+void
+Update () {
+#else
+std::thread pollThread;
+std::thread updateThread;
+std::mutex syncMtx;
+std::condition_variable syncCV;
+
+void
+UpdateLoop () {
+    LogMessage (LogLevel::WARN, "(experimental) Using Async Update!");
+    std::unique_lock<std::mutex> syncLock(syncMtx);
+    while (exited < 120) {
+        syncCV.wait (syncLock);
+#endif
+    if (exited && ++exited >= 120) ExitProcess (0);
+
+#ifndef ASYNC_IO
+    if (!inited) {
+        windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
+        InitializePoll (windowHandle);
+        if (autoIme) {
+            currentLayout  = GetKeyboardLayout (0);
+            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
+            ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
+        }
+
+        patches::Plugins::Init ();
+        inited = true;
+    }
+
+    UpdatePoll (windowHandle);
+#endif
+    std::vector<uint8_t> buffer = {};
+    if (IsButtonTapped (COIN_ADD)) coin_count++;
+    if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
+    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
+    if (IsButtonTapped (EXIT)) { 
+        LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
+        exited += 1; testEnabled = 1; patches::Plugins::Exit ();
+    }
+    if (GameVersion::CHN00 == gameVersion) {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
+    } else {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
+    }
+    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
+    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
+
+    patches::Plugins::Update ();
+    patches::Scanner::Update ();
+#ifdef ASYNC_UPDATE
+    }
+#endif
+}
+
 void
 Init () {
     SetKeyboardButtons ();
@@ -274,8 +307,8 @@ Init () {
     if (config_ptr) {
         const toml_table_t *config = config_ptr.get ();
         if (const auto controller = openConfigSection (config, "controller")) {
-            drumWaitPeriod = static_cast<u16> (readConfigInt (controller, "wait_period", drumWaitPeriod));
-            analogInput    = readConfigBool (controller, "analog_input", analogInput);
+            drumWaitPeriod   = static_cast<u16> (readConfigInt (controller, "wait_period", drumWaitPeriod));
+            analogInput      = readConfigBool (controller, "analog_input", analogInput);
             if (analogInput) LogMessage (LogLevel::WARN, "Using analog input mode. All the keyboard drum inputs have been disabled.");
         }
         auto graphics = openConfigSection (config, "graphics");
@@ -292,28 +325,31 @@ Init () {
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
         const toml_table_t *keyConfig = keyConfig_ptr.get ();
-        SetConfigValue (keyConfig, "EXIT", &EXIT);
+        SetConfigValue (keyConfig, "EXIT", &EXIT, &usePoll);
 
-        SetConfigValue (keyConfig, "TEST", &TEST);
-        SetConfigValue (keyConfig, "SERVICE", &SERVICE);
-        SetConfigValue (keyConfig, "DEBUG_UP", &DEBUG_UP);
-        SetConfigValue (keyConfig, "DEBUG_DOWN", &DEBUG_DOWN);
-        SetConfigValue (keyConfig, "DEBUG_ENTER", &DEBUG_ENTER);
+        SetConfigValue (keyConfig, "TEST", &TEST, &usePoll);
+        SetConfigValue (keyConfig, "SERVICE", &SERVICE, &usePoll);
+        SetConfigValue (keyConfig, "DEBUG_UP", &DEBUG_UP, &usePoll);
+        SetConfigValue (keyConfig, "DEBUG_DOWN", &DEBUG_DOWN, &usePoll);
+        SetConfigValue (keyConfig, "DEBUG_ENTER", &DEBUG_ENTER, &usePoll);
 
-        SetConfigValue (keyConfig, "COIN_ADD", &COIN_ADD);
-        SetConfigValue (keyConfig, "CARD_INSERT_1", &CARD_INSERT_1);
-        SetConfigValue (keyConfig, "CARD_INSERT_2", &CARD_INSERT_2);
-        SetConfigValue (keyConfig, "QR_DATA_READ", &QR_DATA_READ);
-        SetConfigValue (keyConfig, "QR_IMAGE_READ", &QR_IMAGE_READ);
+        SetConfigValue (keyConfig, "COIN_ADD", &COIN_ADD, &usePoll);
+        SetConfigValue (keyConfig, "CARD_INSERT_1", &CARD_INSERT_1, &usePoll);
+        SetConfigValue (keyConfig, "CARD_INSERT_2", &CARD_INSERT_2, &usePoll);
+        SetConfigValue (keyConfig, "QR_DATA_READ", &QR_DATA_READ, &usePoll);
+        SetConfigValue (keyConfig, "QR_IMAGE_READ", &QR_IMAGE_READ, &usePoll);
 
-        SetConfigValue (keyConfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE);
-        SetConfigValue (keyConfig, "P1_LEFT_RED", &P1_LEFT_RED);
-        SetConfigValue (keyConfig, "P1_RIGHT_RED", &P1_RIGHT_RED);
-        SetConfigValue (keyConfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE);
-        SetConfigValue (keyConfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE);
-        SetConfigValue (keyConfig, "P2_LEFT_RED", &P2_LEFT_RED);
-        SetConfigValue (keyConfig, "P2_RIGHT_RED", &P2_RIGHT_RED);
-        SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE);
+        SetConfigValue (keyConfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE, &usePoll);
+        SetConfigValue (keyConfig, "P1_LEFT_RED", &P1_LEFT_RED, &usePoll);
+        SetConfigValue (keyConfig, "P1_RIGHT_RED", &P1_RIGHT_RED, &usePoll);
+        SetConfigValue (keyConfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE, &usePoll);
+        SetConfigValue (keyConfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE, &usePoll);
+        SetConfigValue (keyConfig, "P2_LEFT_RED", &P2_LEFT_RED, &usePoll);
+        SetConfigValue (keyConfig, "P2_RIGHT_RED", &P2_RIGHT_RED, &usePoll);
+        SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE, &usePoll);
+        if (!usePoll) {
+            LogMessage (LogLevel::WARN, "Only Keyboard config detected, disable poll!");
+        }
     }
 
     if (!emulateUsio && !exists (std::filesystem::current_path () / "bnusio_original.dll")) {
@@ -369,14 +405,20 @@ Init () {
         INSTALL_HOOK_DIRECT (bnusio_ResetCoin, bnusio_ResetCoin_Original);
         LogMessage (LogLevel::WARN, "USIO emulation disabled");
     }
+#ifdef ASYNC_UPDATE
+    else {
+        updateThread = std::thread (bnusio::UpdateLoop);
+        updateThread.detach ();
+    }
+#endif
 }
 
+#ifdef ASYNC_UPDATE
 void
 Update () {
-    if (exited && ++exited >= 50) ExitProcess (0);
     if (!inited) {
         windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
-        InitializePoll (windowHandle);
+        if (usePoll) InitializePoll (windowHandle);
         if (autoIme) {
             currentLayout  = GetKeyboardLayout (0);
             auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
@@ -386,31 +428,15 @@ Update () {
         patches::Plugins::Init ();
         inited = true;
     }
-
-    UpdatePoll (windowHandle);
-    std::vector<uint8_t> buffer = {};
-    if (IsButtonTapped (COIN_ADD) && !testEnabled) coin_count++;
-    if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
-    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) { exited += 1; testEnabled = 1; }
-    if (GameVersion::CHN00 == gameVersion) {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
-    } else {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
-    }
-    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
-    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
-
-    patches::Plugins::Update ();
-    patches::Scanner::Update ();
+    UpdatePoll (windowHandle, usePoll);
+    syncCV.notify_all ();
 }
+#endif
 
 void
 Close () {
     if (autoIme) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);
-    patches::Plugins::Exit ();
+    // patches::Plugins::Exit ();
     CleanupLogger ();
 }
 } // namespace bnusio

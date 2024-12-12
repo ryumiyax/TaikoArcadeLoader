@@ -253,6 +253,7 @@ LayeredFsHandler (const std::string &originalFileName, const std::string &curren
 
 HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
       LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+    bool changed = false;
     const auto originalFileName = std::string (lpFileName);
     std::string currentFileName = originalFileName;
     LogMessage (LogLevel::HOOKS, ("CreateFileA: " + originalFileName).c_str ());
@@ -260,23 +261,34 @@ HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPC
     if (!beforeHandlers.empty ()) {
         for (const auto handler : beforeHandlers) {
             std::string result = handler->handlerMethod (originalFileName, currentFileName);
-            if (result != "") currentFileName = result;
+            if (result != "") {
+                currentFileName = result;
+                changed = true;
+            }
         }
     }
 
     if (useLayeredFs) {
         const std::string result = LayeredFsHandler (originalFileName, currentFileName);
-        if (result != "") currentFileName = result;
+        if (result != "") {
+            currentFileName = result;
+            changed = true;
+        }
     }
 
     if (!afterHandlers.empty ()) {
         for (const auto handler : afterHandlers) {
             std::string result = handler->handlerMethod (originalFileName, currentFileName);
-            if (result != "") currentFileName = result;
+            if (result != "") {
+                currentFileName = result;
+                changed = true;
+            }
         }
     }
 
-    return originalCreateFileAHook (currentFileName.c_str (), dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
+    LPCSTR pFinalFileName = changed ? currentFileName.c_str () : lpFileName;
+    if (changed) LogMessage (LogLevel::DEBUG, "Final Redirect: {}", currentFileName);
+    return originalCreateFileAHook (pFinalFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
                                     dwFlagsAndAttributes, hTemplateFile);
 }
 

@@ -297,7 +297,7 @@ namespace Qr {
         }
         std::vector<uint8_t> buffer = {};
         std::string accessQRDataBase = "BNTTCNID";
-        if (!accessCode._Starts_with (accessQRDataBase)) 
+        if (!accessCode.starts_with (accessQRDataBase)) 
             for (char word : accessQRDataBase) buffer.push_back (word);
         for (char word : accessCode) buffer.push_back (word);
         return patches::Scanner::Qr::Commit (buffer);

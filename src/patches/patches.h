@@ -55,6 +55,7 @@ void Init              ();
 void Append            (const pugi::xml_node &node, const wchar_t *attr, const std::wstring &append);
 void SetupAccessor     (u64 appAccessor, RefTestModeMain refTestMode);
 int  ReadTestModeValue (const wchar_t *itemId);
+void SetTestModeValue  (const wchar_t *itemId, int value);
 Menu *CreateMenu       (const std::wstring &menuName, const std::wstring &menuId);
 void RegisterItem      (const std::wstring &item, const std::function<void ()> &initMethod, Menu *menu);
 void RegisterItem      (const std::wstring &item, const std::function<void ()> &initMethod);
@@ -114,4 +115,7 @@ std::vector<uint8_t> &ReadQRData  (std::vector<uint8_t> &buffer);
 std::vector<uint8_t> &ReadQRImage (std::vector<uint8_t> &buffer);
 } // namespace Qr
 } // namespace Scanner
+namespace Timer {
+void Init ();
+} // namespace timer
 } // namespace patches
