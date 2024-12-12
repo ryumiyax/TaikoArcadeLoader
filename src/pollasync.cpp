@@ -12,14 +12,15 @@ extern int exited;
 bool wndForeground = false;
 
 bool currentKeyboardState[0xFF] = { false };
-int keyboardCount[0xFF] = { 0 };
-int keyboardDiff[0xFF] = { 0 };
+uint8_t keyboardCount[0xFF] = { 0 };
+uint8_t keyboardDiff[0xFF] = { 0 };
+bool keyboardClean = false;
 bool currentControllerButtonsState[SDL_CONTROLLER_BUTTON_MAX] = { false };
-int controllerCount[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
-int controllerDiff[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
+uint8_t controllerCount[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
+uint8_t controllerDiff[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
 char currentMouseWheelDirection = 0;
-int mouseWheelCount[2] = { 0 };
-int mouseWheelDiff[2] = { 0 };
+uint8_t mouseWheelCount[2] = { 0 };
+uint8_t mouseWheelDiff[2] = { 0 };
 
 int maxCount = 1;
 
@@ -227,16 +228,20 @@ UpdatePoll (HWND windowHandle, bool useController) {
 
     currentMouseState.ScrolledUp   = false;
     currentMouseState.ScrolledDown = false;
-    for (int i=0; i<255; i++) keyboardCount[i] -= (bool)keyboardDiff[i]; 
-    for (int i=0; i<SDL_CONTROLLER_BUTTON_MAX; i++) controllerCount[i] -= (bool)controllerDiff[i];
-    for (int i=0; i<2; i++) if (mouseWheelCount[i] > 0) mouseWheelCount[i] -= (bool)mouseWheelDiff[i];
-    std::fill_n (keyboardDiff, 0xFF, 0);
-    std::fill_n (controllerDiff, SDL_CONTROLLER_BUTTON_MAX, 0);
-    std::fill_n (mouseWheelDiff, 2, 0);
+    if (keyboardClean) {
+        keyboardClean = false;
+        for (int i=0; i<0xFF; i++) keyboardCount[i] -= (bool)keyboardDiff[i]; 
+        memset (keyboardDiff, 0, 0XFF);
+    }
+    if (mouseWheelCount[0] > 0) mouseWheelCount[0] -= (bool)mouseWheelDiff[0];
+    if (mouseWheelCount[1] > 0) mouseWheelCount[1] -= (bool)mouseWheelDiff[1];
+    memset (mouseWheelDiff, 0, 2);
 
     // GetCursorPos (&currentMouseState.Position);
     // ScreenToClient (windowHandle, &currentMouseState.Position);
     if (useController) {
+        for (int i=0; i<SDL_CONTROLLER_BUTTON_MAX; i++) controllerCount[i] -= (bool)controllerDiff[i];
+        memset (controllerDiff, 0, SDL_CONTROLLER_BUTTON_MAX);
         SDL_Event event;
         SDL_GameController *controller;
         while (SDL_PollEvent (&event) != 0) {
@@ -258,20 +263,6 @@ UpdatePoll (HWND windowHandle, bool useController) {
                 if (!SDL_IsGameController (event.cdevice.which)) break;
                 SDL_GameControllerClose (controllers[event.cdevice.which]);
                 break;
-            // case SDL_MOUSEWHEEL:
-            //     if (wndForeground) {
-            //         // LogMessage (LogLevel::DEBUG, "Mouse Wheel moves {}", event.wheel.y);
-            //         if (event.wheel.y > 0) {
-            //             mouseWheelCount[0] = MIN (mouseWheelCount[0] + event.wheel.y, maxCount);
-            //             // mouseWheelCount[1] = 0;
-            //             currentMouseState.ScrolledUp = true;
-            //         } else if (event.wheel.y < 0) {
-            //             mouseWheelCount[1] = MIN (mouseWheelCount[1] - event.wheel.y, maxCount);
-            //             // mouseWheelCount[0] = 0;
-            //             currentMouseState.ScrolledDown = true;
-            //         }
-            //     }
-            //     break;
             case SDL_CONTROLLERBUTTONUP: 
                 // keyup will accepted even if you're not focus in this window
                 currentControllerButtonsState[event.cbutton.button] = false; break;
@@ -356,11 +347,12 @@ int maxKeyboardCount = 1;
 bool
 KeyboardIsTapped (const uint8_t keycode) {
     if (keyboardCount[keycode] > 0) {
-        if (maxKeyboardCount < keyboardCount[keycode]) {
-            maxKeyboardCount = keyboardCount[keycode];
-            LogMessage (LogLevel::DEBUG, "MAX KEYBOARD COLLECTED {} {}", keycode, maxKeyboardCount);
-        }
+        // if (maxKeyboardCount < keyboardCount[keycode]) {
+        //     maxKeyboardCount = keyboardCount[keycode];
+        //     LogMessage (LogLevel::DEBUG, "MAX KEYBOARD COLLECTED {} {}", keycode, maxKeyboardCount);
+        // }
         keyboardDiff[keycode] = 1;
+        keyboardClean = true;
         return true;
     } return false;
 }
@@ -386,10 +378,10 @@ bool
 GetMouseScrollIsTapped (const Scroll scroll) {
     if (scroll == MOUSE_SCROLL_INVALID) return false;
     if (mouseWheelCount[scroll - 1] > 0) {
-        if (maxWheelCount < mouseWheelCount[scroll - 1]) {
-            maxWheelCount = mouseWheelCount[scroll - 1];
-            LogMessage (LogLevel::DEBUG, "MAX WHEEL COLLECTED {} {}", (int)scroll, maxWheelCount);
-        }
+        // if (maxWheelCount < mouseWheelCount[scroll - 1]) {
+        //     maxWheelCount = mouseWheelCount[scroll - 1];
+        //     LogMessage (LogLevel::DEBUG, "MAX WHEEL COLLECTED {} {}", (int)scroll, maxWheelCount);
+        // }
         mouseWheelDiff[scroll - 1] = 1;
         return true;
     } return false;
@@ -404,10 +396,10 @@ int maxButtonCount = 1;
 bool
 ControllerButtonIsTapped (const SDL_GameControllerButton button) {
     if (controllerCount[button] > 0) {
-        if (maxButtonCount < controllerCount[button]) {
-            maxButtonCount = controllerCount[button];
-            LogMessage (LogLevel::DEBUG, "MAX BUTTON COLLECTED {} {}", (int)button, maxButtonCount);
-        }
+        // if (maxButtonCount < controllerCount[button]) {
+        //     maxButtonCount = controllerCount[button];
+        //     LogMessage (LogLevel::DEBUG, "MAX BUTTON COLLECTED {} {}", (int)button, maxButtonCount);
+        // }
         controllerDiff[button] = 1;
         return true;
     } return false;

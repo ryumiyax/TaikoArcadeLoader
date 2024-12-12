@@ -70,11 +70,16 @@ LogMessageHandler (const char *function, const char *codeFile, int codeLine, Log
     std::string logMessage = logStream.str ();
 
     // Print the log message
-    std::cout << "[" << timeStamp.str () << "] ";                                                                        // Timestamp
-    SetConsoleTextAttribute (consoleHandle, GetLogLevelColor (messageLevel));                                            // Set Level color
-    std::cout << logType;                                                                                                // Level
-    SetConsoleTextAttribute (consoleHandle, FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY); // Reset console color
-    std::cout << logMessage << std::endl;                                                                                // Log message
+    std::cout << "[" << timeStamp.str () << "] ";                                                                            // Timestamp
+    SetConsoleTextAttribute (consoleHandle, GetLogLevelColor (messageLevel));                                                // Set Level color
+    std::cout << logType;                                                                                                    // Level
+    if (messageLevel != LogLevel::ERROR) {
+        SetConsoleTextAttribute (consoleHandle, FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY); // Reset console color
+    }
+    std::cout << logMessage << std::endl;                                                                                    // Log message
+    if (messageLevel == LogLevel::ERROR) {
+        SetConsoleTextAttribute (consoleHandle, FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY); // Reset console color
+    }
     std::cout.flush (); // Flush to ensure immediate writing
 
     if (loggerInstance->logFile != nullptr) {
