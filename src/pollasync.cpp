@@ -2,12 +2,11 @@
 
 #ifdef ASYNC_IO
 #include "polldef.h"
+#define SDL_MAIN_NOIMPL
+#include <SDL3/SDL_main.h>
+
 extern bool jpLayout;
 extern int exited;
-
-#ifndef MIN
-#define MIN(a,b) ((a)<(b)?(a):(b))
-#endif
 
 bool wndForeground = false;
 
@@ -15,9 +14,9 @@ bool currentKeyboardState[0xFF] = { false };
 uint8_t keyboardCount[0xFF] = { 0 };
 uint8_t keyboardDiff[0xFF] = { 0 };
 bool keyboardClean = false;
-bool currentControllerButtonsState[SDL_CONTROLLER_BUTTON_MAX] = { false };
-uint8_t controllerCount[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
-uint8_t controllerDiff[SDL_CONTROLLER_BUTTON_MAX] = { 0 };
+bool currentControllerButtonsState[SDL_GAMEPAD_BUTTON_COUNT] = { false };
+uint8_t controllerCount[SDL_GAMEPAD_BUTTON_COUNT] = { 0 };
+uint8_t controllerDiff[SDL_GAMEPAD_BUTTON_COUNT] = { 0 };
 char currentMouseWheelDirection = 0;
 uint8_t mouseWheelCount[2] = { 0 };
 uint8_t mouseWheelDiff[2] = { 0 };
@@ -27,7 +26,8 @@ int maxCount = 1;
 SDLAxisState currentControllerAxisState;
 
 SDL_Window *window;
-SDL_GameController *controllers[255];
+SDL_Gamepad *controllers[255];
+bool flipped[255];
 
 std::thread updatePollThread;
 
@@ -48,7 +48,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
 
     memset (key_bind, 0, sizeof (*key_bind));
     for (size_t i = 0; i < std::size (key_bind->buttons); i++)
-        key_bind->buttons[i] = SDL_CONTROLLER_BUTTON_INVALID;
+        key_bind->buttons[i] = SDL_GAMEPAD_BUTTON_INVALID;
 
     for (int idx = 0;; idx++) {
         const auto [ok, u] = toml_string_at (array, idx);
@@ -69,7 +69,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
         case button: {
             *usePoll = true;
             for (int i = 0; i < std::size (key_bind->buttons); i++) {
-                if (key_bind->buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) {
+                if (key_bind->buttons[i] == SDL_GAMEPAD_BUTTON_INVALID) {
                     key_bind->buttons[i] = value.button;
                     break;
                 }
@@ -108,9 +108,9 @@ LRESULT CALLBACK InputProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
         switch (wParam) {
             case WM_KEYDOWN: if (wndForeground) {
-                KBDLLHOOKSTRUCT* pKeyboard = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
+                auto* pKeyboard = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
                 DWORD keyCode = pKeyboard->vkCode;
-                if (!currentKeyboardState[keyCode]) keyboardCount[keyCode] = MIN (keyboardCount[keyCode] + 1, maxCount);
+                if (!currentKeyboardState[keyCode]) keyboardCount[keyCode] = std::min (keyboardCount[keyCode] + 1, maxCount);
                 currentKeyboardState[keyCode] = true;
             } break;
             // keyup will accepted even if you're not focus in this window
@@ -123,13 +123,14 @@ LRESULT CALLBACK InputProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 MSLLHOOKSTRUCT *pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
                 int wheelDelta = GET_WHEEL_DELTA_WPARAM(pMouseStruct->mouseData);
                 if (wheelDelta > 0) {
-                        mouseWheelCount[0] = MIN (mouseWheelCount[0] + wheelDelta, maxCount);
+                        mouseWheelCount[0] = std::min (mouseWheelCount[0] + wheelDelta, maxCount);
                         currentMouseState.ScrolledUp = true;
                     } else if (wheelDelta < 0) {
-                        mouseWheelCount[1] = MIN (mouseWheelCount[1] - wheelDelta, maxCount);
+                        mouseWheelCount[1] = std::min (mouseWheelCount[1] - wheelDelta, maxCount);
                         currentMouseState.ScrolledDown = true;
                     }
             } break;
+        default: break;
         }
     }
     return CallNextHookEx(keyboardHook, nCode, wParam, lParam);
@@ -150,14 +151,12 @@ DisposeKeyboard () {
     if (mouseHook) UnhookWindowsHookEx(mouseHook);
 }
 
-// void
-// UpdateLoop () {
-//     LogMessage (LogLevel::DEBUG, "Enter Controller UpdateLoop");
-    
-//     while (!exited) {
-        
-//     }
-// }
+void
+CheckFlipped (uint32_t which, SDL_Gamepad *gamepad) {
+    if (SDL_GetGamepadButtonLabel(gamepad, SDL_GAMEPAD_BUTTON_SOUTH) == SDL_GAMEPAD_BUTTON_LABEL_B) {
+        flipped[which] = true;
+    } else flipped[which] = false;
+}
 
 bool
 InitializePoll (HWND windowHandle) {
@@ -171,44 +170,53 @@ InitializePoll (HWND windowHandle) {
     SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS5, "1");
     SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1");
 
-    if (SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS | SDL_INIT_VIDEO) != 0) {
-        if (SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS | SDL_INIT_VIDEO) == 0) {
+    if (!SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
+        if (SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
             hasRumble = false;
         } else {
-            LogMessage (LogLevel::ERROR,
-                        std::string ("SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS | SDL_INIT_VIDEO): ")
-                            + SDL_GetError ());
+            LogMessage (LogLevel::ERROR, std::string ("SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO): ") + SDL_GetError ());
             return false;
         }
     }
 
     auto configPath = std::filesystem::current_path () / "gamecontrollerdb.txt";
-    if (SDL_GameControllerAddMappingsFromFile (configPath.string ().c_str ()) == -1)
+    if (SDL_AddGamepadMappingsFromFile (configPath.string ().c_str ()) == -1)
         LogMessage (LogLevel::ERROR, "Cannot read gamecontrollerdb.txt");
-    SDL_GameControllerEventState (SDL_ENABLE);
-    SDL_JoystickEventState (SDL_ENABLE);
+    SDL_SetGamepadEventsEnabled (true);
+    SDL_SetJoystickEventsEnabled (true);
 
-    for (int i = 0; i < SDL_NumJoysticks (); i++) {
-        if (!SDL_IsGameController (i)) continue;
+    int numJoysticks = 0;
+    auto* joyStickIds = SDL_GetJoysticks(&numJoysticks);
+    if (joyStickIds == nullptr) {
+        LogMessage (LogLevel::ERROR, "Error getting joystick ids");
+        exit(1);
+    }
+    for (int i = 0; i < numJoysticks; i++) {
+        auto id = joyStickIds[i];
+        if (!SDL_IsGamepad (id)) continue;
+        SDL_Gamepad *controller = SDL_OpenGamepad (id);
 
-        SDL_GameController *controller = SDL_GameControllerOpen (i);
         if (!controller) {
-            LogMessage (LogLevel::WARN, std::string ("Could not open gamecontroller ") + SDL_GameControllerNameForIndex (i) + ": " + SDL_GetError ());
+            LogMessage (LogLevel::WARN, std::string ("Could not open gamecontroller ") + SDL_GetGamepadNameForID (id) + ": " + SDL_GetError ());
             continue;
         }
 
         LogMessage (LogLevel::DEBUG, "Init Controller connected!");
-        controllers[i] = controller;
+        CheckFlipped (id, controller);
+        controllers[id] = controller;
     }
+    SDL_free (joyStickIds);
 
-    window = SDL_CreateWindowFrom (windowHandle);
+    SDL_PropertiesID props = SDL_CreateProperties();
+    if(props == 0) {
+        LogMessage (LogLevel::ERROR, "Unable to create SDL_Properties");
+        exit(1);
+    }
+    SDL_SetPointerProperty (props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, windowHandle);
+    window = SDL_CreateWindowWithProperties (props);
     if (window == NULL) LogMessage (LogLevel::ERROR, std::string ("SDL_CreateWindowFrom (windowHandle): ") + SDL_GetError ());
 
     atexit (DisposePoll);
-
-    // updatePollThread = std::thread (UpdateLoop);
-    // updatePollThread.detach ();
-
     return hasRumble;
 }
 
@@ -220,6 +228,18 @@ CheckForegroundWindow (HWND processWindow) {
         LogMessage (LogLevel::DEBUG, "window focus={}", wndForeground);
     }
     return wndForeground;
+}
+
+uint8_t
+CorrectButton (uint32_t which, uint8_t button) {
+    if (!flipped[which]) return button;
+    switch (button) {
+    case SDL_GAMEPAD_BUTTON_SOUTH: return SDL_GAMEPAD_BUTTON_EAST;
+    case SDL_GAMEPAD_BUTTON_EAST: return SDL_GAMEPAD_BUTTON_SOUTH;
+    case SDL_GAMEPAD_BUTTON_WEST: return SDL_GAMEPAD_BUTTON_NORTH;
+    case SDL_GAMEPAD_BUTTON_NORTH: return SDL_GAMEPAD_BUTTON_WEST;
+    default: return button;
+    }
 }
 
 void
@@ -240,50 +260,52 @@ UpdatePoll (HWND windowHandle, bool useController) {
     // GetCursorPos (&currentMouseState.Position);
     // ScreenToClient (windowHandle, &currentMouseState.Position);
     if (useController) {
-        for (int i=0; i<SDL_CONTROLLER_BUTTON_MAX; i++) controllerCount[i] -= (bool)controllerDiff[i];
-        memset (controllerDiff, 0, SDL_CONTROLLER_BUTTON_MAX);
+        for (int i=0; i<SDL_GAMEPAD_BUTTON_COUNT; i++) controllerCount[i] -= (bool)controllerDiff[i];
+        memset (controllerDiff, 0, SDL_GAMEPAD_BUTTON_COUNT);
         SDL_Event event;
-        SDL_GameController *controller;
+        SDL_Gamepad *controller;
         while (SDL_PollEvent (&event) != 0) {
-            // LogMessage (LogLevel::DEBUG, "Receive SDL Event! type={}", (u64)event.type);
             switch (event.type) {
-            case SDL_CONTROLLERDEVICEADDED:
-                if (!SDL_IsGameController (event.cdevice.which)) break;
-                controller = SDL_GameControllerOpen (event.cdevice.which);
+            case SDL_EVENT_GAMEPAD_ADDED:
+                if (!SDL_IsGamepad (event.gdevice.which)) break;
+                controller = SDL_OpenGamepad (event.gdevice.which);
                 if (!controller) {
-                    LogMessage (LogLevel::ERROR, std::string ("Could not open gamecontroller ") + SDL_GameControllerNameForIndex (event.cdevice.which)
-                                                    + ": " + SDL_GetError ());
+                    LogMessage (LogLevel::ERROR, "Could not open gamecontroller {}: {}", SDL_GetGamepadNameForID (event.gdevice.which), SDL_GetError ());
                     continue;
                 }
                 LogMessage (LogLevel::DEBUG, "Controller connected!");
-                controllers[event.cdevice.which] = controller;
+                CheckFlipped (event.gdevice.which, controller);
+                controllers[event.gdevice.which] = controller;
                 break;
-            case SDL_CONTROLLERDEVICEREMOVED:
+            case SDL_EVENT_GAMEPAD_REMOVED:
                 LogMessage (LogLevel::DEBUG, "Controller removed!");
-                if (!SDL_IsGameController (event.cdevice.which)) break;
-                SDL_GameControllerClose (controllers[event.cdevice.which]);
+                if (!SDL_IsGamepad (event.gdevice.which)) break;
+                SDL_CloseGamepad (controllers[event.gdevice.which]);
                 break;
-            case SDL_CONTROLLERBUTTONUP: 
-                // keyup will accepted even if you're not focus in this window
-                currentControllerButtonsState[event.cbutton.button] = false; break;
-            case SDL_CONTROLLERBUTTONDOWN: 
+            case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+                uint8_t button = CorrectButton (event.gbutton.which, event.gbutton.button);
+                currentControllerButtonsState[button] = false;
+            } break;
+            case SDL_EVENT_GAMEPAD_BUTTON_DOWN: 
                 if (wndForeground) {
-                    if (!currentControllerButtonsState[event.cbutton.button]) {
-                        controllerCount[event.cbutton.button] = MIN (controllerCount[event.cbutton.button] + 1, maxCount);
+                    uint8_t button = CorrectButton (event.gbutton.which, event.gbutton.button);
+                    LogMessage (LogLevel::DEBUG, "Controller {}: button {} pressed, remapped to {}", event.gbutton.which, event.gbutton.button, button);
+                    if (!currentControllerButtonsState[button]) {
+                        controllerCount[button] = std::min (controllerCount[button] + 1, maxCount);
                     }
-                    currentControllerButtonsState[event.cbutton.button] = true; 
-                } else LogMessage (LogLevel::WARN, "Controller button pressed but window not focused!");
+                    currentControllerButtonsState[button] = true;
+                } else LogMessage (LogLevel::DEBUG, "Controller button pressed but window not focused!");
                 break;
-            case SDL_CONTROLLERAXISMOTION:
-                float sensorValue = event.caxis.value == 0 ? 0 : event.caxis.value / (event.caxis.value > 0 ? 32767.0f : -32768.0f);
+            case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+                float sensorValue = event.gaxis.value == 0 ? 0 : event.gaxis.value / (event.gaxis.value > 0 ? 32767.0f : -32768.0f);
                 if (wndForeground || sensorValue == 0) {
-                    switch (event.caxis.axis) {
-                    case SDL_CONTROLLER_AXIS_LEFTX: currentControllerAxisState.LeftRight = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_LEFTY: currentControllerAxisState.LeftDown = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_RIGHTX: currentControllerAxisState.RightRight = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_RIGHTY: currentControllerAxisState.RightDown = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_TRIGGERLEFT: currentControllerAxisState.LTriggerDown = sensorValue; break;
-                    case SDL_CONTROLLER_AXIS_TRIGGERRIGHT: currentControllerAxisState.RTriggerDown = sensorValue; break;
+                    switch (event.gaxis.axis) {
+                    case SDL_GAMEPAD_AXIS_LEFTX: currentControllerAxisState.LeftRight = sensorValue; break;
+                    case SDL_GAMEPAD_AXIS_LEFTY: currentControllerAxisState.LeftDown = sensorValue; break;
+                    case SDL_GAMEPAD_AXIS_RIGHTX: currentControllerAxisState.RightRight = sensorValue; break;
+                    case SDL_GAMEPAD_AXIS_RIGHTY: currentControllerAxisState.RightDown = sensorValue; break;
+                    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: currentControllerAxisState.LTriggerDown = sensorValue; break;
+                    case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: currentControllerAxisState.RTriggerDown = sensorValue; break;
                     }
                 }
                 break;
@@ -333,8 +355,10 @@ StringToConfigEnum (const char *value) {
 void
 SetRumble (int left, int right, int length) {
     for (auto &controller : controllers) {
-        if (!controller || !SDL_GameControllerHasRumble (controller)) continue;
-        SDL_GameControllerRumble (controller, left, right, length);
+        const auto props = SDL_GetGamepadProperties(controller);
+        const bool hasRumble = SDL_GetBooleanProperty (props, SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false);
+        if (!controller || !hasRumble) continue;
+        SDL_RumbleGamepad (controller, left, right, length);
     }
 }
 
@@ -388,13 +412,13 @@ GetMouseScrollIsTapped (const Scroll scroll) {
 }
 
 bool
-ControllerButtonIsDown (const SDL_GameControllerButton button) {
+ControllerButtonIsDown (const SDL_GamepadButton button) {
     return currentControllerButtonsState[button];
 }
 
 int maxButtonCount = 1;
 bool
-ControllerButtonIsTapped (const SDL_GameControllerButton button) {
+ControllerButtonIsTapped (const SDL_GamepadButton button) {
     if (controllerCount[button] > 0) {
         // if (maxButtonCount < controllerCount[button]) {
         //     maxButtonCount = controllerCount[button];
@@ -435,7 +459,7 @@ IsButtonTapped (const Keybindings &bindings) {
         if (KeyboardIsTapped (bindings.keycodes[i])) return true;
     }
     for (size_t i = 0; i < std::size (ConfigControllerButtons); i++) {
-        if (bindings.buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) continue;
+        if (bindings.buttons[i] == SDL_GAMEPAD_BUTTON_INVALID) continue;
         if (ControllerButtonIsTapped (bindings.buttons[i])) return true;
     }
     for (size_t i = 0; i < std::size (ConfigControllerAXIS); i++) {
@@ -457,7 +481,7 @@ IsButtonDown (const Keybindings &bindings) {
         if (KeyboardIsDown (bindings.keycodes[i])) return 1.0f;
     }
     for (size_t i = 0; i < std::size (ConfigControllerButtons); i++) {
-        if (bindings.buttons[i] == SDL_CONTROLLER_BUTTON_INVALID) continue;
+        if (bindings.buttons[i] == SDL_GAMEPAD_BUTTON_INVALID) continue;
         if (ControllerButtonIsDown (bindings.buttons[i])) return 1.0f;
     }
     for (size_t i = 0; i < std::size (ConfigControllerAXIS); i++) {

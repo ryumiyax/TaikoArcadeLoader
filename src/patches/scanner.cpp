@@ -47,8 +47,10 @@ namespace Card {
     };
 
     namespace Internal {
+        enum CardErrorCode { ReadError = -201, NotSupport = -400 };
+
         void
-        AgentInsertCard (uint8_t cardData[168], bool internalInvoke) {
+        InsertCard (uint8_t cardData[168], bool internalInvoke) {
             if (callbackTouch) {
                 state = internalInvoke ? State::Disable : State::CopyWait;
                 patches::Plugins::UpdateStatus (1, false);
@@ -68,7 +70,16 @@ namespace Card {
         }
 
         void
-        AgentInsertCardPlugin (int32_t a1, int32_t a2, uint8_t *a3, uint64_t a4) {
+        InsertError (CardErrorCode errorCode) {
+            if (callbackTouch) {
+                state = State::CopyWait;
+                patches::Plugins::UpdateStatus (1, false);
+                callbackTouch (0, errorCode, cardData, touchData);
+            }
+        }
+
+        void
+        AgentCallbackTouch (int32_t a1, int32_t a2, uint8_t *a3, uint64_t a4) {
             if (callbackTouch) {
                 state = State::CopyWait;
                 patches::Plugins::UpdateStatus (1, false);
@@ -77,10 +88,11 @@ namespace Card {
         }
 
         void
-        AgentInsertCardOfficial (int32_t a1, int32_t a2, uint8_t *a3, uint64_t a4) {
+        AgentCallbackTouchOfficial (int32_t a1, int32_t a2, uint8_t *a3, uint64_t a4) {
             if (callbackTouch) {
                 state = State::CopyWait;
                 patches::Plugins::UpdateStatus (1, false);
+                LogMessage (LogLevel::DEBUG, "Official CallbackTouch a1={} a2={}", a1, a2);
                 if (acceptInvalidCards && !a3[0]) {
                     char AccessId[21] = "00000000000000000001";
                     uint8_t UID[8] = {a3[12], a3[14], a3[15], a3[16], 0x90, 0x00, 0x00, 0x00};
@@ -105,7 +117,7 @@ namespace Card {
             for (size_t i = 0; i < 32; i++) *(cardData + 0x2C + i) = i < chipId.length() ? chipId[i] : 0;
             for (size_t i = 0; i < 20; i++) *(cardData + 0x50 + i) = i < accessCode.length() ? accessCode[i] : 0;
             if (!internalInvoke) LogMessage (LogLevel::INFO, "[Card] Insert Card accessCode: \"{}\" chipId: \"{}\"", accessCode, chipId);
-            patches::Scanner::Card::Internal::AgentInsertCard (cardData, internalInvoke);
+            patches::Scanner::Card::Internal::InsertCard (cardData, internalInvoke);
             return true;
         }
     }    
@@ -143,7 +155,7 @@ namespace Card {
     FAST_HOOK (u64, bngrw_ReqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, CallbackTouch callback, u64 a5) {
         state = State::Ready;
         patches::Plugins::UpdateStatus (1, true);
-        patches::Plugins::WaitTouch (Internal::AgentInsertCardPlugin, a5);
+        patches::Plugins::WaitTouch (Internal::AgentCallbackTouch, a5);
         callbackTouch = callback;
         touchData = a5;
         return 1;
@@ -161,7 +173,7 @@ namespace Card {
         patches::Plugins::UpdateStatus (1, true);
         callbackTouch = callback;
         touchData = a5;
-        return originalbngrw_ReqWaitTouchOfficial (a1, a2, a3, Internal::AgentInsertCardOfficial, a5);
+        return originalbngrw_ReqWaitTouchOfficial (a1, a2, a3, Internal::AgentCallbackTouchOfficial, a5);
     }
 
     bool
@@ -176,10 +188,12 @@ namespace Card {
         }
         if (accessCode.length() == 0 || accessCode.length() > 20) {
             LogMessage (LogLevel::ERROR, "[Card] Not an effective accessCode: \"{}\"", accessCode);
+            patches::Scanner::Card::Internal::InsertError (Internal::CardErrorCode::NotSupport);
             return false;
         }
         if (chipId.length() > 32) {
             LogMessage (LogLevel::ERROR, "[Card] Not an effective chipId: \"{}\"", chipId);
+            patches::Scanner::Card::Internal::InsertError (Internal::CardErrorCode::NotSupport);
             return false;
         }
         return patches::Scanner::Card::Internal::Commit0 (accessCode, chipId, false);
@@ -226,7 +240,7 @@ namespace Card {
     }
 }
 namespace Qr {
-    std::queue<std::vector<uint8_t>> scanQueue;
+    std::queue<std::vector<uint8_t> *> scanQueue;
     State state = State::Disable;
     long long lastScan;
 
@@ -256,20 +270,26 @@ namespace Qr {
         patches::Plugins::UsingQr ();
         lastScan = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now ().time_since_epoch ()).count ();
         if (state == State::CopyWait && scanQueue.size () > 0) {
-            std::vector<uint8_t> data = scanQueue.front ();
-            if ((int)data.size () > length) {
-                LogMessage (LogLevel::ERROR, "[QR] Not an effective code, length: {} require: {}", data.size (), length);
+            std::vector<uint8_t> *data = scanQueue.front ();
+            if ((int)data->size () > length) {
+                LogMessage (LogLevel::ERROR, "[QR] Not an effective code, length: {} require: {}", data->size (), length);
             }
             std::stringstream hexStream;
             hexStream << std::hex << std::uppercase << std::setfill ('0') << std::setw (2);
-            for (size_t i = 0; i < data.size (); i++) hexStream << static_cast<int> (data[i]) << " ";
-            LogMessage (LogLevel::INFO, "[QR] Read QRData size: {} data: {}\n", data.size (), hexStream.str ());
-            memcpy (dest, data.data (), data.size () + 1);
+            for (size_t i = 0; i < data->size (); i++) hexStream << static_cast<int> ((*data)[i]) << " ";
+            LogMessage (LogLevel::INFO, "[QR] Read QRData size: {} data: {}\n", data->size (), hexStream.str ());
+            size_t finalCopySize = std::min (data->size () + 1, (size_t)length);
+            memcpy (dest, data->data (), finalCopySize);
             scanQueue.pop ();
+            delete data;
             if (scanQueue.size () == 0) state = State::Ready;
-            return data.size ();
+            return finalCopySize;
         } else if (state == State::Disable) {
-            while (!scanQueue.empty ()) scanQueue.pop ();
+            while (!scanQueue.empty ()) {
+                std::vector<uint8_t> *data = scanQueue.front ();
+                delete data;
+                scanQueue.pop ();
+            }
             state = State::Ready;
             patches::Plugins::UpdateStatus (2, true);
         }
@@ -290,10 +310,10 @@ namespace Qr {
             LogMessage (LogLevel::ERROR, "[QR] Not an effective code, length: 0");
             return false;
         }
-        if (scanQueue.empty() || scanQueue.back() != buffer) {
-            std::vector<uint8_t> scanData = {};
+        if (scanQueue.empty() || *scanQueue.back() != buffer) {
+            std::vector<uint8_t> *scanData = new std::vector<uint8_t> ();
             for (uint8_t byte_data : buffer) 
-                scanData.push_back (byte_data);
+                scanData->push_back (byte_data);
             scanQueue.push (scanData);
         }
         if (state == State::Ready) state = State::CopyWait;

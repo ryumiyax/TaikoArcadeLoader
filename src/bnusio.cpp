@@ -35,7 +35,7 @@ Keybindings SERVICE       = {.keycodes = {VK_F2}};
 Keybindings DEBUG_UP      = {.keycodes = {VK_UP}};
 Keybindings DEBUG_DOWN    = {.keycodes = {VK_DOWN}};
 Keybindings DEBUG_ENTER   = {.keycodes = {VK_RETURN}};
-Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER_BUTTON_START}};
+Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_GAMEPAD_BUTTON_START}};
 Keybindings CARD_INSERT_1 = {.keycodes = {'P'}};
 Keybindings CARD_INSERT_2 = {};
 Keybindings QR_DATA_READ  = {.keycodes = {'Q'}};
@@ -52,15 +52,17 @@ Keybindings P2_RIGHT_BLUE = {.keycodes = {'V'}};
 //     CARD_INSERT_1, CARD_INSERT_2, QR_DATA_READ, QR_IMAGE_READ, P1_LEFT_BLUE, P1_LEFT_RED,
 //     P1_RIGHT_RED, P1_RIGHT_BLUE, P2_LEFT_BLUE, P2_LEFT_RED, P2_RIGHT_RED, P2_RIGHT_BLUE };
 
-const int exitWait = 100;
-int exited         = 0;
-bool testEnabled   = false;
-int coin_count     = 0;
-int service_count  = 0;
-bool inited        = false;
-bool updateByCoin  = false;
-HWND windowHandle  = nullptr;
-bool usePoll       = false;
+const int exitWait  = 100;
+int exited          = 0;
+bool testEnabled    = false;
+bool insert_coin    = false;
+bool insert_service = false;
+u16 coin_count      = 0;
+u16 service_count   = 0;
+bool inited         = false;
+bool updateByCoin   = false;
+HWND windowHandle   = nullptr;
+bool usePoll        = false;
 HKL currentLayout;
 
 namespace bnusio {
@@ -293,9 +295,9 @@ UpdateLoop () {
 #endif
     std::vector<uint8_t> buffer = {};
     if (IsButtonTapped (COIN_ADD)) coin_count++;
-    if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
+    if (IsButtonTapped (SERVICE)) service_count++;
     if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) { 
+    if (IsButtonTapped (EXIT)) {
         LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
         exited += 1; testEnabled = 1; patches::Plugins::Exit ();
     }
