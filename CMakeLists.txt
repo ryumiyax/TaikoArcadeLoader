@@ -97,7 +97,9 @@ FetchContent_MakeAvailable(safetyhook)
 # Fetch SDL3
 FetchContent_Declare(
     SDL3
-    URL https://github.com/libsdl-org/SDL/releases/download/preview-3.1.6/SDL3-3.1.6.tar.gz
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG 78cc5c173404488d80751af226d1eaf67033bcc4 # v3.1.6
+    # URL https://github.com/libsdl-org/SDL/releases/download/preview-3.1.6/SDL3-3.1.6.tar.gz
 )
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
