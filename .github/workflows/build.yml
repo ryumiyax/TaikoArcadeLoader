@@ -13,7 +13,7 @@ jobs:
               uses: microsoft/setup-msbuild@v2
             - name: Install Windows 10 SDK
               run: |
-                choco install windows-sdk-10.0
+                choco install windows-sdk-10.1
             - name: Set up MSVC
               uses: ilammy/msvc-dev-cmd@v1
             - name: Configure CMake
