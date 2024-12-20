@@ -192,193 +192,9 @@ CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_AI, ASLR (0x140173EDD), r13, 0x2
 CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_Collabo025_026, ASLR (0x1401789AD), r13, 0x24, 0x08);
 CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_AprilFool, ASLR (0x140176716), rax, 0x34, 0x06);
 
-FAST_HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
-    LogMessage (LogLevel::HOOKS, "GetLanguage was called");
-    const auto result = originalGetLanguage.fastcall<i64> (a1);
-    language          = *reinterpret_cast<u32 *> (result);
-    return result;
-}
-FAST_HOOK (i64, GetRegionLanguage, ASLR (0x1401CE9B0), i64 a1) {
-    LogMessage (LogLevel::HOOKS, "GetRegionLanguage was called");
-    if (patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
-        lua_settop (a1, 0);
-        lua_pushstring (a1, languageStr (language));
-        return 1;
-    } else return originalGetRegionLanguage.fastcall<i64> (a1);
-}
-std::thread::id *LoadMovieThreadId = nullptr;
-FUNCTION_PTR (void **, std_string_assign, ASLR (0x1400209E0), void **, const void *, size_t);
-FAST_HOOK (i64, GetCabinetLanguage, ASLR (0x14014DB80), u64 *a1, i64 a2) {
-    LogMessage (LogLevel::HOOKS, "GetCabinetLanguage was called");
-    i64 result = originalGetCabinetLanguage.fastcall<i64> (a1, a2);
-    if (patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
-        if (language == 2 && LoadMovieThreadId != nullptr && *LoadMovieThreadId == std::this_thread::get_id()) {
-            LogMessage (LogLevel::DEBUG, "Loading DemoMovie cn_tw, redirect to cn_cn");
-            std_string_assign ((void **)result, (const void*)languageStr (4), 5);
-        } else {
-            std_string_assign ((void **)result, (const void*)languageStr (language), (language == 0 || language == 3) ? 3 : 5);
-        }
-    }
-    return result;
-}
-FAST_HOOK (i64, LoadDemoMovie, ASLR (0x1404313F0), i64 a1, i64 a2, i64 a3) {
-    std::thread::id this_id = std::this_thread::get_id();
-    LoadMovieThreadId = &this_id;
-    i64 result = originalLoadDemoMovie.fastcall<i64> (a1, a2, a3);
-    LoadMovieThreadId = nullptr;
-    return result;
-}
-std::string onpCn = "textures/onpu_cn/onp_all.nutexb";
-MID_HOOK (ChangeOnpFile, ASLR (0x140134D16), SafetyHookContext &ctx) {
-    if (language == 2 && patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
-        LogMessage (LogLevel::DEBUG, "Load onp_all_cn");
-        ctx.rdx = (uintptr_t) onpCn.c_str ();
-        ctx.r8 = 0x1F;
-    }
-}
-
-MID_HOOK (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
-    LogMessage (LogLevel::HOOKS, "ChangeLanguageType was called");
-    if (const auto pFontType = reinterpret_cast<int *> (ctx.rax); *pFontType == 4) *pFontType = 2;
-}
-
 MID_HOOK (CountLockedCrown, ASLR (0x1403F2A25), SafetyHookContext &ctx) {
     LogMessage (LogLevel::HOOKS, "CountLockedCrown was called");
     ctx.r15 |= 1;
-}
-
-std::map<std::string, int> nus3bankMap;
-int nus3bankIdCounter = 0;
-std::map<std::string, bool> voiceCnExist;
-bool enableSwitchVoice = false;
-std::mutex nus3bankMtx;
-
-int
-get_bank_id (const std::string &bankName) {
-    if (!nus3bankMap.contains (bankName)) {
-        nus3bankMap[bankName] = nus3bankIdCounter;
-        nus3bankIdCounter++;
-    }
-    LogMessage (LogLevel::DEBUG, "LoadBank {} id={}", bankName, nus3bankMap[bankName]);
-    return nus3bankMap[bankName];
-}
-
-void
-check_voice_tail (const std::string &bankName, u8 *pBinfBlock, std::map<std::string, bool> &voiceExist, const std::string &tail) {
-    // check if any voice_xxx.nus3bank has xxx_cn audio inside while loading
-    if (bankName.starts_with ("voice_")) {
-        const int binfLength = *reinterpret_cast<int *> (pBinfBlock + 4);
-        u8 *pGrpBlock        = pBinfBlock + 8 + binfLength;
-        const int grpLength  = *reinterpret_cast<int *> (pGrpBlock + 4);
-        u8 *pDtonBlock       = pGrpBlock + 8 + grpLength;
-        const int dtonLength = *reinterpret_cast<int *> (pDtonBlock + 4);
-        u8 *pToneBlock       = pDtonBlock + 8 + dtonLength;
-        const int toneSize   = *reinterpret_cast<int *> (pToneBlock + 8);
-        u8 *pToneBase        = pToneBlock + 12;
-        for (int i = 0; i < toneSize; i++) {
-            if (*reinterpret_cast<int *> (pToneBase + i * 8 + 4) <= 0x0C) continue; // skip empty space
-            u8 *currToneBase = pToneBase + *reinterpret_cast<int *> (pToneBase + i * 8);
-            int titleOffset  = -1;
-            switch (*currToneBase) {
-            case 0xFF: titleOffset = 9; break; // audio mark
-            case 0x7F: titleOffset = 5; break; // randomizer mark
-            default: continue;                 // unknown mark skip
-            }
-            if (titleOffset > 0) {
-                std::string title (reinterpret_cast<char *> (currToneBase + titleOffset));
-                if (title.ends_with (tail)) {
-                    if (!voiceExist.contains (bankName) || !voiceExist[bankName]) {
-                        voiceExist[bankName] = true;
-                        enableSwitchVoice = true;
-                    }
-                    return;
-                }
-            }
-        }
-        if (!voiceExist.contains (bankName) || voiceExist[bankName]) voiceExist[bankName] = false;
-    }
-}
-
-MID_HOOK (GenNus3bankId, ASLR (0x1407B97BD), SafetyHookContext &ctx) {
-    LogMessage (LogLevel::HOOKS, "GenNus3bankId was called");
-    std::lock_guard lock (nus3bankMtx);
-    if (reinterpret_cast<u8 **> (ctx.rcx + 8) != nullptr) {
-        u8 *pNus3bankFile = *reinterpret_cast<u8 **> (ctx.rcx + 8);
-        if (pNus3bankFile[0] == 'N' && pNus3bankFile[1] == 'U' && pNus3bankFile[2] == 'S' && pNus3bankFile[3] == '3') {
-            const int tocLength  = *reinterpret_cast<int *> (pNus3bankFile + 16);
-            u8 *pPropBlock       = pNus3bankFile + 20 + tocLength;
-            const int propLength = *reinterpret_cast<int *> (pPropBlock + 4);
-            u8 *pBinfBlock       = pPropBlock + 8 + propLength;
-            const std::string bankName (reinterpret_cast<char *> (pBinfBlock + 0x11));
-            check_voice_tail (bankName, pBinfBlock, voiceCnExist, "_cn");
-            ctx.rax = get_bank_id (bankName);
-        }
-    }
-}
-
-std::string
-FixToneName (const std::string &bankName, std::string toneName, int voiceLang) {
-    if (voiceLang == 1) {
-        if (voiceCnExist.contains (bankName) && voiceCnExist[bankName]) return toneName + "_cn";
-    }
-    return toneName;
-}
-
-size_t commonSize = 0;
-FAST_HOOK (i64, PlaySoundMain, ASLR (0x1404C6DC0), i64 a1) {
-    LogMessage (LogLevel::HOOKS, "PlaySoundMain was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
-    if (enableSwitchVoice && lang != 0) {
-        const std::string bankName (lua_tolstring (a1, -3, &commonSize));
-        if (bankName[0] == 'v') {
-            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize), lang).c_str ());
-            lua_replace (a1, -3);
-        }
-    }
-    return originalPlaySoundMain.fastcall<i64> (a1);
-}
-
-FAST_HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
-    LogMessage (LogLevel::HOOKS, "PlaySoundMulti was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
-    if (enableSwitchVoice && lang != 0) {
-        const std::string bankName (const_cast<char *> (lua_tolstring (a1, -3, &commonSize)));
-        if (bankName[0] == 'v') {
-            lua_pushstring (a1, FixToneName (bankName, lua_tolstring (a1, -2, &commonSize), lang).c_str ());
-            lua_replace (a1, -3);
-        }
-    }
-    return originalPlaySoundMulti.fastcall<i64> (a1);
-}
-
-FUNCTION_PTR (u64 *, append_chars_to_basic_string, ASLR (0x140028DA0), u64 *, const char *, size_t);
-
-u64 *
-FixToneNameEnso (u64 *Src, const std::string &bankName, int voiceLang) {
-    if (voiceLang == 1) {
-        if (voiceCnExist.contains (bankName) && voiceCnExist[bankName]) Src = append_chars_to_basic_string (Src, "_cn", 3);
-    }
-    return Src;
-}
-
-FAST_HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64 *a1, u64 *a2, i64 a3) {
-    LogMessage (LogLevel::HOOKS, "PlaySoundEnso was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
-    if (enableSwitchVoice && lang != 0) {
-        const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
-        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);
-    }
-    return originalPlaySoundEnso.fastcall<bool> (a1, a2, a3);
-}
-
-FAST_HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64 *a1, u64 *a2) {
-    LogMessage (LogLevel::HOOKS, "PlaySoundSpecial was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
-    if (enableSwitchVoice && lang != 0) {
-        const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
-        if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);
-    }
-    return originalPlaySoundSpecial.fastcall<bool> (a1, a2);
 }
 
 int loaded_fail_count = 0;
@@ -405,68 +221,52 @@ FAST_HOOK (i32, SetMasterVolumeSpeaker, ASLR (0x140160330), i32 a1) {
     return originalSetMasterVolumeSpeaker.fastcall<i32> (a1 > 100 ? 100 : a1);
 }
 
-// std::string *fontName = nullptr;
-// HOOK (u8, SetupFontInfo, ASLR (0x14049D820), u64 a1, u64 a2, size_t a3, u64 a4) {
-//     LogMessage (LogLevel::HOOKS, "SetupFontInfo was called");
-//     if (fontName != nullptr) delete fontName;
-//     fontName = new std::string (reinterpret_cast<char *> (a1) + 120);
-//     return originalSetupFontInfo (a1, a2, a3, a4);
-// }
-
-// HOOK (u32, ReadFontInfoInt, ASLR (0x14049EAC0), u64 a1, u64 a2) {
-//     LogMessage (LogLevel::HOOKS, "ReadFontInfoInt was called");
-//     const std::string attribute (reinterpret_cast<char *> (a2));
-//     u32 result = originalReadFontInfoInt (a1, a2);
-//     if (fontName->starts_with ("cn_") && attribute == "offsetV") result += 1;
-//     return result;
-// }
-
 MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
 }
 
-FAST_HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
-    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerInitialize");
-    u64 result = originalEnsoGameManagerInitialize.fastcall<u64> (a1, a2, a3);
-    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerInitialize result={}", result);
-    return result;
-}
+// FAST_HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
+//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerInitialize");
+//     u64 result = originalEnsoGameManagerInitialize.fastcall<u64> (a1, a2, a3);
+//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerInitialize result={}", result);
+//     return result;
+// }
 
-FAST_HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
-    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerLoading");
-    u64 result = originalEnsoGameManagerLoading.fastcall<u64> (a1, a2, a3);
-    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerLoading result={}", result);
-    return result;
-}
+// FAST_HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
+//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerLoading");
+//     u64 result = originalEnsoGameManagerLoading.fastcall<u64> (a1, a2, a3);
+//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerLoading result={}", result);
+//     return result;
+// }
 
-FAST_HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1, u64 a2, u64 a3) {
-    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerPreparing");    
-    bool result = originalEnsoGameManagerPreparing.fastcall<u64> (a1, a2, a3);  // crashes here
-    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerPreparing result={}", result);
-    return result;
-}
+// FAST_HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1, u64 a2, u64 a3) {
+//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerPreparing");    
+//     bool result = originalEnsoGameManagerPreparing.fastcall<u64> (a1, a2, a3);  // crashes here
+//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerPreparing result={}", result);
+//     return result;
+// }
 
-FAST_HOOK (u64, EnsoGraphicManagerPreparing, ASLR (0x1400F0AB0), u64 a1, u64 a2, u64 a3) {
-    LogMessage (LogLevel::DEBUG, "Begin EnsoGraphicManagerPreparing");    
-    u64 result = originalEnsoGraphicManagerPreparing.fastcall<u64> (a1, a2, a3);
-    LogMessage (LogLevel::DEBUG, "End EnsoGraphicManagerPreparing result={}", result);
-    return result;
-}
+// FAST_HOOK (u64, EnsoGraphicManagerPreparing, ASLR (0x1400F0AB0), u64 a1, u64 a2, u64 a3) {
+//     LogMessage (LogLevel::DEBUG, "Begin EnsoGraphicManagerPreparing");    
+//     u64 result = originalEnsoGraphicManagerPreparing.fastcall<u64> (a1, a2, a3);
+//     LogMessage (LogLevel::DEBUG, "End EnsoGraphicManagerPreparing result={}", result);
+//     return result;
+// }
 
 
-FAST_HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
-    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerStart");
-    u64 result = originalEnsoGameManagerStart.fastcall<u64> (a1, a2, a3);
-    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerStart result={}", result);
-    return result;
-}
+// FAST_HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerStart");
+//     u64 result = originalEnsoGameManagerStart.fastcall<u64> (a1, a2, a3);
+//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerStart result={}", result);
+//     return result;
+// }
 
-FAST_HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
-    LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerChechEnsoEnd");
-    u64 result = originalEnsoGameManagerChechEnsoEnd.fastcall<u64> (a1, a2, a3);
-    LogMessage (LogLevel::DEBUG, "End EnsoGameManagerChechEnsoEnd result={}", result);
-    return result;
-}
+// FAST_HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerChechEnsoEnd");
+//     u64 result = originalEnsoGameManagerChechEnsoEnd.fastcall<u64> (a1, a2, a3);
+//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerChechEnsoEnd result={}", result);
+//     return result;
+// }
 
 // HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
 //     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
@@ -474,24 +274,6 @@ FAST_HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2,
 //     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
 //     return originalAcquireMostCompatibleDisplayMode (a1, a2, a3);
 // }
-
-FAST_HOOK (char, SceneTestModeLoading, ASLR (0x1404793D0), u64 a1, u64 a2, u64 a3) {
-    // LogMessage (LogLevel::DEBUG, "Begin SceneTestModeLoading");
-    char result = originalSceneTestModeLoading.fastcall<char> (a1, a2, a3);
-    // LogMessage (LogLevel::DEBUG, "End originalSceneTestModeLoading result={}", (int)result);
-    TestMode::SetTestModeValue (L"EnableSwitchVoice", (int)enableSwitchVoice);
-    // if (!enableSwitchVoice) TestMode::SetTestModeValue (L"VoiceLanguageItem", 0);
-    // LogMessage (LogLevel::DEBUG, "End SceneTestModeLoading");
-    return result;
-}
-
-MID_HOOK (LogLoadTexture12, ASLR (0x14065BC8A), SafetyHookContext &ctx) {
-    char* src = (char*)(ctx.rsp + 0x2B0);
-    if (src != nullptr) {
-        std::string srcStr = std::string (src);
-        LogMessage (LogLevel::HOOKS, "LogLoadTexture12 src={}", srcStr);
-    } else LogMessage (LogLevel::HOOKS, "LogLoadTexture12 src=nullptr");
-}
 
 constexpr i32 datatableBufferSize = 1024 * 1024 * 12;
 uint8_t *datatableBuffer[3] = { nullptr };
@@ -550,7 +332,6 @@ Init () {
     // Hook to get AppAccessor and ComponentAccessor
     INSTALL_FAST_HOOK (DeviceCheck);
     INSTALL_FAST_HOOK (luaL_newstate);
-    INSTALL_MID_HOOK (LogLoadTexture12);
     // INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
 
     // Apply common config patch
@@ -591,52 +372,6 @@ Init () {
 
     // Remove datatable size limit
     ReplaceDatatableBufferAddresses ();
-    // {
-    //     for (auto address : memsetSizeAddresses)
-    //         WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
-
-    //     auto bufferBase = MODULE_HANDLE - 0x03000000;
-    //     AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer1);
-    //     bufferBase += datatableBufferSize;
-    //     AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer2);
-    //     bufferBase += datatableBufferSize;
-    //     AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer3);
-
-    //     ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
-    //     ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
-    //     ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
-    // }
-
-    // Language
-    TestMode::Menu *langPatchesMenu = TestMode::CreateMenu (L"LANGUAGE PATCHES", L"LanguagePatchesMenu");
-    TestMode::Menu *langResourceIndicator = TestMode::CreateMenu (L"RESOURCE INDICATOR", L"LanguageResourceIndicatorMenu");
-    TestMode::RegisterItem (
-        L"<select-item label=\"FIX LANGUAGE\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
-        L"group=\"Setting\" id=\"ModFixLanguage\" max=\"1\" min=\"0\" default=\"1\"/>",
-        [&]() { 
-            INSTALL_FAST_HOOK (GetLanguage); 
-            INSTALL_FAST_HOOK (GetRegionLanguage); 
-            INSTALL_FAST_HOOK (GetCabinetLanguage); 
-        }, langPatchesMenu
-    );
-    TestMode::RegisterItem(
-        L"<select-item label=\"CHS_VOICE FILE\" param-offset-x=\"35\" id=\"EnableSwitchVoice\" select-skip=\"True\" "
-        L"replace-text=\"0:@Color/Red;NONE@Color/Default;, 1:@Color/Lime;FOUND@Color/Default;\" param-color=\"Color/White\"/>",
-        langResourceIndicator
-    );
-    TestMode::RegisterItemAfter(
-        L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='LanguageItem']",
-        L"<select-item label=\"VOICE\" param-offset-x=\"35\" disable=\"True/EnableSwitchVoice:0\" "
-        L"replace-text=\"0:JPN, 1:CHN\" group=\"Setting\" id=\"VoiceLanguageItem\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&](){
-            INSTALL_FAST_HOOK (PlaySoundMain);
-            INSTALL_FAST_HOOK (PlaySoundMulti);
-            INSTALL_FAST_HOOK (PlaySoundEnso);
-            INSTALL_FAST_HOOK (PlaySoundSpecial);
-        }
-    );
-    TestMode::RegisterItem(langResourceIndicator, langPatchesMenu);
-    TestMode::RegisterItem(langPatchesMenu);
 
     // Unlock Songs
     TestMode::RegisterItem (
@@ -713,20 +448,10 @@ Init () {
     );
     TestMode::RegisterItemAfter(
         L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractMovieItem']",
-        L"<select-item label=\"ATTRACT DEMO\" disable=\"True/(ModFixLanguage:0 or LanguageItem:0)\" param-offset-x=\"35\" "
+        L"<select-item label=\"ATTRACT DEMO\" disable=\"True/LanguageItem:0\" param-offset-x=\"35\" "
         L"replace-text=\"0:ON, 1:OFF\" group=\"Setting\" id=\"AttractDemoItem\" max=\"1\" min=\"0\" default=\"0\"/>",
         [&](){ INSTALL_MID_HOOK (AttractDemo); }
     );
-    TestMode::RegisterHook([&](){
-        INSTALL_FAST_HOOK (EnsoGameManagerInitialize);
-        INSTALL_FAST_HOOK (EnsoGameManagerLoading);
-        INSTALL_FAST_HOOK (EnsoGameManagerPreparing);
-        INSTALL_FAST_HOOK (EnsoGraphicManagerPreparing);
-        INSTALL_FAST_HOOK (EnsoGameManagerStart);
-        INSTALL_FAST_HOOK (EnsoGameManagerChechEnsoEnd);
-        INSTALL_FAST_HOOK (SceneTestModeLoading);
-    });
-    // for (size_t i=0; i < 40; i++) TestMode::RegisterItem(std::format (L"<text-item label=\"TEST{}\"/>", i + 1));
 
     // Instant Result
     // TestMode::RegisterModify(
@@ -735,63 +460,8 @@ Init () {
     //     [&](){}
     // );
 
-    // Use chs font/wordlist instead of cht
-    if (chsPatch) {
-        WRITE_MEMORY (ASLR (0x140CD1E40), wchar_t, L"加載中\0");
-        WRITE_MEMORY (ASLR (0x140CD1E28), wchar_t, L"加載中.\0");
-        WRITE_MEMORY (ASLR (0x140CD1E68), wchar_t, L"加載中..\0");
-        WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加載中...\0");
-
-        bool fontExistAll = true;
-        const char *fontToCheck[]{"cn_30.nutexb", "cn_30.xml", "cn_32.nutexb", "cn_32.xml", "cn_64.nutexb", "cn_64.xml"};
-        for (int i = 0; i < 6; i++) {
-            if (useLayeredfs && std::filesystem::exists (std::string ("..\\..\\Data_mods\\x64\\font\\") + fontToCheck[i])) continue;
-            if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\font\\") + fontToCheck[i])) continue;
-            fontExistAll = false;
-        }
-        if (fontExistAll) {
-            LogMessage (LogLevel::INFO, "Font all exist, using chs_patch font part!");
-            WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
-            WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
-            WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
-            WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
-            WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
-            INSTALL_MID_HOOK (ChangeLanguageType);
-            // INSTALL_HOOK (SetupFontInfo);
-            // INSTALL_HOOK (ReadFontInfoInt);
-        }
-
-        bool demoMovieExistAll = true;
-        const char *movieToCheck[]{"movie\\attractdemo_cn_cn.wmv", "sound\\attractdemo_cn_cn.nus3bank"};
-        for (int i = 0; i < 2; i++) {
-            if (useLayeredfs && std::filesystem::exists (std::string ("..\\..\\Data_mods\\x64\\") + movieToCheck[i])) continue;
-            if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\") + movieToCheck[i])) continue;
-            demoMovieExistAll = false;
-        }
-        if (demoMovieExistAll) {
-            LogMessage (LogLevel::INFO, "Resource all exist, using chs_patch attractdemo part!");
-            INSTALL_FAST_HOOK (LoadDemoMovie);
-        }
-
-        bool onpCnExist = false;
-        if (useLayeredfs && std::filesystem::exists (std::string ("..\\..\\Data_mods\\x64\\textures\\onpu_cn\\onp_all.nutexb"))) onpCnExist = true;
-        if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\textures\\onpu_cn\\onp_all.nutexb"))) onpCnExist = true;
-        if (onpCnExist) {
-            LogMessage (LogLevel::INFO, "onpu_cn/onp_all exist, using chs_patch onp part!");
-            INSTALL_MID_HOOK (ChangeOnpFile);
-        }
-
-        // LayeredFs::RegisterBeforeA ([=] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
-        //     if (currentFileName.find ("\\lumen\\") == std::string::npos) return "";
-        //     std::string fileName = currentFileName;
-        //     fileName             = replace (fileName, "\\lumen\\", "\\lumen_cn\\");
-        //     if (std::filesystem::exists (fileName)) return fileName;
-        //     return "";
-        // });
-    }
-
     // Fix normal song play after passing through silent song
-    INSTALL_MID_HOOK (GenNus3bankId);
+    // INSTALL_MID_HOOK (GenNus3bankId);
     INSTALL_FAST_HOOK (LoadedBankAll);
 
     // Disable live check

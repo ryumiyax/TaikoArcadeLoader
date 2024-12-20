@@ -24,11 +24,6 @@ mode_collabo025 = false     # Enable one piece collab mode
 mode_collabo026 = false     # Enable ai soshina mode
 
 
-[patches.jpn39]             # These patches are only available for version JPN39
-chs_patch = false           # Use Chinese font and Simplified Chinese values from the wordlist
-                            # More options are available in the ModManager, in the TestMode menu (Default key is F1)
-
-
 [emulation]
 usio = true                 # Disable this if you want to use an original Namco USIO board. you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
 card_reader = true          # Disable this if you want to use an original Namco card reader

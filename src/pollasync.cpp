@@ -20,10 +20,11 @@ uint8_t controllerDiff[SDL_GAMEPAD_BUTTON_COUNT] = { 0 };
 char currentMouseWheelDirection = 0;
 uint8_t mouseWheelCount[2] = { 0 };
 uint8_t mouseWheelDiff[2] = { 0 };
-
-int maxCount = 1;
-
 SDLAxisState currentControllerAxisState;
+uint8_t controllerAxisCount[SDL_AXIS_MAX] = { 0 };
+uint8_t controllerAxisDiff[SDL_AXIS_MAX] = { 0 };
+
+int maxCount = 2;
 
 SDL_Window *window;
 SDL_Gamepad *controllers[255];
@@ -136,19 +137,60 @@ LRESULT CALLBACK InputProc(int nCode, WPARAM wParam, LPARAM lParam) {
     return CallNextHookEx(keyboardHook, nCode, wParam, lParam);
 }
 
-void
-InitializeKeyboard () {
-    keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, InputProc, nullptr, 0);
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+        case WM_DESTROY: PostQuitMessage(0); break;
+        default: return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+    return 0;
+}
+
+HWND CreateInvisibleWindow(HINSTANCE hInstance) {
+    WNDCLASS wc = {0};
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = "InvisibleWindowClass";
+    if (!RegisterClass(&wc)) return nullptr;
+    HWND hwnd = CreateWindowEx(
+        WS_EX_LAYERED | WS_EX_TOOLWINDOW,
+        wc.lpszClassName,
+        "Invisible Window",
+        0, 0, 0, 0, 0,
+        NULL, NULL, hInstance, NULL
+    );
+    if (hwnd) SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
+    return hwnd;
+}
+
+void KeyboardMainLoop() {
+    HINSTANCE hInstance = GetModuleHandle(NULL);
+    HWND hwnd = CreateInvisibleWindow(hInstance);
+    if (!hwnd) LogMessage (LogLevel::ERROR, "Failed to create window!\n");
+     keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, InputProc, nullptr, 0);
     if (keyboardHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install keyboard hook!\n");
     mouseHook = SetWindowsHookEx(WH_MOUSE_LL, InputProc, nullptr, 0);
-    if (maxCount > 1) LogMessage (LogLevel::ERROR, "CHEATING MODE! max count is set to {}", maxCount);
-    atexit (DisposeKeyboard);
+    if (mouseHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install mouse hook!\n");
+    if (maxCount > 2) LogMessage (LogLevel::ERROR, "CHEATING MODE! max count is set to {}", maxCount);
+    LogMessage (LogLevel::WARN, "(experimental) Using Async IO!");
+    MSG msg;
+    while (GetMessage(&msg, hwnd, 0, 0) > 0) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    if (keyboardHook) UnhookWindowsHookEx(keyboardHook);
+    if (mouseHook) UnhookWindowsHookEx(mouseHook);
+}
+
+void
+InitializeKeyboard () {
+    std::thread (KeyboardMainLoop).detach ();
+    // atexit (DisposeKeyboard);
 }
 
 void
 DisposeKeyboard () {
-    if (keyboardHook) UnhookWindowsHookEx(keyboardHook);
-    if (mouseHook) UnhookWindowsHookEx(mouseHook);
+    // if (keyboardHook) UnhookWindowsHookEx(keyboardHook);
+    // if (mouseHook) UnhookWindowsHookEx(mouseHook);
 }
 
 void
@@ -261,7 +303,9 @@ UpdatePoll (HWND windowHandle, bool useController) {
     // ScreenToClient (windowHandle, &currentMouseState.Position);
     if (useController) {
         for (int i=0; i<SDL_GAMEPAD_BUTTON_COUNT; i++) controllerCount[i] -= (bool)controllerDiff[i];
+        for (int i=1; i<SDL_AXIS_MAX; i++) controllerAxisCount[i] -= (bool)controllerAxisDiff[i];
         memset (controllerDiff, 0, SDL_GAMEPAD_BUTTON_COUNT);
+        memset (controllerAxisDiff, 0, SDL_AXIS_MAX);
         SDL_Event event;
         SDL_Gamepad *controller;
         while (SDL_PollEvent (&event) != 0) {
@@ -300,15 +344,72 @@ UpdatePoll (HWND windowHandle, bool useController) {
                 float sensorValue = event.gaxis.value == 0 ? 0 : event.gaxis.value / (event.gaxis.value > 0 ? 32767.0f : -32768.0f);
                 if (wndForeground || sensorValue == 0) {
                     switch (event.gaxis.axis) {
-                    case SDL_GAMEPAD_AXIS_LEFTX: currentControllerAxisState.LeftRight = sensorValue; break;
-                    case SDL_GAMEPAD_AXIS_LEFTY: currentControllerAxisState.LeftDown = sensorValue; break;
-                    case SDL_GAMEPAD_AXIS_RIGHTX: currentControllerAxisState.RightRight = sensorValue; break;
-                    case SDL_GAMEPAD_AXIS_RIGHTY: currentControllerAxisState.RightDown = sensorValue; break;
-                    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: currentControllerAxisState.LTriggerDown = sensorValue; break;
-                    case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: currentControllerAxisState.RTriggerDown = sensorValue; break;
-                    }
+                    case SDL_GAMEPAD_AXIS_LEFTX: if (sensorValue < 0) {
+                        currentControllerAxisState.LeftRight = 0.0f;
+                        if (currentControllerAxisState.LeftLeft == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_LEFT_LEFT] = std::min (controllerAxisCount[SDL_AXIS_LEFT_LEFT] + 1, maxCount);
+                        }
+                        currentControllerAxisState.LeftLeft = -sensorValue;
+                    } else {
+                        currentControllerAxisState.LeftLeft = 0.0f;
+                        if (currentControllerAxisState.LeftRight == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_LEFT_RIGHT] = std::min (controllerAxisCount[SDL_AXIS_LEFT_RIGHT] + 1, maxCount);
+                        }
+                        currentControllerAxisState.LeftRight = sensorValue;
+                    } break;
+                    case SDL_GAMEPAD_AXIS_LEFTY: if (sensorValue < 0) {
+                        currentControllerAxisState.LeftDown = 0.0f;
+                        if (currentControllerAxisState.LeftUp == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_LEFT_UP] = std::min (controllerAxisCount[SDL_AXIS_LEFT_UP] + 1, maxCount);
+                        }
+                        currentControllerAxisState.LeftUp = -sensorValue;
+                    } else {
+                        currentControllerAxisState.LeftUp = 0.0f;
+                        if (currentControllerAxisState.LeftDown == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_LEFT_DOWN] = std::min (controllerAxisCount[SDL_AXIS_LEFT_DOWN] + 1, maxCount);
+                        }
+                        currentControllerAxisState.LeftDown = sensorValue;
+                    } break;
+                    case SDL_GAMEPAD_AXIS_RIGHTX: if (sensorValue < 0) {
+                        currentControllerAxisState.RightRight = 0.0f;
+                        if (currentControllerAxisState.RightLeft == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_RIGHT_LEFT] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_LEFT] + 1, maxCount);
+                        }
+                        currentControllerAxisState.RightLeft = -sensorValue;
+                    } else {
+                        currentControllerAxisState.RightLeft = 0.0f;
+                        if (currentControllerAxisState.RightRight == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_RIGHT_RIGHT] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_RIGHT] + 1, maxCount);
+                        }
+                        currentControllerAxisState.RightRight = sensorValue;
+                    } break;
+                    case SDL_GAMEPAD_AXIS_RIGHTY: if (sensorValue < 0) {
+                        currentControllerAxisState.RightDown = 0.0f;
+                        if (currentControllerAxisState.RightUp == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_RIGHT_UP] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_UP] + 1, maxCount);
+                        }
+                        currentControllerAxisState.RightUp = -sensorValue;
+                    } else {
+                        currentControllerAxisState.RightUp = 0.0f;
+                        if (currentControllerAxisState.RightDown == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_RIGHT_DOWN] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_DOWN] + 1, maxCount);
+                        }
+                        currentControllerAxisState.RightDown = sensorValue;
+                    } break;
+                    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: {
+                        if (currentControllerAxisState.LTriggerDown == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_LTRIGGER_DOWN] = std::min (controllerAxisCount[SDL_AXIS_LTRIGGER_DOWN] + 1, maxCount);
+                        }
+                        currentControllerAxisState.LTriggerDown = sensorValue; 
+                    } break;
+                    case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: {
+                        if (currentControllerAxisState.RTriggerDown == 0.0f) {
+                            controllerAxisCount[SDL_AXIS_RTRIGGER_DOWN] = std::min (controllerAxisCount[SDL_AXIS_RTRIGGER_DOWN] + 1, maxCount);
+                        }
+                        currentControllerAxisState.RTriggerDown = sensorValue;
+                    } break;
+                } break;
                 }
-                break;
             }
         }
     }
@@ -371,10 +472,6 @@ int maxKeyboardCount = 1;
 bool
 KeyboardIsTapped (const uint8_t keycode) {
     if (keyboardCount[keycode] > 0) {
-        // if (maxKeyboardCount < keyboardCount[keycode]) {
-        //     maxKeyboardCount = keyboardCount[keycode];
-        //     LogMessage (LogLevel::DEBUG, "MAX KEYBOARD COLLECTED {} {}", keycode, maxKeyboardCount);
-        // }
         keyboardDiff[keycode] = 1;
         keyboardClean = true;
         return true;
@@ -402,10 +499,6 @@ bool
 GetMouseScrollIsTapped (const Scroll scroll) {
     if (scroll == MOUSE_SCROLL_INVALID) return false;
     if (mouseWheelCount[scroll - 1] > 0) {
-        // if (maxWheelCount < mouseWheelCount[scroll - 1]) {
-        //     maxWheelCount = mouseWheelCount[scroll - 1];
-        //     LogMessage (LogLevel::DEBUG, "MAX WHEEL COLLECTED {} {}", (int)scroll, maxWheelCount);
-        // }
         mouseWheelDiff[scroll - 1] = 1;
         return true;
     } return false;
@@ -420,10 +513,6 @@ int maxButtonCount = 1;
 bool
 ControllerButtonIsTapped (const SDL_GamepadButton button) {
     if (controllerCount[button] > 0) {
-        // if (maxButtonCount < controllerCount[button]) {
-        //     maxButtonCount = controllerCount[button];
-        //     LogMessage (LogLevel::DEBUG, "MAX BUTTON COLLECTED {} {}", (int)button, maxButtonCount);
-        // }
         controllerDiff[button] = 1;
         return true;
     } return false;
@@ -442,18 +531,20 @@ ControllerAxisIsDown (const SDLAxis axis) {
     case SDL_AXIS_RIGHT_DOWN: return currentControllerAxisState.RightDown;
     case SDL_AXIS_LTRIGGER_DOWN: return currentControllerAxisState.LTriggerDown;
     case SDL_AXIS_RTRIGGER_DOWN: return currentControllerAxisState.RTriggerDown;
-    default: return false;
+    default: return 0.0f;
     }
 }
 
 bool
 ControllerAxisIsTapped (const SDLAxis axis) {
-    return ControllerAxisIsDown (axis);
+    if (controllerAxisCount[axis] > 0) {
+        controllerAxisDiff[axis] = 1;
+        return true;
+    } return false;
 }
 
 bool
 IsButtonTapped (const Keybindings &bindings) {
-
     for (size_t i = 0; i < ConfigKeyboardButtonsCount; i++) {
         if (bindings.keycodes[i] == 0) continue;
         if (KeyboardIsTapped (bindings.keycodes[i])) return true;
@@ -471,7 +562,6 @@ IsButtonTapped (const Keybindings &bindings) {
         if (GetMouseScrollIsTapped (bindings.scroll[i])) return true;
     }
     return false;
-    // return GetInternalButtonState (bindings).Tapped;
 }
 
 float
@@ -493,6 +583,5 @@ IsButtonDown (const Keybindings &bindings) {
         if (GetMouseScrollIsDown (bindings.scroll[i])) return 1.0f;
     }
     return 0.0f;
-    // return GetInternalButtonState (bindings).Down;
 }
 #endif

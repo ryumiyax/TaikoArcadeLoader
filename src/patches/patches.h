@@ -38,10 +38,8 @@ void Init ();
 } // namespace AmAuth
 namespace LayeredFs {
 void Init ();
-void RegisterBeforeA (const std::function<std::string (const std::string, const std::string)> &fileHandler);
-void RegisterAfterA  (const std::function<std::string (const std::string, const std::string)> &fileHandler);
-void RegisterBeforeW (const std::function<std::wstring (const std::wstring, const std::wstring)> &fileHandler);
-void RegisterAfterW  (const std::function<std::wstring (const std::wstring, const std::wstring)> &fileHandler);
+void RegisterBefore  (const std::function<std::string (const std::string, const std::string)> &fileHandler);
+void RegisterAfter   (const std::function<std::string (const std::string, const std::string)> &fileHandler);
 } // namespace LayeredFs
 namespace TestMode {
 class Applicable {
@@ -121,4 +119,7 @@ std::vector<uint8_t> &ReadQRImage (std::vector<uint8_t> &buffer);
 namespace Timer {
 void Init ();
 } // namespace timer
+namespace Language {
+void Init ();
+}
 } // namespace patches

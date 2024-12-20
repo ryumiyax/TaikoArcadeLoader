@@ -183,3 +183,21 @@ AreAllBytesZero (const u8 *array, const size_t offset, const size_t length) {
         if (array[offset + i] != 0x00) return false;
     return true;
 }
+
+void 
+withFile (const char *fileName, std::function<void (u8 *)> callback) {
+    FILE *file = fopen (fileName, "rb");
+    if (file == nullptr) return;
+
+    fseek (file, 0, SEEK_END);
+    long size = ftell (file);
+    fseek (file, 0, SEEK_SET);
+
+    u8 *buffer = (u8 *)malloc(size);
+    fread (buffer, 1, size, file);
+
+    callback (buffer);
+
+    free (buffer);
+    fclose (file);
+}

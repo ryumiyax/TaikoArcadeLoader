@@ -251,51 +251,40 @@ LayeredFsHandler (const std::string &originalFileName, const std::string &curren
     return ""; // we return an empty string, causing the rest of CreateFileAHook to not update the returned value
 }
 
-HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
-      LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+FAST_HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA"), LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
+        LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
     bool changed = false;
     const auto originalFileName = std::string (lpFileName);
     std::string currentFileName = originalFileName;
-    LogMessage (LogLevel::HOOKS, ("CreateFileA: " + originalFileName).c_str ());
+    LogMessage (LogLevel::HOOKS, "CreateFileA: {}", originalFileName);
 
     if (!beforeHandlers.empty ()) {
         for (const auto handler : beforeHandlers) {
             std::string result = handler->handlerMethod (originalFileName, currentFileName);
-            if (result != "") {
-                currentFileName = result;
-                changed = true;
-            }
+            if (result != "") { currentFileName = result; changed = true; }
         }
     }
 
     if (useLayeredFs) {
         const std::string result = LayeredFsHandler (originalFileName, currentFileName);
-        if (result != "") {
-            currentFileName = result;
-            changed = true;
-        }
+        if (result != "") { currentFileName = result; changed = true; }
     }
 
     if (!afterHandlers.empty ()) {
         for (const auto handler : afterHandlers) {
             std::string result = handler->handlerMethod (originalFileName, currentFileName);
-            if (result != "") {
-                currentFileName = result;
-                changed = true;
-            }
+            if (result != "") { currentFileName = result; changed = true; }
         }
     }
 
     LPCSTR pFinalFileName = changed ? currentFileName.c_str () : lpFileName;
-    if (changed) LogMessage (LogLevel::DEBUG, "Final Redirect: {}", currentFileName);
-    return originalCreateFileAHook (pFinalFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition,
-                                    dwFlagsAndAttributes, hTemplateFile);
+    if (changed) LogMessage (LogLevel::HOOKS, "Final Redirect: {}", currentFileName);
+    return originalCreateFileAHook.stdcall<HANDLE> (pFinalFileName, dwDesiredAccess, dwShareMode, 
+        lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
 
 void
 Init () {
-    // LogMessage (LogLevel::INFO, "Init LayeredFs patches");
-
     const auto configPath = std::filesystem::current_path () / "config.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
@@ -306,17 +295,19 @@ Init () {
     if (useLayeredFs || !beforeHandlers.empty () || !afterHandlers.empty ()) {
         LogMessage (LogLevel::INFO, "using LayeredFs! Data_mods={} beforHandlers={} afterHandlers={}", 
             useLayeredFs ? "enabled" : "disabled", beforeHandlers.size (), afterHandlers.size ());
-        INSTALL_HOOK (CreateFileAHook);
+        INSTALL_FAST_HOOK (CreateFileAHook);
     }
 }
 
 void
 RegisterBefore (const std::function<std::string (std::string, std::string)> &fileHandler) {
+    LogMessage (LogLevel::DEBUG, "Registered Before");
     beforeHandlers.push_back (new RegisteredHandler (fileHandler));
 }
 
 void
 RegisterAfter (const std::function<std::string (std::string, std::string)> &fileHandler) {
+    LogMessage (LogLevel::DEBUG, "Registered After");
     afterHandlers.push_back (new RegisteredHandler (fileHandler));
 }
 

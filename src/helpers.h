@@ -11,6 +11,8 @@
 #include <string>
 #include <toml.h>
 #include <windows.h>
+#include <map>
+#include <functional>
 #include "constants.h"
 #include "logger.h"
 
@@ -123,15 +125,8 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 #define INSTALL_FAST_HOOK_DYNAMIC(functionName, location)                                                      \
     {                                                                                                          \
         LogMessage (LogLevel::DEBUG, std::string ("Installing fast hook dynamic for ") + #functionName);       \
-        if (auto hook = safetyhook::InlineHook::create((void *)location, (void*)implOf##functionName)) {\
-            original##functionName = std::move(*hook); \
-        } else { \
-            LogMessage (LogLevel::ERROR, std::string ("Error Installing fast hook dynamic for ") + #functionName);\
-            ExitProcess (1); \
-        } \
+        original##functionName = safetyhook::create_inline ((void *)location, (void*)implOf##functionName);    \
     }
-        // original##functionName = safetyhook::create_inline ((void *)location, (void*)implOf##functionName);    \
-    // }
 
 inline bool sendFlag = false;
 #define SCENE_RESULT_HOOK(functionName, location)                                                                                \
@@ -228,3 +223,4 @@ const char *GameVersionToString (GameVersion version);
 const char *languageStr (int language);
 std::string ConvertWideToUtf8 (const std::wstring &wstr);
 bool AreAllBytesZero (const u8 *array, size_t offset, size_t length);
+void withFile (const char *fileName, std::function<void (u8 *)> callback);

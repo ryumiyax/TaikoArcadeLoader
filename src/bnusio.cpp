@@ -137,15 +137,9 @@ bool valueStates[] = {false, false, false, false, false, false, false, false};
 Keybindings *analogButtons[]
     = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
 
-// u16 cooldown[8] = { 0 };
+u8 cooldown[8] = { 0 };
 u16 buttonWaitPeriod[] = { 0, 0 };
 std::queue<u8> buttonQueue[] = { {}, {} };
-
-// u16 buttonWaitPeriodP1 = 0;
-// u16 buttonWaitPeriodP2 = 0;
-// std::queue<u8> buttonQueueP1;
-// std::queue<u8> buttonQueueP2;
-
 
 SDLAxis analogBindings[] = {
     SDL_AXIS_LEFT_LEFT,  SDL_AXIS_LEFT_RIGHT,  SDL_AXIS_LEFT_DOWN,  SDL_AXIS_LEFT_UP,  // P1: LB, LR, RR, RB
@@ -248,6 +242,22 @@ AnalogInputWaitPeriod (const u8 which) {
     return analogValue;
 }
 
+u8 blueCooldown = 1, redCooldown = 1;
+u16 __fastcall
+AnalogInputCooldown (const u8 which) {
+    const auto button = analogButtons[which];
+    const bool blue = !(which % 4 % 3);
+
+    if (cooldown[which] > 0) cooldown[which]--;
+    if (IsButtonTapped (*button)) {
+        if (cooldown[which] > 0) return 0;
+        cooldown[which] = blue ? blueCooldown : redCooldown;
+        const u16 hitValue = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        return (hitValue << 15) / 100 + 1;
+    } else return 0;
+}
+
 u16 __fastcall
 AnalogInputSimple (const u8 which) {
     const auto button = analogButtons[which];
@@ -299,7 +309,7 @@ UpdateLoop () {
     if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
     if (IsButtonTapped (EXIT)) {
         LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
-        exited += 1; testEnabled = 1; patches::Plugins::Exit ();
+        exited += 1; testEnabled = 1; std::thread([](){patches::Plugins::Exit ();}).detach();
     }
     if (GameVersion::CHN00 == gameVersion) {
         if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
@@ -344,6 +354,9 @@ Init () {
     } else if (drumWaitPeriod > 0) {
         LogMessage (LogLevel::WARN, "[Analog Type] WaitPeriod: Fast input might be queued");
         analogMethod = AnalogInputWaitPeriod;
+    } else if (drumWaitPeriod == 0) {
+        LogMessage (LogLevel::INFO, "[Analog Type] Cooldown: Fastest and original input");
+        analogMethod = AnalogInputCooldown;
     } else {
         LogMessage (LogLevel::INFO, "[Analog Type] Simple: Fastest and original input");
         analogMethod = AnalogInputSimple;
