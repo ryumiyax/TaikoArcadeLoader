@@ -66,6 +66,17 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
     std::map<u64, SafetyHookMid> mapOf##functionName; \
     void implOf##functionName (SafetyHookContext &ctx)
 
+#define FAST_HOOK(returnType, functionName, location, ...) \
+    typedef returnType (*functionName) (__VA_ARGS__);      \
+    SafetyHookInline original##functionName;               \
+    void *where##functionName = (void *)(location);        \
+    returnType implOf##functionName (__VA_ARGS__)
+
+#define FAST_HOOK_DYNAMIC(returnType, functionName, ...)   \
+    typedef returnType (*functionName) (__VA_ARGS__);      \
+    SafetyHookInline original##functionName;               \
+    returnType implOf##functionName (__VA_ARGS__)
+
 #define INSTALL_HOOK(functionName)                                                                                     \
     {                                                                                                                  \
         LogMessage (LogLevel::DEBUG, std::string ("Installing hook for ") + #functionName);                            \
@@ -103,27 +114,46 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 #define INSTALL_MID_HOOK_DYNAMIC(functionName, location) \
     { mapOf##functionName[location] = safetyhook::create_mid (location, implOf##functionName); }
 
+#define INSTALL_FAST_HOOK(functionName)                                                                        \
+    {                                                                                                          \
+        LogMessage (LogLevel::DEBUG, std::string ("Installing fast hook for ") + #functionName);               \
+        original##functionName = safetyhook::create_inline (where##functionName, (void*)implOf##functionName); \
+    }
+
+#define INSTALL_FAST_HOOK_DYNAMIC(functionName, location)                                                      \
+    {                                                                                                          \
+        LogMessage (LogLevel::DEBUG, std::string ("Installing fast hook dynamic for ") + #functionName);       \
+        if (auto hook = safetyhook::InlineHook::create((void *)location, (void*)implOf##functionName)) {\
+            original##functionName = std::move(*hook); \
+        } else { \
+            LogMessage (LogLevel::ERROR, std::string ("Error Installing fast hook dynamic for ") + #functionName);\
+            ExitProcess (1); \
+        } \
+    }
+        // original##functionName = safetyhook::create_inline ((void *)location, (void*)implOf##functionName);    \
+    // }
+
 inline bool sendFlag = false;
 #define SCENE_RESULT_HOOK(functionName, location)                                                                                \
-    HOOK (void, functionName, location, i64 a1, i64 a2, i64 a3) {                                                                \
+    FAST_HOOK (void, functionName, location, i64 a1, i64 a2, i64 a3) {                                                           \
         if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { \
-            original##functionName (a1, a2, a3);                                                                                 \
+            original##functionName.fastcall (a1, a2, a3);                                                                        \
             return;                                                                                                              \
         }                                                                                                                        \
         sendFlag = true;                                                                                                         \
-        original##functionName (a1, a2, a3);                                                                                     \
+        original##functionName.fastcall (a1, a2, a3);                                                                            \
         ExecuteSendResultData ();                                                                                                \
     }
 
 #define SEND_RESULT_HOOK(functionName, location)                                                                                 \
-    HOOK (void, functionName, location, i64 a1) {                                                                                \
+    FAST_HOOK (void, functionName, location, i64 a1) {                                                                           \
         if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { \
-            original##functionName (a1);                                                                                         \
+            original##functionName.fastcall (a1);                                                                                \
             return;                                                                                                              \
         }                                                                                                                        \
         if (sendFlag) {                                                                                                          \
             sendFlag = false;                                                                                                    \
-            original##functionName (a1);                                                                                         \
+            original##functionName.fastcall (a1);                                                                                \
         }                                                                                                                        \
     }
 

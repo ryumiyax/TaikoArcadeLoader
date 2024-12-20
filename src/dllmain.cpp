@@ -4,6 +4,7 @@
 #include "patches/patches.h"
 #include "poll.h"
 #include "logger.h"
+#include <dbghelp.h>
 
 auto gameVersion = GameVersion::UNKNOWN;
 std::vector<HMODULE> plugins;
@@ -22,7 +23,6 @@ char accessCode1[21]    = "00000000000000000001";
 char accessCode2[21]    = "00000000000000000002";
 char chipId1[33]        = "00000000000000000000000000000001";
 char chipId2[33]        = "00000000000000000000000000000002";
-bool highResTimer       = true;
 bool windowed           = false;
 bool autoIme            = false;
 bool jpLayout           = false;
@@ -36,22 +36,22 @@ std::string logLevelStr = "INFO";
 bool logToFile          = true;
 
 HWND hGameWnd;
-HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse (true); }
-HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) { ExitProcess (0); }
-HOOK (HWND, CreateWindow, PROC_ADDRESS ("user32.dll", "CreateWindowExW"), DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle,
+FAST_HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse.stdcall<i32> (true); }
+FAST_HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) { ExitProcess (0); }
+FAST_HOOK (HWND, CreateWindow, PROC_ADDRESS ("user32.dll", "CreateWindowExW"), DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle,
       i32 X, i32 Y, i32 nWidth, i32 nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam) {
     if (lpWindowName != nullptr) {
         if (wcscmp (lpWindowName, L"Taiko") == 0) {
             if (windowed) dwStyle = WS_TILEDWINDOW ^ WS_MAXIMIZEBOX ^ WS_THICKFRAME;
 
             hGameWnd
-                = originalCreateWindow (dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
+                = originalCreateWindow.stdcall<HWND> (dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
             return hGameWnd;
         }
     }
-    return originalCreateWindow (dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
+    return originalCreateWindow.stdcall<HWND> (dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
 }
-HOOK (bool, SetWindowPosition, PROC_ADDRESS ("user32.dll", "SetWindowPos"), HWND hWnd, HWND hWndInsertAfter, i32 X, i32 Y, i32 cx, i32 cy,
+FAST_HOOK (bool, SetWindowPosition, PROC_ADDRESS ("user32.dll", "SetWindowPos"), HWND hWnd, HWND hWndInsertAfter, i32 X, i32 Y, i32 cx, i32 cy,
       u32 uFlags) {
     if (hWnd == hGameWnd) {
         RECT rw, rc;
@@ -60,29 +60,29 @@ HOOK (bool, SetWindowPosition, PROC_ADDRESS ("user32.dll", "SetWindowPos"), HWND
         cx = rw.right - rw.left - (rc.right - rc.left) + cx;
         cy = rw.bottom - rw.top - (rc.bottom - rc.top) + cy;
     }
-    return originalSetWindowPosition (hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+    return originalSetWindowPosition.stdcall<bool> (hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
 }
 
-HOOK (void, ExitProcessHook, PROC_ADDRESS ("kernel32.dll", "ExitProcess"), u32 uExitCode) {
+FAST_HOOK (void, ExitProcessHook, PROC_ADDRESS ("kernel32.dll", "ExitProcess"), u32 uExitCode) {
     bnusio::Close ();
-    originalExitProcessHook (uExitCode);
+    originalExitProcessHook.stdcall<void> (uExitCode);
 }
 
-HOOK (i32, XinputGetState, PROC_ADDRESS ("xinput9_1_0.dll", "XInputGetState")) { return ERROR_DEVICE_NOT_CONNECTED; }
-HOOK (i32, XinputSetState, PROC_ADDRESS ("xinput9_1_0.dll", "XInputSetState")) { return ERROR_DEVICE_NOT_CONNECTED; }
-HOOK (i32, XinputGetCapabilites, PROC_ADDRESS ("xinput9_1_0.dll", "XInputGetCapabilities")) { return ERROR_DEVICE_NOT_CONNECTED; }
+FAST_HOOK (i32, XinputGetState, PROC_ADDRESS ("xinput9_1_0.dll", "XInputGetState")) { return ERROR_DEVICE_NOT_CONNECTED; }
+FAST_HOOK (i32, XinputSetState, PROC_ADDRESS ("xinput9_1_0.dll", "XInputSetState")) { return ERROR_DEVICE_NOT_CONNECTED; }
+FAST_HOOK (i32, XinputGetCapabilites, PROC_ADDRESS ("xinput9_1_0.dll", "XInputGetCapabilities")) { return ERROR_DEVICE_NOT_CONNECTED; }
 
-HOOK (i32, ssleay_Shutdown, PROC_ADDRESS ("ssleay32.dll", "SSL_shutdown")) { return 1; }
+FAST_HOOK (i32, ssleay_Shutdown, PROC_ADDRESS ("ssleay32.dll", "SSL_shutdown")) { return 1; }
 
-HOOK (i64, UsbFinderInitialize, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderInitialize")) { return 0; }
-HOOK (i64, UsbFinderRelease, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderRelease")) { return 0; }
-HOOK (i64, UsbFinderGetSerialNumber, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderGetSerialNumber"), i32 a1, char *a2) {
+FAST_HOOK (i64, UsbFinderInitialize, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderInitialize")) { return 0; }
+FAST_HOOK (i64, UsbFinderRelease, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderRelease")) { return 0; }
+FAST_HOOK (i64, UsbFinderGetSerialNumber, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderGetSerialNumber"), i32 a1, char *a2) {
     strcpy (a2, chassisId.c_str ());
     return 0;
 }
 
-HOOK (i32, ws2_getaddrinfo, PROC_ADDRESS ("ws2_32.dll", "getaddrinfo"), const char *node, char *service, void *hints, void *out) {
-    return originalws2_getaddrinfo (server.c_str (), service, hints, out);
+FAST_HOOK (i32, ws2_getaddrinfo, PROC_ADDRESS ("ws2_32.dll", "getaddrinfo"), const char *node, char *service, void *hints, void *out) {
+    return originalws2_getaddrinfo.stdcall<i32> (server.c_str (), service, hints, out);
 }
 
 void
@@ -140,6 +140,51 @@ CreateCard () {
     WritePrivateProfileStringA ("card", "chipId2", buf, ".\\card.ini");
 }
 
+void 
+ElevateProcess () {
+    HANDLE hToken;
+    TOKEN_PRIVILEGES tp;
+    LUID luid;
+
+    // 获取当前进程的访问令牌
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
+        LogMessage (LogLevel::ERROR, "OpenProcessToken failed: {}", GetLastError());
+        return;
+    }
+
+    // 获取 SE_DEBUG_NAME 权限的 LUID
+    if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
+        LogMessage (LogLevel::ERROR, "LookupPrivilegeValue failed: {}", GetLastError());
+        CloseHandle(hToken);
+        return;
+    }
+
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    // 调整权限
+    if (!AdjustTokenPrivileges(hToken, FALSE, &tp, 0, NULL, NULL)) {
+        LogMessage (LogLevel::ERROR, "AdjustTokenPrivileges failed: {}", GetLastError());
+        CloseHandle(hToken);
+        return;
+    }
+
+    LogMessage (LogLevel::INFO, "Privileges adjusted successfully!");
+    CloseHandle(hToken);
+}
+
+bool DisableDEP() {
+    if (SetProcessDEPPolicy(PROCESS_DEP_ENABLE)) {
+        // std::cout << "DEP disabled successfully.\n";
+        return true;
+    } else {
+        LogMessage (LogLevel::ERROR, "Failed to disable DEP: {}", GetLastError());
+        // std::cerr << "Failed to disable DEP: " << GetLastError() << std::endl;
+        return false;
+    }
+}
+
 BOOL
 DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -147,13 +192,18 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         // I/O in DllMain can easily cause a deadlock
 
         // Init logger for loading config
+        
+        auto start = std::chrono::high_resolution_clock::now();
         InitializeLogger (GetLogLevel (logLevelStr), logToFile);
-        LogMessage (LogLevel::INFO, "Loading config...");
-
+        // ElevateProcess ();
+        // DisableDEP ();
+        patches::Timer::Init ();
         #ifdef ASYNC_IO
         LogMessage (LogLevel::WARN, "(experimental) Using Async IO!");
         InitializeKeyboard ();
         #endif
+
+        LogMessage (LogLevel::INFO, "Loading config...");
 
         std::string version                    = "auto";
         const std::filesystem::path configPath = std::filesystem::current_path () / "config.toml";
@@ -177,10 +227,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
                 std::strcat (placeId, countryCode.c_str ());
                 std::strcat (placeId, "0FF0");
             }
-            if (const auto patches = openConfigSection (config, "patches")) {
-                version = readConfigString (patches, "version", version);
-                highResTimer = readConfigBool (patches, "high_res_timer", highResTimer);
-            }
+            if (const auto patches = openConfigSection (config, "patches")) version = readConfigString (patches, "version", version);
             if (const auto emulation = openConfigSection (config, "emulation")) {
                 emulateUsio        = readConfigBool (emulation, "usio", emulateUsio);
                 emulateCardReader  = readConfigBool (emulation, "card_reader", emulateCardReader);
@@ -221,7 +268,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
             MessageBoxA (nullptr, "Unknown patch version", nullptr, MB_OK);
             ExitProcess (0);
         }
-        LogMessage (LogLevel::INFO, "GameVersion is %s", GameVersionToString (gameVersion));
+        LogMessage (LogLevel::INFO, "GameVersion is {}", GameVersionToString (gameVersion));
 
         patches::Plugins::LoadPlugins ();
         patches::Plugins::InitVersion (gameVersion);
@@ -234,24 +281,24 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
 
         LogMessage (LogLevel::INFO, "==== Loading patches, please wait...");
 
-        if (cursor) INSTALL_HOOK (ShowMouse);
-        INSTALL_HOOK (ExitWindows);
-        INSTALL_HOOK (CreateWindow);
-        INSTALL_HOOK (SetWindowPosition);
+        if (cursor) INSTALL_FAST_HOOK (ShowMouse);
+        INSTALL_FAST_HOOK (ExitWindows);
+        INSTALL_FAST_HOOK (CreateWindow);
+        INSTALL_FAST_HOOK (SetWindowPosition);
 
-        INSTALL_HOOK (ExitProcessHook);
+        INSTALL_FAST_HOOK (ExitProcessHook);
 
-        INSTALL_HOOK (XinputGetState);
-        INSTALL_HOOK (XinputSetState);
-        INSTALL_HOOK (XinputGetCapabilites);
+        INSTALL_FAST_HOOK (XinputGetState);
+        INSTALL_FAST_HOOK (XinputSetState);
+        INSTALL_FAST_HOOK (XinputGetCapabilites);
 
-        INSTALL_HOOK (ssleay_Shutdown);
+        INSTALL_FAST_HOOK (ssleay_Shutdown);
 
-        INSTALL_HOOK (UsbFinderInitialize);
-        INSTALL_HOOK (UsbFinderRelease);
-        INSTALL_HOOK (UsbFinderGetSerialNumber);
+        INSTALL_FAST_HOOK (UsbFinderInitialize);
+        INSTALL_FAST_HOOK (UsbFinderRelease);
+        INSTALL_FAST_HOOK (UsbFinderGetSerialNumber);
 
-        INSTALL_HOOK (ws2_getaddrinfo);
+        INSTALL_FAST_HOOK (ws2_getaddrinfo);
 
         bnusio::Init ();
 
@@ -270,11 +317,8 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         patches::LayeredFs::Init ();
         patches::TestMode::Init ();
 
-        if (highResTimer) {
-            patches::Timer::Init ();
-        }
-
-        LogMessage (LogLevel::INFO, "==== Finished Loading patches!");
+        std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
+        LogMessage (LogLevel::INFO, "==== Finished Loading patches! using: {:.2f}ms", duration.count () * 1000);
     }
     return true;
 }

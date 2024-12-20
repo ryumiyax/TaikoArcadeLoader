@@ -5,18 +5,18 @@
 
 namespace patches::JPN39 {
 int language = 0;
-HOOK_DYNAMIC (char, AMFWTerminate, i64) {
+FAST_HOOK_DYNAMIC (char, AMFWTerminate, i64) {
     LogMessage (LogLevel::HOOKS, "AMFWTerminate was called");
     return 0;
 }
 
-HOOK_DYNAMIC (i64, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
+FAST_HOOK_DYNAMIC (i64, curl_easy_setopt, i64 a1, i64 a2, i64 a3, i64 a4, i64 a5) {
     LogMessage (LogLevel::HOOKS, "Garmc curl_easy_setopt was called");
-    originalcurl_easy_setopt (a1, 64, 0, 0, 0);
-    originalcurl_easy_setopt (a1, 81, 0, 0, 0);
-    return originalcurl_easy_setopt (a1, a2, a3, a4, a5);
+    originalcurl_easy_setopt.call<i64> (a1, 64, 0, 0, 0);
+    originalcurl_easy_setopt.call<i64> (a1, 81, 0, 0, 0);
+    return originalcurl_easy_setopt.call<i64> (a1, a2, a3, a4, a5);
 }
-HOOK_DYNAMIC (void, garmc_logger_log, i64 a1, int a2, void *a3, char a4) {
+FAST_HOOK_DYNAMIC (void, garmc_logger_log, i64 a1, int a2, void *a3, char a4) {
     // remove garmc log
     return;
 }
@@ -24,7 +24,7 @@ HOOK_DYNAMIC (void, garmc_logger_log, i64 a1, int a2, void *a3, char a4) {
 FUNCTION_PTR (i64, GetPlayDataManagerRef, ASLR (0x140024AC0), i64);
 
 i64 lua_State = 0;
-HOOK (i64, luaL_newstate, PROC_ADDRESS ("lua51.dll", "luaL_newstate")) { return lua_State = originalluaL_newstate (); }
+FAST_HOOK (i64, luaL_newstate, PROC_ADDRESS ("lua51.dll", "luaL_newstate")) { return lua_State = originalluaL_newstate.call<i64> (); }
 FUNCTION_PTR (void, lua_settop, PROC_ADDRESS ("lua51.dll", "lua_settop"), i64, i32);
 FUNCTION_PTR (void, lua_replace, PROC_ADDRESS ("lua51.dll", "lua_replace"), i64, i32);
 FUNCTION_PTR (void, lua_pushcclosure, PROC_ADDRESS ("lua51.dll", "lua_pushcclosure"), i64, i64, i32);
@@ -50,12 +50,12 @@ lua_pushbool (const i64 a1, const bool val) {
 
 u64 appAccessor       = 0;
 u64 componentAccessor = 0;
-HOOK (i64, DeviceCheck, ASLR (0x140464FC0), i64 a1, i64 a2, i64 a3) {
+FAST_HOOK (i64, DeviceCheck, ASLR (0x140464FC0), i64 a1, i64 a2, i64 a3) {
     LogMessage (LogLevel::HOOKS, "DeviceCheck was called");
     TestMode::SetupAccessor (a3, RefTestModeMain);
     componentAccessor = a2;
     appAccessor = a3;
-    return originalDeviceCheck (a1, a2, a3);
+    return originalDeviceCheck.fastcall<i64> (a1, a2, a3);
 }
 
 i64
@@ -66,49 +66,49 @@ GetUserStatus () {
     return -1;
 }
 
-HOOK (bool, IsSongRelease, ASLR (0x1403F4510), i64 a1, i64 a2, int a3) {
+FAST_HOOK (bool, IsSongRelease, ASLR (0x1403F4510), i64 a1, i64 a2, int a3) {
     if (TestMode::ReadTestModeValue (L"ModUnlockSongs") == 1) return true;
-    return originalIsSongRelease (a1, a2, a3);
+    return originalIsSongRelease.fastcall<bool> (a1, a2, a3);
 }
-HOOK (bool, IsSongReleasePlayer, ASLR (0x1403F45F0), i64 a1, u64 a2, i32 a3) {
+FAST_HOOK (bool, IsSongReleasePlayer, ASLR (0x1403F45F0), i64 a1, u64 a2, i32 a3) {
     if (TestMode::ReadTestModeValue (L"ModUnlockSongs") == 2) return true;
-    return originalIsSongReleasePlayer (a1, a2, a3);
+    return originalIsSongReleasePlayer.fastcall<bool> (a1, a2, a3);
 }
 MID_HOOK (DifficultyPanelCrown, ASLR (0x1403F2A25), SafetyHookContext &ctx) {
     if (TestMode::ReadTestModeValue (L"ModUnlockSongs") != 1) return;
     ctx.r15 |= 1;
 }
-HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) {
+FAST_HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo024 was called");
     const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
-    if (tournamentMode == 1) return originalAvailableMode_Collabo024 (a1);
+    if (tournamentMode == 1) return originalAvailableMode_Collabo024.fastcall<i64> (a1);
     const int status = TestMode::ReadTestModeValue (L"ModModeCollabo024");
     if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
-    return originalAvailableMode_Collabo024 (a1);
+    return originalAvailableMode_Collabo024.fastcall<i64> (a1);
 }
-HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) {
+FAST_HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo025 was called");
     const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
-    if (tournamentMode == 1) return originalAvailableMode_Collabo025 (a1);
+    if (tournamentMode == 1) return originalAvailableMode_Collabo025.fastcall<i64> (a1);
     const int status = TestMode::ReadTestModeValue (L"ModModeCollabo025");
     if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
-    return originalAvailableMode_Collabo025 (a1);
+    return originalAvailableMode_Collabo025.fastcall<i64> (a1);
 }
-HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) {
+FAST_HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo026 was called");
     const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
-    if (tournamentMode == 1) return originalAvailableMode_Collabo026 (a1);
+    if (tournamentMode == 1) return originalAvailableMode_Collabo026.fastcall<i64> (a1);
     const int status = TestMode::ReadTestModeValue (L"ModModeCollabo026");
     if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
-    return originalAvailableMode_Collabo026 (a1);
+    return originalAvailableMode_Collabo026.fastcall<i64> (a1);
 }
-HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) {
+FAST_HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_AprilFool001 was called");
     const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
-    if (tournamentMode == 1) return originalAvailableMode_AprilFool001 (a1);
+    if (tournamentMode == 1) return originalAvailableMode_AprilFool001.fastcall<i64> (a1);
     const int status = TestMode::ReadTestModeValue (L"ModModeAprilFool001");
     if (status == 1) return lua_pushbool (a1, true);
-    return originalAvailableMode_AprilFool001 (a1);
+    return originalAvailableMode_AprilFool001.fastcall<i64> (a1);
 }
 i64 __fastcall lua_freeze_timer (const i64 a1) {
     LogMessage (LogLevel::HOOKS, "lua_freeze_timer was called");
@@ -183,39 +183,58 @@ SEND_RESULT_HOOK (SendResultData_Enso, ASLR (0x1401817B0));
 SEND_RESULT_HOOK (SendResultData_AI, ASLR (0x1401755E0));
 SEND_RESULT_HOOK (SendResultData_Collabo025_026, ASLR (0x140179A00));
 SEND_RESULT_HOOK (SendResultData_AprilFool, ASLR (0x140177800));
-
 CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_Enso, ASLR (0x140180074), rax);
 CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_AI, ASLR (0x140173774), rax);
 CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_Collabo025_026, ASLR (0x140178244), rax);
 CHANGE_RESULT_SIZE_HOOK (ChangeResultDataSize_AprilFool, ASLR (0x140176044), rax);
-
 CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_Enso, ASLR (0x14018074B), rax, 0x34, 0x07);
 CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_AI, ASLR (0x140173EDD), r13, 0x24, 0x08);
 CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_Collabo025_026, ASLR (0x1401789AD), r13, 0x24, 0x08);
 CHANGE_RESULT_INDEX_HOOK (ChangeResultDataIndex_AprilFool, ASLR (0x140176716), rax, 0x34, 0x06);
 
-HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
+FAST_HOOK (i64, GetLanguage, ASLR (0x140024AC0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "GetLanguage was called");
-    const auto result = originalGetLanguage (a1);
+    const auto result = originalGetLanguage.fastcall<i64> (a1);
     language          = *reinterpret_cast<u32 *> (result);
     return result;
 }
-HOOK (i64, GetRegionLanguage, ASLR (0x1401CE9B0), i64 a1) {
+FAST_HOOK (i64, GetRegionLanguage, ASLR (0x1401CE9B0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "GetRegionLanguage was called");
     if (patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
         lua_settop (a1, 0);
         lua_pushstring (a1, languageStr (language));
         return 1;
-    } else return originalGetRegionLanguage (a1);
+    } else return originalGetRegionLanguage.fastcall<i64> (a1);
 }
+std::thread::id *LoadMovieThreadId = nullptr;
 FUNCTION_PTR (void **, std_string_assign, ASLR (0x1400209E0), void **, const void *, size_t);
-HOOK (i64, GetCabinetLanguage, ASLR (0x14014DB80), u64 *a1, i64 a2) {
+FAST_HOOK (i64, GetCabinetLanguage, ASLR (0x14014DB80), u64 *a1, i64 a2) {
     LogMessage (LogLevel::HOOKS, "GetCabinetLanguage was called");
-    i64 result = originalGetCabinetLanguage (a1, a2);
+    i64 result = originalGetCabinetLanguage.fastcall<i64> (a1, a2);
     if (patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
-        std_string_assign ((void **)result, (const void*)languageStr (language), (language == 0 || language == 3) ? 3 : 5);
+        if (language == 2 && LoadMovieThreadId != nullptr && *LoadMovieThreadId == std::this_thread::get_id()) {
+            LogMessage (LogLevel::DEBUG, "Loading DemoMovie cn_tw, redirect to cn_cn");
+            std_string_assign ((void **)result, (const void*)languageStr (4), 5);
+        } else {
+            std_string_assign ((void **)result, (const void*)languageStr (language), (language == 0 || language == 3) ? 3 : 5);
+        }
     }
     return result;
+}
+FAST_HOOK (i64, LoadDemoMovie, ASLR (0x1404313F0), i64 a1, i64 a2, i64 a3) {
+    std::thread::id this_id = std::this_thread::get_id();
+    LoadMovieThreadId = &this_id;
+    i64 result = originalLoadDemoMovie.fastcall<i64> (a1, a2, a3);
+    LoadMovieThreadId = nullptr;
+    return result;
+}
+std::string onpCn = "textures/onpu_cn/onp_all.nutexb";
+MID_HOOK (ChangeOnpFile, ASLR (0x140134D16), SafetyHookContext &ctx) {
+    if (language == 2 && patches::TestMode::ReadTestModeValue (L"ModFixLanguage") == 1) {
+        LogMessage (LogLevel::DEBUG, "Load onp_all_cn");
+        ctx.rdx = (uintptr_t) onpCn.c_str ();
+        ctx.r8 = 0x1F;
+    }
 }
 
 MID_HOOK (ChangeLanguageType, ASLR (0x1400B2016), SafetyHookContext &ctx) {
@@ -240,6 +259,7 @@ get_bank_id (const std::string &bankName) {
         nus3bankMap[bankName] = nus3bankIdCounter;
         nus3bankIdCounter++;
     }
+    LogMessage (LogLevel::DEBUG, "LoadBank {} id={}", bankName, nus3bankMap[bankName]);
     return nus3bankMap[bankName];
 }
 
@@ -305,7 +325,7 @@ FixToneName (const std::string &bankName, std::string toneName, int voiceLang) {
 }
 
 size_t commonSize = 0;
-HOOK (i64, PlaySoundMain, ASLR (0x1404C6DC0), i64 a1) {
+FAST_HOOK (i64, PlaySoundMain, ASLR (0x1404C6DC0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "PlaySoundMain was called");
     int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
     if (enableSwitchVoice && lang != 0) {
@@ -315,10 +335,10 @@ HOOK (i64, PlaySoundMain, ASLR (0x1404C6DC0), i64 a1) {
             lua_replace (a1, -3);
         }
     }
-    return originalPlaySoundMain (a1);
+    return originalPlaySoundMain.fastcall<i64> (a1);
 }
 
-HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
+FAST_HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
     LogMessage (LogLevel::HOOKS, "PlaySoundMulti was called");
     int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
     if (enableSwitchVoice && lang != 0) {
@@ -328,7 +348,7 @@ HOOK (i64, PlaySoundMulti, ASLR (0x1404C6D60), i64 a1) {
             lua_replace (a1, -3);
         }
     }
-    return originalPlaySoundMulti (a1);
+    return originalPlaySoundMulti.fastcall<i64> (a1);
 }
 
 FUNCTION_PTR (u64 *, append_chars_to_basic_string, ASLR (0x140028DA0), u64 *, const char *, size_t);
@@ -341,50 +361,48 @@ FixToneNameEnso (u64 *Src, const std::string &bankName, int voiceLang) {
     return Src;
 }
 
-HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64 *a1, u64 *a2, i64 a3) {
+FAST_HOOK (bool, PlaySoundEnso, ASLR (0x1404ED590), u64 *a1, u64 *a2, i64 a3) {
     LogMessage (LogLevel::HOOKS, "PlaySoundEnso was called");
     int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
     if (enableSwitchVoice && lang != 0) {
         const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
         if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);
     }
-    return originalPlaySoundEnso (a1, a2, a3);
+    return originalPlaySoundEnso.fastcall<bool> (a1, a2, a3);
 }
 
-HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64 *a1, u64 *a2) {
+FAST_HOOK (bool, PlaySoundSpecial, ASLR (0x1404ED230), u64 *a1, u64 *a2) {
     LogMessage (LogLevel::HOOKS, "PlaySoundSpecial was called");
     int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
     if (enableSwitchVoice && lang != 0) {
         const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
         if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);
     }
-    return originalPlaySoundSpecial (a1, a2);
+    return originalPlaySoundSpecial.fastcall<bool> (a1, a2);
 }
 
 int loaded_fail_count = 0;
-HOOK (i64, LoadedBankAll, ASLR (0x1404C69F0), i64 a1) {
+FAST_HOOK (char, LoadedBankAll, ASLR (0x1404EC2F0), u64 a1) {
     LogMessage (LogLevel::HOOKS, "LoadedBankAll was called");
-    originalLoadedBankAll (a1);
-    const auto result = lua_toboolean (a1, -1);
-    lua_settop (a1, 0);
+    char result = originalLoadedBankAll.fastcall<char> (a1);
     if (result) {
         loaded_fail_count = 0;
-        lua_pushboolean (a1, 1);
-    } else if (loaded_fail_count > 100) {
+        return 1;
+    } else if (loaded_fail_count > 60) {
+        LogMessage (LogLevel::WARN, "LoadBankAll Guardian!!!");
         loaded_fail_count = 0;
-        lua_pushboolean (a1, 1);
+        return 1;
     } else {
         loaded_fail_count += 1;
-        lua_pushboolean (a1, 0);
+        return 0;
     }
-    return 1;
 }
 
 float soundRate = 1.0F;
-HOOK (i32, SetMasterVolumeSpeaker, ASLR (0x140160330), i32 a1) {
+FAST_HOOK (i32, SetMasterVolumeSpeaker, ASLR (0x140160330), i32 a1) {
     LogMessage (LogLevel::HOOKS, "SetMasterVolumeSpeaker was called");
     patches::Audio::SetVolumeRate (a1 <= 100 ? 1.0f : a1 / 100.0f);
-    return originalSetMasterVolumeSpeaker (a1 > 100 ? 100 : a1);
+    return originalSetMasterVolumeSpeaker.fastcall<i32> (a1 > 100 ? 100 : a1);
 }
 
 // std::string *fontName = nullptr;
@@ -407,45 +425,45 @@ MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
 }
 
-HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
+FAST_HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerInitialize");
-    u64 result = originalEnsoGameManagerInitialize (a1, a2, a3);
+    u64 result = originalEnsoGameManagerInitialize.fastcall<u64> (a1, a2, a3);
     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerInitialize result={}", result);
     return result;
 }
 
-HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
+FAST_HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerLoading");
-    u64 result = originalEnsoGameManagerLoading (a1, a2, a3);
+    u64 result = originalEnsoGameManagerLoading.fastcall<u64> (a1, a2, a3);
     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerLoading result={}", result);
     return result;
 }
 
-HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1, u64 a2, u64 a3) {
+FAST_HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1, u64 a2, u64 a3) {
     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerPreparing");    
-    bool result = originalEnsoGameManagerPreparing (a1, a2, a3);  // crashes here
+    bool result = originalEnsoGameManagerPreparing.fastcall<u64> (a1, a2, a3);  // crashes here
     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerPreparing result={}", result);
     return result;
 }
 
-HOOK (u64, EnsoGraphicManagerPreparing, ASLR (0x1400F0AB0), u64 a1, u64 a2, u64 a3) {
+FAST_HOOK (u64, EnsoGraphicManagerPreparing, ASLR (0x1400F0AB0), u64 a1, u64 a2, u64 a3) {
     LogMessage (LogLevel::DEBUG, "Begin EnsoGraphicManagerPreparing");    
-    u64 result = originalEnsoGraphicManagerPreparing (a1, a2, a3);
+    u64 result = originalEnsoGraphicManagerPreparing.fastcall<u64> (a1, a2, a3);
     LogMessage (LogLevel::DEBUG, "End EnsoGraphicManagerPreparing result={}", result);
     return result;
 }
 
 
-HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+FAST_HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerStart");
-    u64 result = originalEnsoGameManagerStart (a1, a2, a3);
+    u64 result = originalEnsoGameManagerStart.fastcall<u64> (a1, a2, a3);
     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerStart result={}", result);
     return result;
 }
 
-HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
+FAST_HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerChechEnsoEnd");
-    u64 result = originalEnsoGameManagerChechEnsoEnd (a1, a2, a3);
+    u64 result = originalEnsoGameManagerChechEnsoEnd.fastcall<u64> (a1, a2, a3);
     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerChechEnsoEnd result={}", result);
     return result;
 }
@@ -457,41 +475,45 @@ HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 
 //     return originalAcquireMostCompatibleDisplayMode (a1, a2, a3);
 // }
 
-HOOK (char, SceneTestModeLoading, ASLR (0x1404793D0), u64 a1, u64 a2, u64 a3) {
-    LogMessage (LogLevel::DEBUG, "Begin SceneTestModeLoading");
-    char result = originalSceneTestModeLoading (a1, a2, a3);
-    LogMessage (LogLevel::DEBUG, "End originalSceneTestModeLoading");
+FAST_HOOK (char, SceneTestModeLoading, ASLR (0x1404793D0), u64 a1, u64 a2, u64 a3) {
+    // LogMessage (LogLevel::DEBUG, "Begin SceneTestModeLoading");
+    char result = originalSceneTestModeLoading.fastcall<char> (a1, a2, a3);
+    // LogMessage (LogLevel::DEBUG, "End originalSceneTestModeLoading result={}", (int)result);
     TestMode::SetTestModeValue (L"EnableSwitchVoice", (int)enableSwitchVoice);
-    if (!enableSwitchVoice) TestMode::SetTestModeValue (L"VoiceLanguageItem", 0);
-    LogMessage (LogLevel::DEBUG, "End SceneTestModeLoading");
+    // if (!enableSwitchVoice) TestMode::SetTestModeValue (L"VoiceLanguageItem", 0);
+    // LogMessage (LogLevel::DEBUG, "End SceneTestModeLoading");
     return result;
 }
 
-constexpr i32 datatableBufferSize = 1024 * 1024 * 12;
-safetyhook::Allocation datatableBuffer1;
-safetyhook::Allocation datatableBuffer2;
-safetyhook::Allocation datatableBuffer3;
-const std::vector<uintptr_t> datatableBuffer1Addresses = {0x1400ABE40, 0x1400ABEB1, 0x1400ABEDB, 0x1400ABF4C};
-const std::vector<uintptr_t> datatableBuffer2Addresses = {0x1400ABE2C, 0x1400ABF5B, 0x1400ABF8E};
-const std::vector<uintptr_t> datatableBuffer3Addresses = {0x1400ABF7F, 0x1400ABF95, 0x1400ABFBF};
-const std::vector<uintptr_t> memsetSizeAddresses       = {0x1400ABE26, 0x1400ABE3A, 0x1400ABF79};
-
-void
-AllocateStaticBufferNear (void *target_address, const size_t size, safetyhook::Allocation *newBuffer) {
-    const auto allocator                = safetyhook::Allocator::global ();
-    const std::vector desired_addresses = {static_cast<u8 *> (target_address)};
-    auto allocation_result              = allocator->allocate_near (desired_addresses, size);
-    if (allocation_result.has_value ()) *newBuffer = std::move (*allocation_result);
+MID_HOOK (LogLoadTexture12, ASLR (0x14065BC8A), SafetyHookContext &ctx) {
+    char* src = (char*)(ctx.rsp + 0x2B0);
+    if (src != nullptr) {
+        std::string srcStr = std::string (src);
+        LogMessage (LogLevel::HOOKS, "LogLoadTexture12 src={}", srcStr);
+    } else LogMessage (LogLevel::HOOKS, "LogLoadTexture12 src=nullptr");
 }
 
+constexpr i32 datatableBufferSize = 1024 * 1024 * 12;
+uint8_t *datatableBuffer[3] = { nullptr };
+std::vector<SafetyHookMid> datatable_patch = {};
+#define DATATABLE_PATCH_REGISTER(location, reg, value, skip) { datatable_patch.push_back(safetyhook::create_mid(location, [](SafetyHookContext &ctx) {ctx.reg = (uintptr_t)(value); ctx.rip = location + skip;})); }
 void
-ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *newBufferAddress) {
-    for (const auto bufferAddress : bufferAddresses) {
-        const uintptr_t lea_instruction_dst = ASLR (bufferAddress) + 3;
-        const uintptr_t lea_instruction_end = ASLR (bufferAddress) + 7;
-        const intptr_t offset               = reinterpret_cast<intptr_t> (newBufferAddress) - lea_instruction_end;
-        WRITE_MEMORY (lea_instruction_dst, i32, static_cast<i32> (offset));
-    }
+ReplaceDatatableBufferAddresses () {
+    LogMessage (LogLevel::INFO, "Set Datatable Size to 12MB");
+    for (int i = 0; i < 3; i ++) datatableBuffer[i] = (uint8_t *)malloc (datatableBufferSize);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABE26), r8, datatableBufferSize, 6);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABE3A), r8, datatableBufferSize, 6);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABF79), r8, datatableBufferSize, 6);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABE40), rcx, datatableBuffer[0], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABEB1), rdi, datatableBuffer[0], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABEDB), rdi, datatableBuffer[0], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABF4C), rdi, datatableBuffer[0], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABE2C), rcx, datatableBuffer[1], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABF5B), rcx, datatableBuffer[1], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABF8E), r8 , datatableBuffer[1], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABF7F), rcx, datatableBuffer[2], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABF95), rcx, datatableBuffer[2], 7);
+    DATATABLE_PATCH_REGISTER (ASLR (0x1400ABFBF), rdx, datatableBuffer[2], 7);
 }
 
 void
@@ -526,16 +548,10 @@ Init () {
     }
 
     // Hook to get AppAccessor and ComponentAccessor
-    INSTALL_HOOK (DeviceCheck);
-    INSTALL_HOOK (luaL_newstate);
-    INSTALL_HOOK (EnsoGameManagerInitialize);
-    INSTALL_HOOK (EnsoGameManagerLoading);
-    INSTALL_HOOK (EnsoGameManagerPreparing);
-    INSTALL_HOOK (EnsoGraphicManagerPreparing);
-    INSTALL_HOOK (EnsoGameManagerStart);
-    INSTALL_HOOK (EnsoGameManagerChechEnsoEnd);
+    INSTALL_FAST_HOOK (DeviceCheck);
+    INSTALL_FAST_HOOK (luaL_newstate);
+    INSTALL_MID_HOOK (LogLoadTexture12);
     // INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
-    INSTALL_HOOK (SceneTestModeLoading);
 
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
@@ -574,21 +590,22 @@ Init () {
     WRITE_MEMORY (ASLR (0x140CC05B0), char, ".\\Garmc\\ErrorLogData\\GarmcOErrorLogData.dat");
 
     // Remove datatable size limit
-    {
-        for (auto address : memsetSizeAddresses)
-            WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
+    ReplaceDatatableBufferAddresses ();
+    // {
+    //     for (auto address : memsetSizeAddresses)
+    //         WRITE_MEMORY (ASLR (address) + 2, i32, datatableBufferSize);
 
-        auto bufferBase = MODULE_HANDLE - 0x03000000;
-        AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer1);
-        bufferBase += datatableBufferSize;
-        AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer2);
-        bufferBase += datatableBufferSize;
-        AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer3);
+    //     auto bufferBase = MODULE_HANDLE - 0x03000000;
+    //     AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer1);
+    //     bufferBase += datatableBufferSize;
+    //     AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer2);
+    //     bufferBase += datatableBufferSize;
+    //     AllocateStaticBufferNear (bufferBase, datatableBufferSize, &datatableBuffer3);
 
-        ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
-        ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
-        ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
-    }
+    //     ReplaceLeaBufferAddress (datatableBuffer1Addresses, datatableBuffer1.data ());
+    //     ReplaceLeaBufferAddress (datatableBuffer2Addresses, datatableBuffer2.data ());
+    //     ReplaceLeaBufferAddress (datatableBuffer3Addresses, datatableBuffer3.data ());
+    // }
 
     // Language
     TestMode::Menu *langPatchesMenu = TestMode::CreateMenu (L"LANGUAGE PATCHES", L"LanguagePatchesMenu");
@@ -597,9 +614,9 @@ Init () {
         L"<select-item label=\"FIX LANGUAGE\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
         L"group=\"Setting\" id=\"ModFixLanguage\" max=\"1\" min=\"0\" default=\"1\"/>",
         [&]() { 
-            INSTALL_HOOK (GetLanguage); 
-            INSTALL_HOOK (GetRegionLanguage); 
-            INSTALL_HOOK (GetCabinetLanguage); 
+            INSTALL_FAST_HOOK (GetLanguage); 
+            INSTALL_FAST_HOOK (GetRegionLanguage); 
+            INSTALL_FAST_HOOK (GetCabinetLanguage); 
         }, langPatchesMenu
     );
     TestMode::RegisterItem(
@@ -609,13 +626,13 @@ Init () {
     );
     TestMode::RegisterItemAfter(
         L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='LanguageItem']",
-        L"<select-item label=\"VOICE\" param-offset-x=\"35\" invisible=\"True/EnableSwitchVoice:0\" disable=\"True/EnableSwitchVoice:0\" "
+        L"<select-item label=\"VOICE\" param-offset-x=\"35\" disable=\"True/EnableSwitchVoice:0\" "
         L"replace-text=\"0:JPN, 1:CHN\" group=\"Setting\" id=\"VoiceLanguageItem\" max=\"1\" min=\"0\" default=\"0\"/>",
         [&](){
-            INSTALL_HOOK (PlaySoundMain);
-            INSTALL_HOOK (PlaySoundMulti);
-            INSTALL_HOOK (PlaySoundEnso);
-            INSTALL_HOOK (PlaySoundSpecial);
+            INSTALL_FAST_HOOK (PlaySoundMain);
+            INSTALL_FAST_HOOK (PlaySoundMulti);
+            INSTALL_FAST_HOOK (PlaySoundEnso);
+            INSTALL_FAST_HOOK (PlaySoundSpecial);
         }
     );
     TestMode::RegisterItem(langResourceIndicator, langPatchesMenu);
@@ -626,8 +643,8 @@ Init () {
         L"<select-item label=\"UNLOCK SONGS\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON, "
         L"2:FORCE\" group=\"Setting\" id=\"ModUnlockSongs\" max=\"2\" min=\"0\" default=\"1\"/>",
         [&]() { 
-            INSTALL_HOOK (IsSongRelease); 
-            INSTALL_HOOK (IsSongReleasePlayer); 
+            INSTALL_FAST_HOOK (IsSongRelease); 
+            INSTALL_FAST_HOOK (IsSongReleasePlayer); 
             INSTALL_MID_HOOK (DifficultyPanelCrown); 
         }
     );
@@ -642,22 +659,22 @@ Init () {
     TestMode::RegisterItem (
         L"<select-item label=\"KIMETSU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
         L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo024\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_Collabo024); }//, modeUnlock
+        [&] { INSTALL_FAST_HOOK (AvailableMode_Collabo024); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"ONE PIECE MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
         L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo025\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_Collabo025); }//, modeUnlock
+        [&] { INSTALL_FAST_HOOK (AvailableMode_Collabo025); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"AI SOSHINA MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
         L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo026\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_Collabo026); }//, modeUnlock
+        [&] { INSTALL_FAST_HOOK (AvailableMode_Collabo026); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"AOHARU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
         L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeAprilFool001\" max=\"1\" min=\"0\" default=\"0\"/>",
-        [&] { INSTALL_HOOK (AvailableMode_AprilFool001); }//, modeUnlock
+        [&] { INSTALL_FAST_HOOK (AvailableMode_AprilFool001); }//, modeUnlock
     );
     // TestMode::RegisterItem (modeUnlock);
     // InstantResult
@@ -665,15 +682,15 @@ Init () {
         L"<select-item label=\"INSTANT RESULT\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON\" "
         L"group=\"Setting\" id=\"ModInstantResult\" max=\"1\" min=\"0\" default=\"0\"/>",
         [&] {
-            INSTALL_HOOK (SceneResultInitialize_Enso);
-            INSTALL_HOOK (SceneResultInitialize_AI);
-            INSTALL_HOOK (SceneResultInitialize_Collabo025);
-            INSTALL_HOOK (SceneResultInitialize_Collabo026);
-            INSTALL_HOOK (SceneResultInitialize_AprilFool);
-            INSTALL_HOOK (SendResultData_Enso);
-            INSTALL_HOOK (SendResultData_AI);
-            INSTALL_HOOK (SendResultData_Collabo025_026);
-            INSTALL_HOOK (SendResultData_AprilFool);
+            INSTALL_FAST_HOOK (SceneResultInitialize_Enso);
+            INSTALL_FAST_HOOK (SceneResultInitialize_AI);
+            INSTALL_FAST_HOOK (SceneResultInitialize_Collabo025);
+            INSTALL_FAST_HOOK (SceneResultInitialize_Collabo026);
+            INSTALL_FAST_HOOK (SceneResultInitialize_AprilFool);
+            INSTALL_FAST_HOOK (SendResultData_Enso);
+            INSTALL_FAST_HOOK (SendResultData_AI);
+            INSTALL_FAST_HOOK (SendResultData_Collabo025_026);
+            INSTALL_FAST_HOOK (SendResultData_AprilFool);
             INSTALL_MID_HOOK (ChangeResultDataSize_Enso);
             INSTALL_MID_HOOK (ChangeResultDataSize_AI);
             INSTALL_MID_HOOK (ChangeResultDataSize_Collabo025_026);
@@ -692,7 +709,7 @@ Init () {
             node.attribute (L"max").set_value (L"300");
             node.attribute (L"delta").set_value (L"1");
         },
-        [&] () { INSTALL_HOOK (SetMasterVolumeSpeaker); }
+        [&] () { INSTALL_FAST_HOOK (SetMasterVolumeSpeaker); }
     );
     TestMode::RegisterItemAfter(
         L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractMovieItem']",
@@ -700,7 +717,15 @@ Init () {
         L"replace-text=\"0:ON, 1:OFF\" group=\"Setting\" id=\"AttractDemoItem\" max=\"1\" min=\"0\" default=\"0\"/>",
         [&](){ INSTALL_MID_HOOK (AttractDemo); }
     );
-    
+    TestMode::RegisterHook([&](){
+        INSTALL_FAST_HOOK (EnsoGameManagerInitialize);
+        INSTALL_FAST_HOOK (EnsoGameManagerLoading);
+        INSTALL_FAST_HOOK (EnsoGameManagerPreparing);
+        INSTALL_FAST_HOOK (EnsoGraphicManagerPreparing);
+        INSTALL_FAST_HOOK (EnsoGameManagerStart);
+        INSTALL_FAST_HOOK (EnsoGameManagerChechEnsoEnd);
+        INSTALL_FAST_HOOK (SceneTestModeLoading);
+    });
     // for (size_t i=0; i < 40; i++) TestMode::RegisterItem(std::format (L"<text-item label=\"TEST{}\"/>", i + 1));
 
     // Instant Result
@@ -712,6 +737,11 @@ Init () {
 
     // Use chs font/wordlist instead of cht
     if (chsPatch) {
+        WRITE_MEMORY (ASLR (0x140CD1E40), wchar_t, L"加載中\0");
+        WRITE_MEMORY (ASLR (0x140CD1E28), wchar_t, L"加載中.\0");
+        WRITE_MEMORY (ASLR (0x140CD1E68), wchar_t, L"加載中..\0");
+        WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加載中...\0");
+
         bool fontExistAll = true;
         const char *fontToCheck[]{"cn_30.nutexb", "cn_30.xml", "cn_32.nutexb", "cn_32.xml", "cn_64.nutexb", "cn_64.xml"};
         for (int i = 0; i < 6; i++) {
@@ -719,38 +749,54 @@ Init () {
             if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\font\\") + fontToCheck[i])) continue;
             fontExistAll = false;
         }
-
         if (fontExistAll) {
+            LogMessage (LogLevel::INFO, "Font all exist, using chs_patch font part!");
             WRITE_MEMORY (ASLR (0x140CD1AE0), char, "cn_64");
             WRITE_MEMORY (ASLR (0x140CD1AF0), char, "cn_32");
             WRITE_MEMORY (ASLR (0x140CD1AF8), char, "cn_30");
             WRITE_MEMORY (ASLR (0x140C946A0), char, "chineseSText");
             WRITE_MEMORY (ASLR (0x140C946B0), char, "chineseSFontType");
-            WRITE_MEMORY (ASLR (0x140CD1E40), wchar_t, L"加載中\0");
-            WRITE_MEMORY (ASLR (0x140CD1E28), wchar_t, L"加載中.\0");
-            WRITE_MEMORY (ASLR (0x140CD1E68), wchar_t, L"加載中..\0");
-            WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加載中...\0");
             INSTALL_MID_HOOK (ChangeLanguageType);
             // INSTALL_HOOK (SetupFontInfo);
             // INSTALL_HOOK (ReadFontInfoInt);
         }
 
-        LayeredFs::RegisterBefore ([=] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
-            if (currentFileName.find ("\\lumen\\") == std::string::npos) return "";
-            std::string fileName = currentFileName;
-            fileName             = replace (fileName, "\\lumen\\", "\\lumen_cn\\");
-            if (std::filesystem::exists (fileName)) return fileName;
-            return currentFileName;
-        });
+        bool demoMovieExistAll = true;
+        const char *movieToCheck[]{"movie\\attractdemo_cn_cn.wmv", "sound\\attractdemo_cn_cn.nus3bank"};
+        for (int i = 0; i < 2; i++) {
+            if (useLayeredfs && std::filesystem::exists (std::string ("..\\..\\Data_mods\\x64\\") + movieToCheck[i])) continue;
+            if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\") + movieToCheck[i])) continue;
+            demoMovieExistAll = false;
+        }
+        if (demoMovieExistAll) {
+            LogMessage (LogLevel::INFO, "Resource all exist, using chs_patch attractdemo part!");
+            INSTALL_FAST_HOOK (LoadDemoMovie);
+        }
+
+        bool onpCnExist = false;
+        if (useLayeredfs && std::filesystem::exists (std::string ("..\\..\\Data_mods\\x64\\textures\\onpu_cn\\onp_all.nutexb"))) onpCnExist = true;
+        if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\textures\\onpu_cn\\onp_all.nutexb"))) onpCnExist = true;
+        if (onpCnExist) {
+            LogMessage (LogLevel::INFO, "onpu_cn/onp_all exist, using chs_patch onp part!");
+            INSTALL_MID_HOOK (ChangeOnpFile);
+        }
+
+        // LayeredFs::RegisterBeforeA ([=] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
+        //     if (currentFileName.find ("\\lumen\\") == std::string::npos) return "";
+        //     std::string fileName = currentFileName;
+        //     fileName             = replace (fileName, "\\lumen\\", "\\lumen_cn\\");
+        //     if (std::filesystem::exists (fileName)) return fileName;
+        //     return "";
+        // });
     }
 
     // Fix normal song play after passing through silent song
     INSTALL_MID_HOOK (GenNus3bankId);
-    INSTALL_HOOK (LoadedBankAll);
+    INSTALL_FAST_HOOK (LoadedBankAll);
 
     // Disable live check
     auto amHandle = reinterpret_cast<u64> (GetModuleHandle ("AMFrameWork.dll"));
-    INSTALL_HOOK_DYNAMIC (AMFWTerminate, reinterpret_cast<void *> (amHandle + 0x42DE0));
+    INSTALL_FAST_HOOK_DYNAMIC (AMFWTerminate, reinterpret_cast<void *> (amHandle + 0x42DE0));
 
     // Move various files to current directory
     WRITE_MEMORY (amHandle + 0x15252, u8, 0xEB); // CreditLogPathA
@@ -764,7 +810,7 @@ Init () {
 
     // Redirect garmc requests
     auto garmcHandle = reinterpret_cast<u64> (GetModuleHandle ("garmc.dll"));
-    INSTALL_HOOK_DYNAMIC (curl_easy_setopt, reinterpret_cast<void *> (garmcHandle + 0x1FBBB0));
-    INSTALL_HOOK_DYNAMIC (garmc_logger_log, reinterpret_cast<void *> (garmcHandle + 0x13AB70));
+    INSTALL_FAST_HOOK_DYNAMIC (curl_easy_setopt, reinterpret_cast<void *> (garmcHandle + 0x1FBBB0));
+    INSTALL_FAST_HOOK_DYNAMIC (garmc_logger_log, reinterpret_cast<void *> (garmcHandle + 0x13AB70));
 }
 } // namespace patches::JPN39

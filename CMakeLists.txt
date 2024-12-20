@@ -94,15 +94,17 @@ FetchContent_Declare(
 set(SAFETYHOOK_FETCH_ZYDIS ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(safetyhook)
 
-# Fetch SDL2
+# Fetch SDL3
 FetchContent_Declare(
-    SDL2
-    URL https://github.com/libsdl-org/SDL/releases/download/release-2.26.5/SDL2-2.26.5.tar.gz
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG 78cc5c173404488d80751af226d1eaf67033bcc4 # v3.1.6
+    # URL https://github.com/libsdl-org/SDL/releases/download/preview-3.1.6/SDL3-3.1.6.tar.gz
 )
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(SDL2)
+FetchContent_MakeAvailable(SDL3)
 
 # Fetch xxHash
 FetchContent_Declare(
@@ -137,7 +139,6 @@ set(SOURCES
     src/patches/audio.cpp
     src/patches/plugins.cpp
     src/patches/scanner.cpp
-    # src/patches/qr.cpp
     src/patches/layeredfs.cpp
     src/patches/testmode.cpp
     src/patches/timer.cpp
@@ -157,7 +158,7 @@ set_target_properties(bnusio PROPERTIES PREFIX "")
 target_include_directories(bnusio PRIVATE
     src
     ${tomlc99_SOURCE_DIR}
-    ${SDL2_SOURCE_DIR}/include
+    ${SDL3_SOURCE_DIR}/include
     ${xxhash_SOURCE_DIR}
     ${zlib_SOURCE_DIR}
     ${libtomcrypt_SOURCE_DIR}/src/headers
@@ -177,7 +178,7 @@ endif()
 # Link libraries
 target_link_libraries(bnusio PRIVATE
     tomlc99
-    SDL2-static
+    SDL3-static
     xxhash
     zlibstatic
     libtomcrypt

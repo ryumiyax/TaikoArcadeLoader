@@ -3,6 +3,7 @@
 #include "patches.h"
 #include <exception>
 #include <format>
+#include <queue>
 
 extern GameVersion gameVersion;
 
@@ -10,6 +11,31 @@ bool chsPatch = false;
 #define MIN(a, b) ((a)<(b)?(a):(b))
 
 namespace patches::TestMode {
+bool hookInstallFinished = false;
+std::vector<std::function<void ()>> hooks = {};
+std::thread *hookInstall;
+std::mutex hooksMutex;
+std::condition_variable hooksCV;
+
+// void
+// AddHookInLoop (std::function<void ()> installMethod) {
+//     // hooks.push (installMethod);
+//     hooksCV.notify_all ();
+// }
+
+// void
+// HookInstallLoop () {
+//     std::unique_lock<std::mutex> hooksLock(hooksMutex);
+//     while (!hookInstallFinished) {
+//         while (!hooks.empty ()) {
+//             auto installMethod = hooks.front ();
+//             hooks.pop ();
+//             if (installMethod) installMethod ();
+//         }
+//         if (!hookInstallFinished) hooksCV.wait (hooksLock);
+//     }
+// }
+
 std::wstring
 mergeCondition (std::wstring original, std::wstring addition, std::wstring value) {
     size_t pos = original.find (L"/");
@@ -30,7 +56,18 @@ addConditionValue (pugi::xml_node *node, std::wstring key, std::wstring addition
         attr.set_value (mergeCondition(attr.value (), addition, value).c_str ());
     } else node->append_attribute (key.c_str ()) = std::format(L"True/{}:{}", addition, value).c_str ();
 }
-
+class RegisteredHook : public Applicable {
+public:
+    std::function<void ()> registerInit;
+    RegisteredHook (const std::function<void ()> &initMethod) {
+        this->registerInit = initMethod;
+    }
+    pugi::xml_node *
+    Apply (pugi::xml_node *doc, pugi::xml_node *node) override {
+        // AddHookInLoop (this->registerInit);
+        return node;
+    }
+};
 class RegisteredItem : public Applicable {
 public:
     std::wstring selectItem;
@@ -49,7 +86,7 @@ public:
             LogMessage (LogLevel::ERROR, L"Failed to parse item: {}\n", this->selectItem);
             itemDoc.load_string (L"<root><text-item label=\"@Color/Red;!!!ERROR APPLYING ITEM!!!@Color/Default;\"/></root>");
         }
-        if (success) this->registerInit ();
+        // if (success) AddHookInLoop (this->registerInit);
         std::wstring layoutName = L"layout";
         if (layoutName == node->name ()) {
             temp = node->append_copy (itemDoc.first_child ().first_child ());
@@ -189,7 +226,7 @@ public:
         try {
             if (pugi::xml_node modifyNode = node->select_node (modifyQuery).node ()) {
                 this->nodeModify (modifyNode);
-                this->registerInit ();
+                // AddHookInLoop (this->registerInit);
             }
         } catch ([[maybe_unused]] std::exception &e) { LogMessage (LogLevel::ERROR, L"Failed to find node by xpath: {}\n", this->query); }
         return nullptr;
@@ -200,6 +237,7 @@ Menu *modManager = new RegisteredMenu (L"MOD MANAGER", L"ModManagerMenu");
 // std::vector<RegisteredItem *> registeredItems             = {};
 std::vector<RegisteredSingleItem *> registeredSingleItems = {};
 std::vector<RegisteredModify *> registeredModifies        = {};
+std::vector<RegisteredHook *> registeredHooks             = {};
 std::wstring moddedInitial                                = L"";
 std::wstring modded                                       = L"";
 
@@ -221,8 +259,10 @@ ReadXMLFileSwitcher (std::wstring &fileName) {
     return fileName;
 }
 
-HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFileName) {
+FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFileName) {
+    auto start = std::chrono::high_resolution_clock::now();
     const auto originalFileName = std::wstring (lFileName);
+    LogMessage (LogLevel::DEBUG, L"Begin Loading {}", originalFileName);
     std::wstring fileName       = originalFileName;
     if (fileName.ends_with (L"DeviceInitialize.xml") || fileName.ends_with (L"DeviceInitialize_asia.xml")
         || fileName.ends_with (L"DeviceInitialize_china.xml")) {
@@ -280,6 +320,13 @@ HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFi
                         LogMessage (LogLevel::DEBUG, "End Apply Modify Items");
                     }
 
+                    if (!registeredHooks.empty ()) {
+                        LogMessage (LogLevel::DEBUG, "Begin Apply Hooks");
+                        for (RegisteredHook *hook : registeredHooks) hook->Apply (&doc, &doc);
+                        LogMessage (LogLevel::DEBUG, "End Apply Hooks");
+                    }
+
+                    // AddHookInLoop ([&](){ hookInstallFinished = true; });
                     [[maybe_unused]] auto _ = doc.save_file (modFileName.c_str ());
                     modded   = modFileName;
                     fileName = modFileName;
@@ -288,8 +335,9 @@ HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFi
         } else fileName = modded;
     }
 
-    LogMessage (LogLevel::DEBUG, L"TestModeLibrary load: " + fileName);
-    originalTestModeSetMenuHook (testModeLibrary, fileName.c_str ());
+    std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
+    LogMessage (LogLevel::DEBUG, L"TestModeLibrary load: {}, spend: {:.2f}ms", fileName, duration.count () * 1000);
+    originalTestModeSetMenuHook.fastcall<void> (testModeLibrary, fileName.c_str ());
 }
 
 // HOOK_DYNAMIC (void, TestModeGetValueHook, u64 *reader, const wchar_t *lItemName, int *value) {
@@ -462,7 +510,8 @@ Init () {
 
     CommonModify ();
 
-    INSTALL_HOOK_DYNAMIC (TestModeSetMenuHook, testModeSetMenu);
+    INSTALL_FAST_HOOK_DYNAMIC (TestModeSetMenuHook, testModeSetMenu);
+    for (auto method : hooks) method ();
     // INSTALL_HOOK_DYNAMIC (TestModeGetValueHook, testModeGetValue);
     // INSTALL_HOOK_DYNAMIC (TestModeSetValueHook, testModeSetValue);
 }
@@ -508,25 +557,27 @@ CreateMenu (const std::wstring &menuName, const std::wstring &menuId) {
 
 void
 RegisterItem (const std::wstring &item, const std::function<void ()> &initMethod, Menu *menu) {
-    LogMessage (LogLevel::DEBUG, L"Register Item: {}", item);
-    menu->RegisterItem (new RegisteredItem (item, initMethod));
+    LogMessage (LogLevel::DEBUG, L"Register \nItem: {}", item);
+    hooks.push_back (initMethod);
+    menu->RegisterItem (new RegisteredItem (item, [](){}));
 }
 
 void
 RegisterItem (const std::wstring &item, const std::function<void ()> &initMethod) {
-    LogMessage (LogLevel::DEBUG, L"Register Item: {}", item);
-    modManager->RegisterItem (new RegisteredItem (item, initMethod));
+    LogMessage (LogLevel::DEBUG, L"Register \nItem: {}", item);
+    hooks.push_back (initMethod);
+    modManager->RegisterItem (new RegisteredItem (item, [](){}));
 }
 
 void
 RegisterItem (const std::wstring &item, Menu *menu) {
-    LogMessage (LogLevel::DEBUG, L"Register Item: {}", item);
+    LogMessage (LogLevel::DEBUG, L"Register \nItem: {}", item);
     menu->RegisterItem (new RegisteredItem (item, [](){}));
 }
 
 void
 RegisterItem (const std::wstring &item) {
-    LogMessage (LogLevel::DEBUG, L"Register Item: {}", item);
+    LogMessage (LogLevel::DEBUG, L"Register \nItem: {}", item);
     modManager->RegisterItem (new RegisteredItem (item, [](){}));
 }
 
@@ -544,32 +595,41 @@ RegisterItem (Applicable *item) {
 
 void
 RegisterItemAfter (const std::wstring &query, const std::wstring &item, const std::function<void()> &initMethod) {
-    LogMessage (LogLevel::DEBUG, L"Register Query: {} Item: {}", query, item);
-    registeredSingleItems.push_back (new RegisteredSingleItem (query, new RegisteredItem (item, initMethod)));
+    LogMessage (LogLevel::DEBUG, L"Register \nQuery: {} \nItem: {}", query, item);
+    hooks.push_back (initMethod);
+    registeredSingleItems.push_back (new RegisteredSingleItem (query, new RegisteredItem (item, [](){})));
 }
 
 void
 RegisterItemAfter (const std::wstring &query, const std::wstring &item) {
-    LogMessage (LogLevel::DEBUG, L"Register Query: {} Item: {}", query, item);
+    LogMessage (LogLevel::DEBUG, L"Register \nQuery: {} \nItem: {}", query, item);
     registeredSingleItems.push_back (new RegisteredSingleItem (query, new RegisteredItem (item, [](){})));
 }
 
 void
 RegisterItemAfter (const std::wstring &query, Applicable *item) {
-    LogMessage (LogLevel::DEBUG, L"Register Query: {} Item: ptr", query);
+    LogMessage (LogLevel::DEBUG, L"Register \nQuery: {} \nItem: ptr", query);
     registeredSingleItems.push_back (new RegisteredSingleItem (query, item));
 }
 
 void
 RegisterModify (const std::wstring &query, const std::function<void (pugi::xml_node &)> &nodeModify, const std::function<void ()> &initMethod) {
-    LogMessage (LogLevel::DEBUG, L"Register Modify: {}", query);
-    registeredModifies.push_back (new RegisteredModify (query, nodeModify, initMethod));
+    LogMessage (LogLevel::DEBUG, L"Register \nModify: {}", query);
+    hooks.push_back (initMethod);
+    registeredModifies.push_back (new RegisteredModify (query, nodeModify, [](){}));
 }
 
 void
 RegisterModify (const std::wstring &query, const std::function<void (pugi::xml_node &)> &nodeModify) {
-    LogMessage (LogLevel::DEBUG, L"Register Modify: {}", query);
+    LogMessage (LogLevel::DEBUG, L"Register \nModify: {}", query);
     registeredModifies.push_back (new RegisteredModify (query, nodeModify, [](){}));
+}
+
+void
+RegisterHook (const std::function<void()> &initMethod) {
+    LogMessage (LogLevel::DEBUG, L"Register Hook");
+    hooks.push_back (initMethod);
+    // registeredHooks.push_back (new RegisteredHook (initMethod));
 }
 
 void

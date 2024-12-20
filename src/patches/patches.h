@@ -38,8 +38,10 @@ void Init ();
 } // namespace AmAuth
 namespace LayeredFs {
 void Init ();
-void RegisterBefore (const std::function<std::string (const std::string, const std::string)> &fileHandler);
-void RegisterAfter  (const std::function<std::string (const std::string, const std::string)> &fileHandler);
+void RegisterBeforeA (const std::function<std::string (const std::string, const std::string)> &fileHandler);
+void RegisterAfterA  (const std::function<std::string (const std::string, const std::string)> &fileHandler);
+void RegisterBeforeW (const std::function<std::wstring (const std::wstring, const std::wstring)> &fileHandler);
+void RegisterAfterW  (const std::function<std::wstring (const std::wstring, const std::wstring)> &fileHandler);
 } // namespace LayeredFs
 namespace TestMode {
 class Applicable {
@@ -68,6 +70,7 @@ void RegisterItemAfter (const std::wstring &query, const std::wstring &item);
 void RegisterItemAfter (const std::wstring &query, Applicable *item);
 void RegisterModify    (const std::wstring &query, const std::function<void (pugi::xml_node &)> &nodeModify, const std::function<void ()> &initMethod);
 void RegisterModify    (const std::wstring &query, const std::function<void (pugi::xml_node &)> &nodeModify);
+void RegisterHook      (const std::function<void()> &initMethod);
 } // namespace TestMode
 namespace Plugins {
 // typedefs

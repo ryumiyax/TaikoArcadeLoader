@@ -35,7 +35,7 @@ Keybindings SERVICE       = {.keycodes = {VK_F2}};
 Keybindings DEBUG_UP      = {.keycodes = {VK_UP}};
 Keybindings DEBUG_DOWN    = {.keycodes = {VK_DOWN}};
 Keybindings DEBUG_ENTER   = {.keycodes = {VK_RETURN}};
-Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_CONTROLLER_BUTTON_START}};
+Keybindings COIN_ADD      = {.keycodes = {VK_RETURN}, .buttons = {SDL_GAMEPAD_BUTTON_START}};
 Keybindings CARD_INSERT_1 = {.keycodes = {'P'}};
 Keybindings CARD_INSERT_2 = {};
 Keybindings QR_DATA_READ  = {.keycodes = {'Q'}};
@@ -52,19 +52,25 @@ Keybindings P2_RIGHT_BLUE = {.keycodes = {'V'}};
 //     CARD_INSERT_1, CARD_INSERT_2, QR_DATA_READ, QR_IMAGE_READ, P1_LEFT_BLUE, P1_LEFT_RED,
 //     P1_RIGHT_RED, P1_RIGHT_BLUE, P2_LEFT_BLUE, P2_LEFT_RED, P2_RIGHT_RED, P2_RIGHT_BLUE };
 
-int exited        = 0;
-bool testEnabled  = false;
-int coin_count    = 0;
-int service_count = 0;
-bool inited       = false;
-bool updateByCoin = false;
-HWND windowHandle = nullptr;
-bool usePoll      = false;
+const int exitWait  = 100;
+int exited          = 0;
+bool testEnabled    = false;
+bool insert_coin    = false;
+bool insert_service = false;
+u16 coin_count      = 0;
+u16 service_count   = 0;
+bool inited         = false;
+bool updateByCoin   = false;
+HWND windowHandle   = nullptr;
+bool usePoll        = false;
 HKL currentLayout;
 
 namespace bnusio {
 #define RETURN_FALSE(returnType, functionName, ...) \
     returnType functionName (__VA_ARGS__) { return 0; }
+
+typedef u16 (__fastcall *AnalogMethod) (const u8);
+AnalogMethod analogMethod = nullptr;
 
 extern "C" {
 RETURN_FALSE (i64, bnusio_Open);
@@ -124,13 +130,14 @@ bnusio_GetSwIn () {
 }
 
 bool waitAll = false;
-u16 drumWaitPeriod = 4;
+short drumWaitPeriod = 4;
+bool analogInput = false;
 bool valueStates[] = {false, false, false, false, false, false, false, false};
 
 Keybindings *analogButtons[]
     = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
 
-u16 cooldown[8] = { 0 };
+// u16 cooldown[8] = { 0 };
 u16 buttonWaitPeriod[] = { 0, 0 };
 std::queue<u8> buttonQueue[] = { {}, {} };
 
@@ -139,7 +146,7 @@ std::queue<u8> buttonQueue[] = { {}, {} };
 // std::queue<u8> buttonQueueP1;
 // std::queue<u8> buttonQueueP2;
 
-bool analogInput;
+
 SDLAxis analogBindings[] = {
     SDL_AXIS_LEFT_LEFT,  SDL_AXIS_LEFT_RIGHT,  SDL_AXIS_LEFT_DOWN,  SDL_AXIS_LEFT_UP,  // P1: LB, LR, RR, RB
     SDL_AXIS_RIGHT_LEFT, SDL_AXIS_RIGHT_RIGHT, SDL_AXIS_RIGHT_DOWN, SDL_AXIS_RIGHT_UP, // P2: LB, LR, RR, RB
@@ -147,41 +154,8 @@ SDLAxis analogBindings[] = {
 
 u16
 bnusio_GetAnalogIn (const u8 which) {
-    if (analogInput) {
-        const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which]));
-        if (analogValue > 100) return analogValue;
-        else return 0;
-    }
-    const auto button = analogButtons[which];
-    const bool blue = !(which % 4 % 3);
-    const int player = which / 4;
-
-    u16 analogValue = 0;
-    if (which == 0) {
-        for (int i=0; i<2; i++) if (buttonWaitPeriod[i] > 0) buttonWaitPeriod[i]--;
-        for (int i=0; i<8; i++) if (cooldown[i] > 0) cooldown[i]--;
-    }
-    if (buttonWaitPeriod[player] == 0 && !buttonQueue[player].empty () && buttonQueue[player].front () == which) {
-        buttonWaitPeriod[player] = drumWaitPeriod;
-        buttonQueue[player].pop ();
-
-        const u16 hitValue = !valueStates[which] ? 50 : 51;
-        valueStates[which] = !valueStates[which];
-        analogValue = (hitValue << 15) / 100 + 1;
-    }
-    if (IsButtonTapped (*button)) {
-        if ((waitAll || blue) && buttonWaitPeriod[player] > 0) {
-            buttonQueue[player].push (which);
-            return analogValue;
-        } else if ((waitAll || blue) && cooldown[which] > 0) return 0;
-        buttonWaitPeriod[player] = drumWaitPeriod;
-        if (waitAll || blue) cooldown[which] = 4;
-
-        const u16 hitValue = !valueStates[which] ? 50 : 51;
-        valueStates[which] = !valueStates[which];
-        analogValue = (hitValue << 15) / 100 + 1;
-    }
-    return analogValue;
+    if (analogMethod) return analogMethod (which);
+    else return 0;
 }
 
 u16 __fastcall bnusio_GetCoin (i32 a1) {
@@ -237,6 +211,54 @@ FUNCTION_PTR (i64, bnusio_DecCoin_Original, PROC_ADDRESS ("bnusio_original.dll",
 FUNCTION_PTR (u64, bnusio_DecService_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_DecService"), i32, u16);
 FUNCTION_PTR (i64, bnusio_ResetCoin_Original, PROC_ADDRESS ("bnusio_original.dll", "bnusio_ResetCoin"));
 
+u16 __fastcall
+AnalogInputAxis (const u8 which) {
+    const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which]));
+    if (analogValue > 100) return analogValue;
+    else return 0;
+}
+
+u16 __fastcall
+AnalogInputWaitPeriod (const u8 which) {
+    const auto button = analogButtons[which];
+    const bool blue = !(which % 4 % 3);
+    const int player = which / 4;
+
+    u16 analogValue = 0;
+    if (which == 0) for (int i=0; i<2; i++) if (buttonWaitPeriod[i] > 0) buttonWaitPeriod[i]--;
+    if (buttonWaitPeriod[player] == 0 && !buttonQueue[player].empty () && buttonQueue[player].front () == which) {
+        buttonWaitPeriod[player] = drumWaitPeriod;
+        buttonQueue[player].pop ();
+
+        const u16 hitValue = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        analogValue = (hitValue << 15) / 100 + 1;
+    }
+    if (IsButtonTapped (*button)) {
+        if ((waitAll || blue) && buttonWaitPeriod[player] > 0) {
+            buttonQueue[player].push (which);
+            return analogValue;
+        }
+        buttonWaitPeriod[player] = drumWaitPeriod;
+
+        const u16 hitValue = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        analogValue = (hitValue << 15) / 100 + 1;
+    }
+    return analogValue;
+}
+
+u16 __fastcall
+AnalogInputSimple (const u8 which) {
+    const auto button = analogButtons[which];
+    if (IsButtonTapped (*button)) {
+        const u16 hitValue = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        return (hitValue << 15) / 100 + 1;
+    }
+    return 0;
+}
+
 #ifndef ASYNC_UPDATE
 void
 Update () {
@@ -250,10 +272,10 @@ void
 UpdateLoop () {
     LogMessage (LogLevel::WARN, "(experimental) Using Async Update!");
     std::unique_lock<std::mutex> syncLock(syncMtx);
-    while (exited < 120) {
+    while (exited < exitWait) {
         syncCV.wait (syncLock);
 #endif
-    if (exited && ++exited >= 120) ExitProcess (0);
+    if (exited && ++exited >= exitWait) ExitProcess (0);
 
 #ifndef ASYNC_IO
     if (!inited) {
@@ -273,9 +295,9 @@ UpdateLoop () {
 #endif
     std::vector<uint8_t> buffer = {};
     if (IsButtonTapped (COIN_ADD)) coin_count++;
-    if (IsButtonTapped (SERVICE)  && !testEnabled) service_count++;
+    if (IsButtonTapped (SERVICE)) service_count++;
     if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) { 
+    if (IsButtonTapped (EXIT)) {
         LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
         exited += 1; testEnabled = 1; patches::Plugins::Exit ();
     }
@@ -307,14 +329,24 @@ Init () {
     if (config_ptr) {
         const toml_table_t *config = config_ptr.get ();
         if (const auto controller = openConfigSection (config, "controller")) {
-            drumWaitPeriod   = static_cast<u16> (readConfigInt (controller, "wait_period", drumWaitPeriod));
+            drumWaitPeriod   = static_cast<short> (readConfigInt (controller, "wait_period", drumWaitPeriod));
             analogInput      = readConfigBool (controller, "analog_input", analogInput);
-            if (analogInput) LogMessage (LogLevel::WARN, "Using analog input mode. All the keyboard drum inputs have been disabled.");
         }
         auto graphics = openConfigSection (config, "graphics");
         if (graphics) {
             fpsLimit = (int)readConfigInt (graphics, "fpslimit", fpsLimit);
         }
+    }
+
+    if (analogInput) {
+        LogMessage (LogLevel::WARN, "[Analog Type] Axis: All the keyboard drum inputs have been disabled");
+        analogMethod = AnalogInputAxis;
+    } else if (drumWaitPeriod > 0) {
+        LogMessage (LogLevel::WARN, "[Analog Type] WaitPeriod: Fast input might be queued");
+        analogMethod = AnalogInputWaitPeriod;
+    } else {
+        LogMessage (LogLevel::INFO, "[Analog Type] Simple: Fastest and original input");
+        analogMethod = AnalogInputSimple;
     }
 
     updateByCoin = fpsLimit == 0;
@@ -324,6 +356,7 @@ Init () {
     const auto keyConfigPath = std::filesystem::current_path () / "keyconfig.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
+        if (analogInput) usePoll = true;
         const toml_table_t *keyConfig = keyConfig_ptr.get ();
         SetConfigValue (keyConfig, "EXIT", &EXIT, &usePoll);
 
