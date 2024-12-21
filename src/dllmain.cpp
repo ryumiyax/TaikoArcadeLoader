@@ -151,9 +151,9 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         InitializeLogger (GetLogLevel (logLevelStr), logToFile);
         patches::Timer::Init ();
 
-        #ifdef ASYNC_IO
-        InitializeKeyboard ();
-        #endif
+        // #ifdef ASYNC_IO
+        // InitializeKeyboard ();
+        // #endif
 
         LogMessage (LogLevel::INFO, "Loading config...");
 

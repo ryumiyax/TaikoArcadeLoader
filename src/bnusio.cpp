@@ -62,7 +62,8 @@ u16 service_count   = 0;
 bool inited         = false;
 bool updateByCoin   = false;
 HWND windowHandle   = nullptr;
-bool usePoll        = false;
+float axisThreshold = 0.6f;
+u8 inputState       = 0;
 HKL currentLayout;
 
 namespace bnusio {
@@ -207,9 +208,8 @@ FUNCTION_PTR (i64, bnusio_ResetCoin_Original, PROC_ADDRESS ("bnusio_original.dll
 
 u16 __fastcall
 AnalogInputAxis (const u8 which) {
-    const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which]));
-    if (analogValue > 100) return analogValue;
-    else return 0;
+    u16 analogIn = (u16)(32768 * ControllerAxisIsDown (analogBindings[which])) + 1;
+    return analogIn > 100 ? analogIn : 0;
 }
 
 u16 __fastcall
@@ -307,7 +307,7 @@ UpdateLoop () {
     if (IsButtonTapped (COIN_ADD)) coin_count++;
     if (IsButtonTapped (SERVICE)) service_count++;
     if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) {
+    if (exited == 0 && IsButtonTapped (EXIT)) {
         LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
         exited += 1; testEnabled = 1; std::thread([](){patches::Plugins::Exit ();}).detach();
     }
@@ -369,33 +369,30 @@ Init () {
     const auto keyConfigPath = std::filesystem::current_path () / "keyconfig.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
-        if (analogInput) usePoll = true;
+        if (analogInput) inputState |= (1 << 2);
         const toml_table_t *keyConfig = keyConfig_ptr.get ();
-        SetConfigValue (keyConfig, "EXIT", &EXIT, &usePoll);
+        SetConfigValue (keyConfig, "EXIT", &EXIT, &inputState);
 
-        SetConfigValue (keyConfig, "TEST", &TEST, &usePoll);
-        SetConfigValue (keyConfig, "SERVICE", &SERVICE, &usePoll);
-        SetConfigValue (keyConfig, "DEBUG_UP", &DEBUG_UP, &usePoll);
-        SetConfigValue (keyConfig, "DEBUG_DOWN", &DEBUG_DOWN, &usePoll);
-        SetConfigValue (keyConfig, "DEBUG_ENTER", &DEBUG_ENTER, &usePoll);
+        SetConfigValue (keyConfig, "TEST", &TEST, &inputState);
+        SetConfigValue (keyConfig, "SERVICE", &SERVICE, &inputState);
+        SetConfigValue (keyConfig, "DEBUG_UP", &DEBUG_UP, &inputState);
+        SetConfigValue (keyConfig, "DEBUG_DOWN", &DEBUG_DOWN, &inputState);
+        SetConfigValue (keyConfig, "DEBUG_ENTER", &DEBUG_ENTER, &inputState);
 
-        SetConfigValue (keyConfig, "COIN_ADD", &COIN_ADD, &usePoll);
-        SetConfigValue (keyConfig, "CARD_INSERT_1", &CARD_INSERT_1, &usePoll);
-        SetConfigValue (keyConfig, "CARD_INSERT_2", &CARD_INSERT_2, &usePoll);
-        SetConfigValue (keyConfig, "QR_DATA_READ", &QR_DATA_READ, &usePoll);
-        SetConfigValue (keyConfig, "QR_IMAGE_READ", &QR_IMAGE_READ, &usePoll);
+        SetConfigValue (keyConfig, "COIN_ADD", &COIN_ADD, &inputState);
+        SetConfigValue (keyConfig, "CARD_INSERT_1", &CARD_INSERT_1, &inputState);
+        SetConfigValue (keyConfig, "CARD_INSERT_2", &CARD_INSERT_2, &inputState);
+        SetConfigValue (keyConfig, "QR_DATA_READ", &QR_DATA_READ, &inputState);
+        SetConfigValue (keyConfig, "QR_IMAGE_READ", &QR_IMAGE_READ, &inputState);
 
-        SetConfigValue (keyConfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE, &usePoll);
-        SetConfigValue (keyConfig, "P1_LEFT_RED", &P1_LEFT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P1_RIGHT_RED", &P1_RIGHT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE, &usePoll);
-        SetConfigValue (keyConfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE, &usePoll);
-        SetConfigValue (keyConfig, "P2_LEFT_RED", &P2_LEFT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P2_RIGHT_RED", &P2_RIGHT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE, &usePoll);
-        if (!usePoll) {
-            LogMessage (LogLevel::WARN, "Only Keyboard config detected, disable poll!");
-        }
+        SetConfigValue (keyConfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE, &inputState);
+        SetConfigValue (keyConfig, "P1_LEFT_RED", &P1_LEFT_RED, &inputState);
+        SetConfigValue (keyConfig, "P1_RIGHT_RED", &P1_RIGHT_RED, &inputState);
+        SetConfigValue (keyConfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE, &inputState);
+        SetConfigValue (keyConfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE, &inputState);
+        SetConfigValue (keyConfig, "P2_LEFT_RED", &P2_LEFT_RED, &inputState);
+        SetConfigValue (keyConfig, "P2_RIGHT_RED", &P2_RIGHT_RED, &inputState);
+        SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE, &inputState);
     }
 
     if (!emulateUsio && !exists (std::filesystem::current_path () / "bnusio_original.dll")) {
@@ -464,7 +461,7 @@ void
 Update () {
     if (!inited) {
         windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
-        if (usePoll) InitializePoll (windowHandle);
+        InitializePoll (windowHandle);
         if (autoIme) {
             currentLayout  = GetKeyboardLayout (0);
             auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
@@ -474,7 +471,7 @@ Update () {
         patches::Plugins::Init ();
         inited = true;
     }
-    UpdatePoll (windowHandle, usePoll);
+    UpdatePoll (windowHandle);
     syncCV.notify_all ();
 }
 #endif

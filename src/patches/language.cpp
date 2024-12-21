@@ -374,6 +374,8 @@ FAST_HOOK_DYNAMIC (u64, GraphicBaseGetLanguageType, u64 a1, void *a2) {
     return (u64)GetLanguageType (taiko_assign, language, a2);
 }
 
+std::string *season_nulm = nullptr;
+std::string *season_nutexb = nullptr;
 void
 Init () {
     switch (gameVersion) {
@@ -416,11 +418,33 @@ Init () {
         language_patch.push_back (safetyhook::create_mid (ASLR (0x14012B8C8), [](SafetyHookContext &ctx)
         { InjectLanguageType (ctx.rbp + 0x180 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x14012B8D0); }));   // ScoreGetLanguageType
         LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
-            if (language != 4 || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
-            std::string fileName = currentFileName;
+            if (language != 4 || currentFileName.starts_with ("F:\\") || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
+            std::string fileName = std::string (currentFileName);
             fileName             = replace (fileName, "\\lumen\\", "\\lumen_cn\\");
             if (std::filesystem::exists (fileName)) return fileName;
             return "";
+        });
+        
+        LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
+            if (language != 4 || currentFileName.starts_with ("F:\\")) return "";
+            if (currentFileName.ends_with ("title.nulm")) {
+                std::string fileName = std::string (currentFileName);
+                if (season_nulm == nullptr) {
+                    fileName = replace (fileName, "title.nulm", "title_season.nulm");
+                    if (std::filesystem::exists (fileName)) {
+                        std::string nutexb = std::string (currentFileName);
+                        nutexb = replace (nutexb, "title.nulm", "title_" + season () + ".nutexb");
+                        if (std::filesystem::exists (nutexb)) {
+                            season_nulm = new std::string (fileName), season_nutexb = new std::string (nutexb);
+                            return *season_nulm;
+                        }
+                    }
+                    season_nulm = new std::string (""), season_nutexb = new std::string ("");
+                    return "";
+                } else return *season_nulm;
+            } else if (currentFileName.ends_with ("title.nutexb") && season_nutexb != nullptr) {
+                return *season_nutexb;
+            } else return "";
         });
 
     } break;

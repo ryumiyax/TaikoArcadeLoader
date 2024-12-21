@@ -217,10 +217,11 @@ bool readConfigBool (const toml_table_t *table, const std::string &key, bool not
 i64 readConfigInt (const toml_table_t *table, const std::string &key, i64 notFoundValue);
 std::string readConfigString (const toml_table_t *table, const std::string &key, const std::string &notFoundValue);
 std::vector<i64> readConfigIntArray (const toml_table_t *table, const std::string &key, std::vector<i64> notFoundValue);
-std::wstring replace (const std::wstring &orignStr, const std::wstring &oldStr, const std::wstring &newStr);
-std::string replace (const std::string &orignStr, const std::string &oldStr, const std::string &newStr);
+std::wstring replace (const std::wstring orignStr, const std::wstring &oldStr, const std::wstring &newStr);
+std::string replace (const std::string orignStr, const std::string &oldStr, const std::string &newStr);
 const char *GameVersionToString (GameVersion version);
 const char *languageStr (int language);
 std::string ConvertWideToUtf8 (const std::wstring &wstr);
 bool AreAllBytesZero (const u8 *array, size_t offset, size_t length);
 void withFile (const char *fileName, std::function<void (u8 *)> callback);
+std::string season ();

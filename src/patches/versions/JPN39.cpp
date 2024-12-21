@@ -305,17 +305,12 @@ Init () {
     i32 yRes          = 1080;
     bool vsync        = false;
     bool unlockSongs  = true;
-    bool chsPatch     = false;
-    bool useLayeredfs = false;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         if (auto patches = openConfigSection (config_ptr.get (), "patches")) {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-            if (auto jpn39 = openConfigSection (patches, "jpn39")) {
-                chsPatch    = readConfigBool (jpn39, "chs_patch", chsPatch);
-            }
         }
 
         if (auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
@@ -325,8 +320,6 @@ Init () {
             }
             vsync = readConfigBool (graphics, "vsync", vsync);
         }
-
-        if (auto layeredfs = openConfigSection (config_ptr.get (), "layeredfs")) useLayeredfs = readConfigBool (layeredfs, "enabled", useLayeredfs);
     }
 
     // Hook to get AppAccessor and ComponentAccessor

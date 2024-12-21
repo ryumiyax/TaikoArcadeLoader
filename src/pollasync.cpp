@@ -7,6 +7,8 @@
 
 extern bool jpLayout;
 extern int exited;
+extern u8 inputState;
+extern float axisThreshold;
 
 bool wndForeground = false;
 
@@ -20,11 +22,12 @@ uint8_t controllerDiff[SDL_GAMEPAD_BUTTON_COUNT] = { 0 };
 char currentMouseWheelDirection = 0;
 uint8_t mouseWheelCount[2] = { 0 };
 uint8_t mouseWheelDiff[2] = { 0 };
-SDLAxisState currentControllerAxisState;
+// SDLAxisState currentControllerAxisState;
+float currentControllerAxisState[SDL_AXIS_MAX] = { 0.0 };
 uint8_t controllerAxisCount[SDL_AXIS_MAX] = { 0 };
 uint8_t controllerAxisDiff[SDL_AXIS_MAX] = { 0 };
 
-int maxCount = 2;
+int maxCount = 1;
 
 SDL_Window *window;
 SDL_Gamepad *controllers[255];
@@ -40,7 +43,7 @@ SetKeyboardButtons () {
 }
 
 void
-SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bind, bool *usePoll) {
+SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bind, u8 *inputState) {
     const toml_array_t *array = toml_array_in (table, key);
     if (!array) {
         LogMessage (LogLevel::WARN, std::string (key) + ": Cannot find array");
@@ -59,6 +62,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
 
         switch (value.type) {
         case keycode: {
+            *inputState |= 1;
             for (int i = 0; i < std::size (key_bind->keycodes); i++) {
                 if (key_bind->keycodes[i] == 0) {
                     key_bind->keycodes[i] = value.keycode;
@@ -68,7 +72,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case button: {
-            *usePoll = true;
+            *inputState |= (1 << 2);
             for (int i = 0; i < std::size (key_bind->buttons); i++) {
                 if (key_bind->buttons[i] == SDL_GAMEPAD_BUTTON_INVALID) {
                     key_bind->buttons[i] = value.button;
@@ -78,7 +82,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case axis: {
-            *usePoll = true;
+            *inputState |= (1 << 2);
             for (int i = 0; i < std::size (key_bind->axis); i++) {
                 if (key_bind->axis[i] == 0) {
                     key_bind->axis[i] = value.axis;
@@ -87,6 +91,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             }
         }
         case scroll: {
+            *inputState |= (1 << 1);
             for (int i = 0; i < std::size (key_bind->scroll); i++) {
                 if (key_bind->scroll[i] == 0) {
                     key_bind->scroll[i] = value.scroll;
@@ -166,10 +171,16 @@ void KeyboardMainLoop() {
     HINSTANCE hInstance = GetModuleHandle(NULL);
     HWND hwnd = CreateInvisibleWindow(hInstance);
     if (!hwnd) LogMessage (LogLevel::ERROR, "Failed to create window!\n");
-     keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, InputProc, nullptr, 0);
-    if (keyboardHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install keyboard hook!\n");
-    mouseHook = SetWindowsHookEx(WH_MOUSE_LL, InputProc, nullptr, 0);
-    if (mouseHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install mouse hook!\n");
+    if (inputState & 1) {
+        keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, InputProc, nullptr, 0);
+        if (keyboardHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install keyboard hook!\n");
+        else LogMessage (LogLevel::INFO, "KeyboardLL hook installed!");
+    }
+    if (inputState & (1 << 1)) {
+        mouseHook = SetWindowsHookEx(WH_MOUSE_LL, InputProc, nullptr, 0);
+        if (mouseHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install mouse hook!\n");
+        else LogMessage (LogLevel::INFO, "MouseLL hook installed!");
+    }
     if (maxCount > 2) LogMessage (LogLevel::ERROR, "CHEATING MODE! max count is set to {}", maxCount);
     LogMessage (LogLevel::WARN, "(experimental) Using Async IO!");
     MSG msg;
@@ -183,8 +194,9 @@ void KeyboardMainLoop() {
 
 void
 InitializeKeyboard () {
-    std::thread (KeyboardMainLoop).detach ();
-    // atexit (DisposeKeyboard);
+    if (inputState & (1 | 1 << 1)) {
+        std::thread (KeyboardMainLoop).detach ();
+    }
 }
 
 void
@@ -202,64 +214,67 @@ CheckFlipped (uint32_t which, SDL_Gamepad *gamepad) {
 
 bool
 InitializePoll (HWND windowHandle) {
-    LogMessage (LogLevel::DEBUG, "InitializePoll");
-    bool hasRumble = true;
-    wndForeground = windowHandle == GetForegroundWindow ();
-    SDL_SetMainReady ();
+    InitializeKeyboard ();
+    if (inputState & (1 << 2)) {
+        LogMessage (LogLevel::DEBUG, "InitializePoll");
+        bool hasRumble = true;
+        wndForeground = windowHandle == GetForegroundWindow ();
+        SDL_SetMainReady ();
 
-    SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS4, "1");
-    SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1");
-    SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS5, "1");
-    SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1");
+        SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS4, "1");
+        SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS4_RUMBLE, "1");
+        SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS5, "1");
+        SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS5_RUMBLE, "1");
 
-    if (!SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
-        if (SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
-            hasRumble = false;
-        } else {
-            LogMessage (LogLevel::ERROR, std::string ("SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO): ") + SDL_GetError ());
-            return false;
-        }
-    }
-
-    auto configPath = std::filesystem::current_path () / "gamecontrollerdb.txt";
-    if (SDL_AddGamepadMappingsFromFile (configPath.string ().c_str ()) == -1)
-        LogMessage (LogLevel::ERROR, "Cannot read gamecontrollerdb.txt");
-    SDL_SetGamepadEventsEnabled (true);
-    SDL_SetJoystickEventsEnabled (true);
-
-    int numJoysticks = 0;
-    auto* joyStickIds = SDL_GetJoysticks(&numJoysticks);
-    if (joyStickIds == nullptr) {
-        LogMessage (LogLevel::ERROR, "Error getting joystick ids");
-        exit(1);
-    }
-    for (int i = 0; i < numJoysticks; i++) {
-        auto id = joyStickIds[i];
-        if (!SDL_IsGamepad (id)) continue;
-        SDL_Gamepad *controller = SDL_OpenGamepad (id);
-
-        if (!controller) {
-            LogMessage (LogLevel::WARN, std::string ("Could not open gamecontroller ") + SDL_GetGamepadNameForID (id) + ": " + SDL_GetError ());
-            continue;
+        if (!SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
+            if (SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO)) {
+                hasRumble = false;
+            } else {
+                LogMessage (LogLevel::ERROR, std::string ("SDL_Init (SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS | SDL_INIT_VIDEO): ") + SDL_GetError ());
+                return false;
+            }
         }
 
-        LogMessage (LogLevel::DEBUG, "Init Controller connected!");
-        CheckFlipped (id, controller);
-        controllers[id] = controller;
-    }
-    SDL_free (joyStickIds);
+        auto configPath = std::filesystem::current_path () / "gamecontrollerdb.txt";
+        if (SDL_AddGamepadMappingsFromFile (configPath.string ().c_str ()) == -1)
+            LogMessage (LogLevel::ERROR, "Cannot read gamecontrollerdb.txt");
+        SDL_SetGamepadEventsEnabled (true);
+        SDL_SetJoystickEventsEnabled (true);
 
-    SDL_PropertiesID props = SDL_CreateProperties();
-    if(props == 0) {
-        LogMessage (LogLevel::ERROR, "Unable to create SDL_Properties");
-        exit(1);
-    }
-    SDL_SetPointerProperty (props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, windowHandle);
-    window = SDL_CreateWindowWithProperties (props);
-    if (window == NULL) LogMessage (LogLevel::ERROR, std::string ("SDL_CreateWindowFrom (windowHandle): ") + SDL_GetError ());
+        int numJoysticks = 0;
+        auto* joyStickIds = SDL_GetJoysticks(&numJoysticks);
+        if (joyStickIds == nullptr) {
+            LogMessage (LogLevel::ERROR, "Error getting joystick ids");
+            exit(1);
+        }
+        for (int i = 0; i < numJoysticks; i++) {
+            auto id = joyStickIds[i];
+            if (!SDL_IsGamepad (id)) continue;
+            SDL_Gamepad *controller = SDL_OpenGamepad (id);
 
-    atexit (DisposePoll);
-    return hasRumble;
+            if (!controller) {
+                LogMessage (LogLevel::WARN, std::string ("Could not open gamecontroller ") + SDL_GetGamepadNameForID (id) + ": " + SDL_GetError ());
+                continue;
+            }
+
+            LogMessage (LogLevel::DEBUG, "Init Controller connected!");
+            CheckFlipped (id, controller);
+            controllers[id] = controller;
+        }
+        SDL_free (joyStickIds);
+
+        SDL_PropertiesID props = SDL_CreateProperties();
+        if(props == 0) {
+            LogMessage (LogLevel::ERROR, "Unable to create SDL_Properties");
+            exit(1);
+        }
+        SDL_SetPointerProperty (props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, windowHandle);
+        window = SDL_CreateWindowWithProperties (props);
+        if (window == NULL) LogMessage (LogLevel::ERROR, std::string ("SDL_CreateWindowFrom (windowHandle): ") + SDL_GetError ());
+
+        atexit (DisposePoll);
+        return hasRumble;
+    } else return false;
 }
 
 bool
@@ -285,23 +300,26 @@ CorrectButton (uint32_t which, uint8_t button) {
 }
 
 void
-UpdatePoll (HWND windowHandle, bool useController) {
+UpdatePoll (HWND windowHandle) {
     if (!CheckForegroundWindow (windowHandle)) return; 
 
-    currentMouseState.ScrolledUp   = false;
-    currentMouseState.ScrolledDown = false;
-    if (keyboardClean) {
+    if ((inputState & 1) && keyboardClean) {
         keyboardClean = false;
         for (int i=0; i<0xFF; i++) keyboardCount[i] -= (bool)keyboardDiff[i]; 
         memset (keyboardDiff, 0, 0XFF);
     }
-    if (mouseWheelCount[0] > 0) mouseWheelCount[0] -= (bool)mouseWheelDiff[0];
-    if (mouseWheelCount[1] > 0) mouseWheelCount[1] -= (bool)mouseWheelDiff[1];
-    memset (mouseWheelDiff, 0, 2);
+
+    if (inputState & (1 << 1)) {
+        currentMouseState.ScrolledUp   = false;
+        currentMouseState.ScrolledDown = false;
+        if (mouseWheelCount[0] > 0) mouseWheelCount[0] -= (bool)mouseWheelDiff[0];
+        if (mouseWheelCount[1] > 0) mouseWheelCount[1] -= (bool)mouseWheelDiff[1];
+        memset (mouseWheelDiff, 0, 2);
+    }
 
     // GetCursorPos (&currentMouseState.Position);
     // ScreenToClient (windowHandle, &currentMouseState.Position);
-    if (useController) {
+    if (inputState & (1 << 2)) {
         for (int i=0; i<SDL_GAMEPAD_BUTTON_COUNT; i++) controllerCount[i] -= (bool)controllerDiff[i];
         for (int i=1; i<SDL_AXIS_MAX; i++) controllerAxisCount[i] -= (bool)controllerAxisDiff[i];
         memset (controllerDiff, 0, SDL_GAMEPAD_BUTTON_COUNT);
@@ -342,74 +360,27 @@ UpdatePoll (HWND windowHandle, bool useController) {
                 break;
             case SDL_EVENT_GAMEPAD_AXIS_MOTION:
                 float sensorValue = event.gaxis.value == 0 ? 0 : event.gaxis.value / (event.gaxis.value > 0 ? 32767.0f : -32768.0f);
-                if (wndForeground || sensorValue == 0) {
+                if (wndForeground || sensorValue < axisThreshold) {
                     switch (event.gaxis.axis) {
-                    case SDL_GAMEPAD_AXIS_LEFTX: if (sensorValue < 0) {
-                        currentControllerAxisState.LeftRight = 0.0f;
-                        if (currentControllerAxisState.LeftLeft == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_LEFT_LEFT] = std::min (controllerAxisCount[SDL_AXIS_LEFT_LEFT] + 1, maxCount);
+                    case SDL_GAMEPAD_AXIS_LEFTX: case SDL_GAMEPAD_AXIS_LEFTY: case SDL_GAMEPAD_AXIS_RIGHTX: case SDL_GAMEPAD_AXIS_RIGHTY: {
+                        int direction = event.gaxis.axis * 2 + (event.gaxis.value < 0 ? 1 : 2);
+                        int reverse = event.gaxis.axis * 2 + (event.gaxis.value < 0 ? 2 : 1);
+                        currentControllerAxisState[reverse] = 0.0;
+                        if (sensorValue > axisThreshold && currentControllerAxisState[direction] <= axisThreshold) {
+                            LogMessage (LogLevel::DEBUG, "direction: {} value: {}", direction, sensorValue);
+                            controllerAxisCount[direction] = std::min (controllerAxisCount[direction] + 1, maxCount);
                         }
-                        currentControllerAxisState.LeftLeft = -sensorValue;
-                    } else {
-                        currentControllerAxisState.LeftLeft = 0.0f;
-                        if (currentControllerAxisState.LeftRight == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_LEFT_RIGHT] = std::min (controllerAxisCount[SDL_AXIS_LEFT_RIGHT] + 1, maxCount);
-                        }
-                        currentControllerAxisState.LeftRight = sensorValue;
+                        currentControllerAxisState[direction] = sensorValue;
                     } break;
-                    case SDL_GAMEPAD_AXIS_LEFTY: if (sensorValue < 0) {
-                        currentControllerAxisState.LeftDown = 0.0f;
-                        if (currentControllerAxisState.LeftUp == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_LEFT_UP] = std::min (controllerAxisCount[SDL_AXIS_LEFT_UP] + 1, maxCount);
+                    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: {
+                        int button = 5 + event.gaxis.axis;
+                        if (sensorValue > axisThreshold && currentControllerAxisState[button] <= axisThreshold) {
+                            controllerAxisCount[button] = std::min (controllerAxisCount[button] + 1, maxCount);
                         }
-                        currentControllerAxisState.LeftUp = -sensorValue;
-                    } else {
-                        currentControllerAxisState.LeftUp = 0.0f;
-                        if (currentControllerAxisState.LeftDown == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_LEFT_DOWN] = std::min (controllerAxisCount[SDL_AXIS_LEFT_DOWN] + 1, maxCount);
-                        }
-                        currentControllerAxisState.LeftDown = sensorValue;
+                        currentControllerAxisState[button] = sensorValue;
                     } break;
-                    case SDL_GAMEPAD_AXIS_RIGHTX: if (sensorValue < 0) {
-                        currentControllerAxisState.RightRight = 0.0f;
-                        if (currentControllerAxisState.RightLeft == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_RIGHT_LEFT] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_LEFT] + 1, maxCount);
-                        }
-                        currentControllerAxisState.RightLeft = -sensorValue;
-                    } else {
-                        currentControllerAxisState.RightLeft = 0.0f;
-                        if (currentControllerAxisState.RightRight == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_RIGHT_RIGHT] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_RIGHT] + 1, maxCount);
-                        }
-                        currentControllerAxisState.RightRight = sensorValue;
                     } break;
-                    case SDL_GAMEPAD_AXIS_RIGHTY: if (sensorValue < 0) {
-                        currentControllerAxisState.RightDown = 0.0f;
-                        if (currentControllerAxisState.RightUp == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_RIGHT_UP] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_UP] + 1, maxCount);
-                        }
-                        currentControllerAxisState.RightUp = -sensorValue;
-                    } else {
-                        currentControllerAxisState.RightUp = 0.0f;
-                        if (currentControllerAxisState.RightDown == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_RIGHT_DOWN] = std::min (controllerAxisCount[SDL_AXIS_RIGHT_DOWN] + 1, maxCount);
-                        }
-                        currentControllerAxisState.RightDown = sensorValue;
-                    } break;
-                    case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: {
-                        if (currentControllerAxisState.LTriggerDown == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_LTRIGGER_DOWN] = std::min (controllerAxisCount[SDL_AXIS_LTRIGGER_DOWN] + 1, maxCount);
-                        }
-                        currentControllerAxisState.LTriggerDown = sensorValue; 
-                    } break;
-                    case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: {
-                        if (currentControllerAxisState.RTriggerDown == 0.0f) {
-                            controllerAxisCount[SDL_AXIS_RTRIGGER_DOWN] = std::min (controllerAxisCount[SDL_AXIS_RTRIGGER_DOWN] + 1, maxCount);
-                        }
-                        currentControllerAxisState.RTriggerDown = sensorValue;
-                    } break;
-                } break;
-                }
+                } 
             }
         }
     }
@@ -520,19 +491,7 @@ ControllerButtonIsTapped (const SDL_GamepadButton button) {
 
 float
 ControllerAxisIsDown (const SDLAxis axis) {
-    switch (axis) {
-    case SDL_AXIS_LEFT_LEFT: return currentControllerAxisState.LeftLeft;
-    case SDL_AXIS_LEFT_RIGHT: return currentControllerAxisState.LeftRight;
-    case SDL_AXIS_LEFT_UP: return currentControllerAxisState.LeftUp;
-    case SDL_AXIS_LEFT_DOWN: return currentControllerAxisState.LeftDown;
-    case SDL_AXIS_RIGHT_LEFT: return currentControllerAxisState.RightLeft;
-    case SDL_AXIS_RIGHT_RIGHT: return currentControllerAxisState.RightRight;
-    case SDL_AXIS_RIGHT_UP: return currentControllerAxisState.RightUp;
-    case SDL_AXIS_RIGHT_DOWN: return currentControllerAxisState.RightDown;
-    case SDL_AXIS_LTRIGGER_DOWN: return currentControllerAxisState.LTriggerDown;
-    case SDL_AXIS_RTRIGGER_DOWN: return currentControllerAxisState.RTriggerDown;
-    default: return 0.0f;
-    }
+    return currentControllerAxisState[axis];
 }
 
 bool
