@@ -16,6 +16,7 @@ std::vector<std::function<void ()>> hooks = {};
 std::thread *hookInstall;
 std::mutex hooksMutex;
 std::condition_variable hooksCV;
+std::vector<SafetyHookMid> patches = {};
 
 std::wstring
 mergeCondition (std::wstring original, std::wstring addition, std::wstring value) {
@@ -435,6 +436,9 @@ Init () {
     const u64 testModeLibrary = (u64)GetModuleHandle ("TestModeLibrary.dll");
     const u64 testModeSetMenu = testModeLibrary + 0x99D0;
 
+    CommonModify ();
+    for (auto method : hooks) method ();
+
     switch (gameVersion) {
     case GameVersion::UNKNOWN: break;
     case GameVersion::JPN00: break;
@@ -443,7 +447,15 @@ Init () {
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeLoading, ASLR (0x1404793D0));
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeFinalize, ASLR (0x140479600));
         originalDeviceInitialize = L"DeviceInitialize.xml";
-        if (std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\DeviceInitialize_chspatch.xml")) {
+        if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\DeviceInitialize_china.xml")) {
+            usingDeviceInitialize = L"DeviceInitialize_china.xml";
+            patches.push_back (safetyhook::create_mid (ASLR (0x140465549), [](SafetyHookContext &ctx)
+            { ctx.r8 = 2; ctx.rdx = (uintptr_t)"cn"; ctx.rip = ASLR (0x140465556); }));
+            WRITE_MEMORY (ASLR (0x140CD1E40), wchar_t, L"加载中\0");
+            WRITE_MEMORY (ASLR (0x140CD1E28), wchar_t, L"加载中.\0");
+            WRITE_MEMORY (ASLR (0x140CD1E68), wchar_t, L"加载中..\0");
+            WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加载中...\0");
+        } else if (std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\DeviceInitialize_chspatch.xml")) {
             usingDeviceInitialize = L"DeviceInitialize_chspatch.xml";
             WRITE_MEMORY (ASLR (0x140CD1E40), wchar_t, L"加載中\0");
             WRITE_MEMORY (ASLR (0x140CD1E28), wchar_t, L"加載中.\0");
@@ -451,7 +463,13 @@ Init () {
             WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加載中...\0");
         } else usingDeviceInitialize = originalDeviceInitialize;
         originalTestMode = L"TestMode.xml";
-        if (std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\TestMode_chspatch.xml")) {
+        if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\TestMode_china.xml")) {
+            usingTestMode = L"TestMode_china.xml";
+            patches.push_back (safetyhook::create_mid (ASLR (0x14047C603), [](SafetyHookContext &ctx)
+            { ctx.r8 = 2; ctx.rdx = (uintptr_t)"cn"; ctx.rip = ASLR (0x14047C610); }));
+            patches.push_back (safetyhook::create_mid (ASLR (0x1404676E7), [](SafetyHookContext &ctx)
+            { ctx.r8 = 2; ctx.rdx = (uintptr_t)"cn"; ctx.rip = ASLR (0x1404676F4); }));
+        } else if (std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\TestMode_chspatch.xml")) {
             usingTestMode = L"TestMode_chspatch.xml";
         } else usingTestMode = originalTestMode;
 
@@ -459,10 +477,7 @@ Init () {
     case GameVersion::CHN00: break;
     }
 
-    CommonModify ();
-
     INSTALL_FAST_HOOK_DYNAMIC (TestModeSetMenuHook, testModeSetMenu);
-    for (auto method : hooks) method ();
 }
 
 void

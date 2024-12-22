@@ -120,6 +120,7 @@ namespace Timer {
 void Init ();
 } // namespace timer
 namespace Language {
+boolean CnFontPatches ();
 void Init ();
 }
 } // namespace patches

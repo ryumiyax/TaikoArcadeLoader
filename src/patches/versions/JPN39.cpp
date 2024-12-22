@@ -225,49 +225,6 @@ MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
 }
 
-// FAST_HOOK (u64, EnsoGameManagerInitialize, ASLR (0x1400E2520), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerInitialize");
-//     u64 result = originalEnsoGameManagerInitialize.fastcall<u64> (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerInitialize result={}", result);
-//     return result;
-// }
-
-// FAST_HOOK (u64, EnsoGameManagerLoading, ASLR (0x1400E2750), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerLoading");
-//     u64 result = originalEnsoGameManagerLoading.fastcall<u64> (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerLoading result={}", result);
-//     return result;
-// }
-
-// FAST_HOOK (bool, EnsoGameManagerPreparing, ASLR (0x1400E2990), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerPreparing");    
-//     bool result = originalEnsoGameManagerPreparing.fastcall<u64> (a1, a2, a3);  // crashes here
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerPreparing result={}", result);
-//     return result;
-// }
-
-// FAST_HOOK (u64, EnsoGraphicManagerPreparing, ASLR (0x1400F0AB0), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGraphicManagerPreparing");    
-//     u64 result = originalEnsoGraphicManagerPreparing.fastcall<u64> (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGraphicManagerPreparing result={}", result);
-//     return result;
-// }
-
-
-// FAST_HOOK (u64, EnsoGameManagerStart, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerStart");
-//     u64 result = originalEnsoGameManagerStart.fastcall<u64> (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerStart result={}", result);
-//     return result;
-// }
-
-// FAST_HOOK (u64, EnsoGameManagerChechEnsoEnd, ASLR (0x1400E2A10), u64 a1, u64 a2, u64 a3) {
-//     LogMessage (LogLevel::DEBUG, "Begin EnsoGameManagerChechEnsoEnd");
-//     u64 result = originalEnsoGameManagerChechEnsoEnd.fastcall<u64> (a1, a2, a3);
-//     LogMessage (LogLevel::DEBUG, "End EnsoGameManagerChechEnsoEnd result={}", result);
-//     return result;
-// }
-
 // HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
 //     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
 //     a3[2] = (DWORD)(int)120.0f;

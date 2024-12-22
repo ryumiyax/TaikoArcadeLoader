@@ -8,6 +8,7 @@ extern GameVersion gameVersion;
 namespace patches::Language {
 const std::vector<std::string> languages    = { "jpn", "en_us", "cn_tw", "kor", "cn_cn" };
 std::vector<SafetyHookMid> language_patch   = { };
+boolean cnFontPatches                       = false;
 int language                                = 0;
 
 FUNCTION_PTR (void,         lua_settop,     PROC_ADDRESS ("lua51.dll", "lua_settop"), i64, i32);
@@ -159,6 +160,7 @@ Init () {
                 // user_name_soshina
                 language_patch.push_back (safetyhook::create_mid (ASLR (0x14016164D), [](SafetyHookContext &ctx)
                 { *(int *)(ctx.rsp + 0xD0) = (int)(ctx.rcx % languages.size ()); ctx.rip = ASLR (0x140161687); }));
+                cnFontPatches = true;
             }
         );
     } break;
@@ -627,6 +629,11 @@ Init () {
     } break;
     }
 }
+}
+
+boolean 
+CnFontPatches () {
+    return cnFontPatches;
 }
 
 void
