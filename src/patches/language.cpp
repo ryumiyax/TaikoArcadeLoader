@@ -546,9 +546,10 @@ FixToneName (const std::string &bankName, std::string toneName, int voiceLang) {
 }
 
 size_t commonSize = 0;
+TestMode::Value *voiceLanguage = TestMode::CreateValue (L"VoiceLanguageItem");
 FAST_HOOK_DYNAMIC (i64, PlaySoundMain, i64 a1) {
     LogMessage (LogLevel::HOOKS, "PlaySoundMain was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    int lang = voiceLanguage->Read ();
     if (lang > 0) {
         const std::string bankName (lua_tolstring (a1, -3, &commonSize));
         if (bankName[0] == 'v') {
@@ -561,7 +562,7 @@ FAST_HOOK_DYNAMIC (i64, PlaySoundMain, i64 a1) {
 
 FAST_HOOK_DYNAMIC (i64, PlaySoundMulti, i64 a1) {
     LogMessage (LogLevel::HOOKS, "PlaySoundMulti was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    int lang = voiceLanguage->Read ();
     if (lang > 0) {
         const std::string bankName (const_cast<char *> (lua_tolstring (a1, -3, &commonSize)));
         if (bankName[0] == 'v') {
@@ -582,7 +583,7 @@ FixToneNameEnso (u64 *Src, const std::string &bankName, int voiceLang) {
 
 FAST_HOOK_DYNAMIC (bool, PlaySoundEnso, u64 *a1, u64 *a2, i64 a3) {
     LogMessage (LogLevel::HOOKS, "PlaySoundEnso was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    int lang = voiceLanguage->Read ();
     if (lang > 0) {
         const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
         if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);
@@ -592,7 +593,7 @@ FAST_HOOK_DYNAMIC (bool, PlaySoundEnso, u64 *a1, u64 *a2, i64 a3) {
 
 FAST_HOOK_DYNAMIC (bool, PlaySoundSpecial, u64 *a1, u64 *a2) {
     LogMessage (LogLevel::HOOKS, "PlaySoundSpecial was called");
-    int lang = TestMode::ReadTestModeValue (L"VoiceLanguageItem");
+    int lang = voiceLanguage->Read ();
     if (lang > 0) {
         const std::string bankName = a1[3] > 0x10 ? std::string (*reinterpret_cast<char **> (a1)) : std::string (reinterpret_cast<char *> (a1));
         if (bankName[0] == 'v') a2 = FixToneNameEnso (a2, bankName, lang);

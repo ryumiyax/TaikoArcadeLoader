@@ -50,6 +50,12 @@ class Menu : public Applicable {
 public:
     virtual void RegisterItem (Applicable *item) = 0;
 };
+class Value {
+public:
+    virtual int Read() = 0;
+    virtual void Write(int value) = 0;
+    virtual void Reset() = 0;
+};
 typedef u64 (*RefTestModeMain) (u64);
 void Init              ();
 void Append            (const pugi::xml_node &node, const wchar_t *attr, const std::wstring &append);
@@ -57,6 +63,7 @@ void SetupAccessor     (u64 appAccessor, RefTestModeMain refTestMode);
 int  ReadTestModeValue (const wchar_t *itemId);
 void SetTestModeValue  (const wchar_t *itemId, int value);
 Menu *CreateMenu       (const std::wstring &menuName, const std::wstring &menuId);
+Value *CreateValue     (const std::wstring &key);
 void RegisterItem      (const std::wstring &item, const std::function<void ()> &initMethod, Menu *menu);
 void RegisterItem      (const std::wstring &item, const std::function<void ()> &initMethod);
 void RegisterItem      (const std::wstring &item, Menu *menu);

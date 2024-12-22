@@ -66,55 +66,62 @@ GetUserStatus () {
     return -1;
 }
 
+TestMode::Value *unlockSongs = TestMode::CreateValue (L"ModUnlockSongs");
 FAST_HOOK (bool, IsSongRelease, ASLR (0x1403F4510), i64 a1, i64 a2, int a3) {
-    if (TestMode::ReadTestModeValue (L"ModUnlockSongs") == 1) return true;
+    if (unlockSongs->Read () == 1) return true;
     return originalIsSongRelease.fastcall<bool> (a1, a2, a3);
 }
 FAST_HOOK (bool, IsSongReleasePlayer, ASLR (0x1403F45F0), i64 a1, u64 a2, i32 a3) {
-    if (TestMode::ReadTestModeValue (L"ModUnlockSongs") == 2) return true;
+    if (unlockSongs->Read () == 2) return true;
     return originalIsSongReleasePlayer.fastcall<bool> (a1, a2, a3);
 }
 MID_HOOK (DifficultyPanelCrown, ASLR (0x1403F2A25), SafetyHookContext &ctx) {
-    if (TestMode::ReadTestModeValue (L"ModUnlockSongs") != 1) return;
+    if (unlockSongs->Read () != 1) return;
     ctx.r15 |= 1;
 }
+TestMode::Value *tournmentMode = TestMode::CreateValue (L"TournamentMode");
+TestMode::Value *mode024 = TestMode::CreateValue (L"ModModeCollabo024");
+TestMode::Value *mode025 = TestMode::CreateValue (L"ModModeCollabo025");
+TestMode::Value *mode026 = TestMode::CreateValue (L"ModModeCollabo026");
+TestMode::Value *modeApril001 = TestMode::CreateValue (L"ModModeAprilFool001");
 FAST_HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo024 was called");
-    const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
+    const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return originalAvailableMode_Collabo024.fastcall<i64> (a1);
-    const int status = TestMode::ReadTestModeValue (L"ModModeCollabo024");
+    const int status = mode024->Read ();
     if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
     return originalAvailableMode_Collabo024.fastcall<i64> (a1);
 }
 FAST_HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo025 was called");
-    const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
+    const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return originalAvailableMode_Collabo025.fastcall<i64> (a1);
-    const int status = TestMode::ReadTestModeValue (L"ModModeCollabo025");
+    const int status = mode025->Read ();
     if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
     return originalAvailableMode_Collabo025.fastcall<i64> (a1);
 }
 FAST_HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_Collabo026 was called");
-    const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
+    const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return originalAvailableMode_Collabo026.fastcall<i64> (a1);
-    const int status = TestMode::ReadTestModeValue (L"ModModeCollabo026");
+    const int status = mode026->Read ();
     if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
     return originalAvailableMode_Collabo026.fastcall<i64> (a1);
 }
 FAST_HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) {
     LogMessage (LogLevel::HOOKS, "AvailableMode_AprilFool001 was called");
-    const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
+    const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return originalAvailableMode_AprilFool001.fastcall<i64> (a1);
-    const int status = TestMode::ReadTestModeValue (L"ModModeAprilFool001");
+    const int status = modeApril001->Read ();
     if (status == 1) return lua_pushbool (a1, true);
     return originalAvailableMode_AprilFool001.fastcall<i64> (a1);
 }
+TestMode::Value *freezeTimer = TestMode::CreateValue (L"ModFreezeTimer");
 i64 __fastcall lua_freeze_timer (const i64 a1) {
     LogMessage (LogLevel::HOOKS, "lua_freeze_timer was called");
-    const int tournamentMode = TestMode::ReadTestModeValue (L"TournamentMode");
+    const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return lua_pushbool (a1, true);
-    const int status = TestMode::ReadTestModeValue (L"ModFreezeTimer");
+    const int status = freezeTimer-> Read ();
     if (status == 1) return lua_pushbool (a1, true);
     return lua_pushbool (a1, false);
 }
@@ -221,8 +228,9 @@ FAST_HOOK (i32, SetMasterVolumeSpeaker, ASLR (0x140160330), i32 a1) {
     return originalSetMasterVolumeSpeaker.fastcall<i32> (a1 > 100 ? 100 : a1);
 }
 
+TestMode::Value *attractDemo = TestMode::CreateValue (L"AttractDemoItem");
 MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
-    if (TestMode::ReadTestModeValue (L"AttractDemoItem") == 1) ctx.r14 = 0;
+    if (attractDemo->Read () == 1) ctx.r14 = 0;
 }
 
 // HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {

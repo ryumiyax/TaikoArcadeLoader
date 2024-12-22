@@ -17,6 +17,7 @@ std::thread *hookInstall;
 std::mutex hooksMutex;
 std::condition_variable hooksCV;
 std::vector<SafetyHookMid> patches = {};
+std::vector<Value *> values = {};
 
 std::wstring
 mergeCondition (std::wstring original, std::wstring addition, std::wstring value) {
@@ -202,9 +203,38 @@ public:
         return nullptr;
     }
 };
-
+class TestModeValue : Value {
+public:
+    std::wstring key;
+    int value;
+    boolean reset;
+    TestModeValue (std::wstring key) {
+        this->key = key;
+        this->value = -1;
+        this->reset = true;
+    }
+    int
+    Read () override {
+        if (reset) { 
+            this->value = ReadTestModeValue (key.c_str ()); 
+            if (this->value != -1) {
+                LogMessage (LogLevel::DEBUG, L"TestMode Value({}) got val: {}", this->key, this->value);
+                reset = false;
+            }
+        }
+        return this->value;
+    }
+    void
+    Write (int value) override {
+        SetTestModeValue (this->key.c_str (), value);
+        this->reset = true;
+    }
+    void
+    Reset () override {
+        this->reset = true;
+    }
+};
 Menu *modManager = new RegisteredMenu (L"MOD MANAGER", L"ModManagerMenu");
-// std::vector<RegisteredItem *> registeredItems             = {};
 std::vector<RegisteredSingleItem *> registeredSingleItems = {};
 std::vector<RegisteredModify *> registeredModifies        = {};
 std::wstring moddedInitial                                = L"";
@@ -227,6 +257,7 @@ FAST_HOOK_DYNAMIC (char, SceneTestModeLoading, u64 a1, u64 a2, u64 a3) {
 
 FAST_HOOK_DYNAMIC (char, SceneTestModeFinalize, u64 a1, u64 a2, u64 a3) {
     char result = originalSceneTestModeFinalize.fastcall<char> (a1, a2, a3);
+    for (auto value : values) { value->Reset (); value->Read (); }
     return result;
 }
 
@@ -482,8 +513,11 @@ Init () {
 
 void
 SetupAccessor (const u64 appAccessor, const RefTestModeMain refTestMode) {
-    TestMode::appAccessor = appAccessor;
-    TestMode::refTestMode = refTestMode;
+    if (TestMode::appAccessor != appAccessor) {
+        LogMessage (LogLevel::DEBUG, "TestMode setup!");
+        TestMode::appAccessor = appAccessor;
+        TestMode::refTestMode = refTestMode;
+    }
 }
 
 int
@@ -513,6 +547,14 @@ Menu *
 CreateMenu (const std::wstring &menuName, const std::wstring &menuId) {
     LogMessage (LogLevel::DEBUG, L"Create MenuName: {} MenuId: {}", menuName, menuId);
     return new RegisteredMenu (menuName, menuId);
+}
+
+Value *
+CreateValue (const std::wstring &key) {
+    LogMessage (LogLevel::DEBUG, L"Create TestMode Value key: {}", key);
+    Value *value = (Value *)(new TestModeValue (key));
+    values.push_back ((Value *)value);
+    return value;
 }
 
 void
