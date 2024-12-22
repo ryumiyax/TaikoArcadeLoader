@@ -257,8 +257,13 @@ FAST_HOOK_DYNAMIC (char, SceneTestModeLoading, u64 a1, u64 a2, u64 a3) {
 
 FAST_HOOK_DYNAMIC (char, SceneTestModeFinalize, u64 a1, u64 a2, u64 a3) {
     char result = originalSceneTestModeFinalize.fastcall<char> (a1, a2, a3);
-    for (auto value : values) { value->Reset (); value->Read (); }
+    std::thread ([](){for (auto value : values) { value->Reset (); value->Read (); }}).detach ();
     return result;
+}
+
+FAST_HOOK_DYNAMIC (void, SceneFirstInitialize, u64 a1, u64 a2, u64 a3) {
+    std::thread ([](){for (auto value : values) { value->Reset (); value->Read (); }}).detach ();
+    originalSceneFirstInitialize.fastcall<char *> (a1, a2, a3);
 }
 
 FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFileName) {
@@ -477,6 +482,7 @@ Init () {
     case GameVersion::JPN39: {
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeLoading, ASLR (0x1404793D0));
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeFinalize, ASLR (0x140479600));
+        INSTALL_FAST_HOOK_DYNAMIC (SceneFirstInitialize, ASLR (0x1404574B0));
         originalDeviceInitialize = L"DeviceInitialize.xml";
         if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\DeviceInitialize_china.xml")) {
             usingDeviceInitialize = L"DeviceInitialize_china.xml";
@@ -517,6 +523,7 @@ SetupAccessor (const u64 appAccessor, const RefTestModeMain refTestMode) {
         LogMessage (LogLevel::DEBUG, "TestMode setup!");
         TestMode::appAccessor = appAccessor;
         TestMode::refTestMode = refTestMode;
+        // std::thread ([](){for (auto value : values) { value->Reset (); value->Read (); }}).detach ();
     }
 }
 
