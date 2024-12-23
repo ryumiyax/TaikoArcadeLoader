@@ -110,5 +110,4 @@ bool IsButtonReleased (const Keybindings &bindings);
 #else
 void UpdatePoll (HWND windowHandle);
 void InitializeKeyboard ();
-void DisposeKeyboard ();
 #endif

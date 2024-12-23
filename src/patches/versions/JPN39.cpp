@@ -59,11 +59,22 @@ FAST_HOOK (i64, DeviceCheck, ASLR (0x140464FC0), i64 a1, i64 a2, i64 a3) {
 }
 
 i64
-GetUserStatus () {
+GetPlayererCount () {
     if (appAccessor) {
         if (const u64 playDataManager = RefPlayDataManager (appAccessor)) return GetUserCount (playDataManager);
     }
     return -1;
+}
+boolean
+HaveCardPlayer () {
+    if (appAccessor) {
+        if (const u64 playDataManager = RefPlayDataManager (appAccessor)) {
+            int p1PlayerType = *(i32 *)(*(i64 *)(playDataManager + 9920) + 4);
+            int p2PlayerType = *(i32 *)(*(i64 *)(playDataManager + 9928) + 4);
+            return p1PlayerType == 2 || p2PlayerType == 2;
+        }
+    }
+    return false;
 }
 
 TestMode::Value *unlockSongs = TestMode::CreateValue (L"ModUnlockSongs");
@@ -89,7 +100,8 @@ FAST_HOOK (i64, AvailableMode_Collabo024, ASLR (0x1402DE710), i64 a1) {
     const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return originalAvailableMode_Collabo024.fastcall<i64> (a1);
     const int status = mode024->Read ();
-    if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
+    if (status == 1 && GetPlayererCount () == 1) return lua_pushbool (a1, true);
+    else if (status == 2 && GetPlayererCount () == 1 && HaveCardPlayer ()) return lua_pushbool (a1, true);
     return originalAvailableMode_Collabo024.fastcall<i64> (a1);
 }
 FAST_HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) {
@@ -97,7 +109,8 @@ FAST_HOOK (i64, AvailableMode_Collabo025, ASLR (0x1402DE6B0), i64 a1) {
     const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return originalAvailableMode_Collabo025.fastcall<i64> (a1);
     const int status = mode025->Read ();
-    if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
+    if (status == 1 && GetPlayererCount () == 1) return lua_pushbool (a1, true);
+    else if (status == 2 && GetPlayererCount () == 1 && HaveCardPlayer ()) return lua_pushbool (a1, true);
     return originalAvailableMode_Collabo025.fastcall<i64> (a1);
 }
 FAST_HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) {
@@ -105,7 +118,8 @@ FAST_HOOK (i64, AvailableMode_Collabo026, ASLR (0x1402DE670), i64 a1) {
     const int tournamentMode = tournmentMode->Read ();
     if (tournamentMode == 1) return originalAvailableMode_Collabo026.fastcall<i64> (a1);
     const int status = mode026->Read ();
-    if (status == 1 && GetUserStatus () == 1) return lua_pushbool (a1, true);
+    if (status == 1 && GetPlayererCount () == 1) return lua_pushbool (a1, true);
+    else if (status == 2 && GetPlayererCount () == 1 && HaveCardPlayer ()) return lua_pushbool (a1, true);
     return originalAvailableMode_Collabo026.fastcall<i64> (a1);
 }
 FAST_HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) {
@@ -114,6 +128,7 @@ FAST_HOOK (i64, AvailableMode_AprilFool001, ASLR (0x1402DE5B0), i64 a1) {
     if (tournamentMode == 1) return originalAvailableMode_AprilFool001.fastcall<i64> (a1);
     const int status = modeApril001->Read ();
     if (status == 1) return lua_pushbool (a1, true);
+    else if (status == 2 && HaveCardPlayer ()) return lua_pushbool (a1, true);
     return originalAvailableMode_AprilFool001.fastcall<i64> (a1);
 }
 TestMode::Value *freezeTimer = TestMode::CreateValue (L"ModFreezeTimer");
@@ -351,22 +366,22 @@ Init () {
     // TestMode::Menu *modeUnlock = TestMode::CreateMenu (L"MODE UNLOCK", L"ModeUnlockMenu");
     TestMode::RegisterItem (
         L"<select-item label=\"KIMETSU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
-        L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo024\" max=\"1\" min=\"0\" default=\"0\"/>",
+        L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo024\" max=\"2\" min=\"0\" default=\"0\"/>",
         [&] { INSTALL_FAST_HOOK (AvailableMode_Collabo024); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"ONE PIECE MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
-        L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo025\" max=\"1\" min=\"0\" default=\"0\"/>",
+        L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo025\" max=\"2\" min=\"0\" default=\"0\"/>",
         [&] { INSTALL_FAST_HOOK (AvailableMode_Collabo025); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"AI SOSHINA MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, "
-        L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo026\" max=\"1\" min=\"0\" default=\"0\"/>",
+        L"1:ENABLE, 2:CARD ONLY\" group=\"Setting\" id=\"ModModeCollabo026\" max=\"2\" min=\"0\" default=\"0\"/>",
         [&] { INSTALL_FAST_HOOK (AvailableMode_Collabo026); }//, modeUnlock
     );
     TestMode::RegisterItem (
         L"<select-item label=\"AOHARU MODE\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:ENABLE, "
-        L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeAprilFool001\" max=\"1\" min=\"0\" default=\"0\"/>",
+        L"2:CARD ONLY\" group=\"Setting\" id=\"ModModeAprilFool001\" max=\"2\" min=\"0\" default=\"0\"/>",
         [&] { INSTALL_FAST_HOOK (AvailableMode_AprilFool001); }//, modeUnlock
     );
     // TestMode::RegisterItem (modeUnlock);

@@ -117,7 +117,6 @@ Init () {
             L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='LanguageItem']",
             [](pugi::xml_node &node) {
                 node.attribute (L"max").set_value (L"4");
-                node.attribute (L"default").set_value (L"4");
                 node.attribute (L"replace-text").set_value (L"0:JPN, 1:ENG, 2:zh-tw, 3:KOR, 4:zh-cn");
             }, [&](){
                 // load_setting 

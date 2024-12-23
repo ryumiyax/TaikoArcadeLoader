@@ -9,8 +9,13 @@ extern bool jpLayout;
 extern int exited;
 extern u8 inputState;
 extern float axisThreshold;
+extern bool globalKeyboardInput;
 
 bool wndForeground = false;
+bool usingKeyboard = false;
+bool usingMouse = false;
+bool usingController = false;
+bool usingSDLEvent = false;
 
 bool currentKeyboardState[0xFF] = { false };
 uint8_t keyboardCount[0xFF] = { 0 };
@@ -125,17 +130,6 @@ LRESULT CALLBACK InputProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 DWORD keyCode = pKeyboard->vkCode;
                 currentKeyboardState[keyCode] = false;
             } break;
-            case WM_MOUSEWHEEL: if (wndForeground) {
-                MSLLHOOKSTRUCT *pMouseStruct = (MSLLHOOKSTRUCT*)lParam;
-                int wheelDelta = GET_WHEEL_DELTA_WPARAM(pMouseStruct->mouseData);
-                if (wheelDelta > 0) {
-                        mouseWheelCount[0] = std::min (mouseWheelCount[0] + wheelDelta, maxCount);
-                        currentMouseState.ScrolledUp = true;
-                    } else if (wheelDelta < 0) {
-                        mouseWheelCount[1] = std::min (mouseWheelCount[1] - wheelDelta, maxCount);
-                        currentMouseState.ScrolledDown = true;
-                    }
-            } break;
         default: break;
         }
     }
@@ -171,15 +165,10 @@ void KeyboardMainLoop() {
     HINSTANCE hInstance = GetModuleHandle(NULL);
     HWND hwnd = CreateInvisibleWindow(hInstance);
     if (!hwnd) LogMessage (LogLevel::ERROR, "Failed to create window!\n");
-    if (inputState & 1) {
+    if (usingKeyboard) {
         keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, InputProc, nullptr, 0);
         if (keyboardHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install keyboard hook!\n");
         else LogMessage (LogLevel::INFO, "KeyboardLL hook installed!");
-    }
-    if (inputState & (1 << 1)) {
-        mouseHook = SetWindowsHookEx(WH_MOUSE_LL, InputProc, nullptr, 0);
-        if (mouseHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install mouse hook!\n");
-        else LogMessage (LogLevel::INFO, "MouseLL hook installed!");
     }
     if (maxCount > 2) LogMessage (LogLevel::ERROR, "CHEATING MODE! max count is set to {}", maxCount);
     LogMessage (LogLevel::WARN, "(experimental) Using Async IO!");
@@ -189,20 +178,13 @@ void KeyboardMainLoop() {
         DispatchMessage(&msg);
     }
     if (keyboardHook) UnhookWindowsHookEx(keyboardHook);
-    if (mouseHook) UnhookWindowsHookEx(mouseHook);
 }
 
 void
 InitializeKeyboard () {
-    if (inputState & (1 | 1 << 1)) {
+    if (usingKeyboard) {
         std::thread (KeyboardMainLoop).detach ();
     }
-}
-
-void
-DisposeKeyboard () {
-    // if (keyboardHook) UnhookWindowsHookEx(keyboardHook);
-    // if (mouseHook) UnhookWindowsHookEx(mouseHook);
 }
 
 void
@@ -214,8 +196,13 @@ CheckFlipped (uint32_t which, SDL_Gamepad *gamepad) {
 
 bool
 InitializePoll (HWND windowHandle) {
+    usingKeyboard = inputState & 1;
+    usingMouse = inputState & (1 << 1);
+    usingController = inputState & (1 << 2);
+    usingSDLEvent = usingMouse || usingController;
+
     InitializeKeyboard ();
-    if (inputState & (1 << 2)) {
+    if (usingSDLEvent) {
         LogMessage (LogLevel::DEBUG, "InitializePoll");
         bool hasRumble = true;
         wndForeground = windowHandle == GetForegroundWindow ();
@@ -303,31 +290,42 @@ void
 UpdatePoll (HWND windowHandle) {
     if (!CheckForegroundWindow (windowHandle)) return; 
 
-    if ((inputState & 1) && keyboardClean) {
+    if (usingKeyboard && keyboardClean) {
         keyboardClean = false;
         for (int i=0; i<0xFF; i++) keyboardCount[i] -= (bool)keyboardDiff[i]; 
         memset (keyboardDiff, 0, 0XFF);
     }
 
-    if (inputState & (1 << 1)) {
-        currentMouseState.ScrolledUp   = false;
-        currentMouseState.ScrolledDown = false;
-        if (mouseWheelCount[0] > 0) mouseWheelCount[0] -= (bool)mouseWheelDiff[0];
-        if (mouseWheelCount[1] > 0) mouseWheelCount[1] -= (bool)mouseWheelDiff[1];
-        memset (mouseWheelDiff, 0, 2);
-    }
-
     // GetCursorPos (&currentMouseState.Position);
     // ScreenToClient (windowHandle, &currentMouseState.Position);
-    if (inputState & (1 << 2)) {
-        for (int i=0; i<SDL_GAMEPAD_BUTTON_COUNT; i++) controllerCount[i] -= (bool)controllerDiff[i];
-        for (int i=1; i<SDL_AXIS_MAX; i++) controllerAxisCount[i] -= (bool)controllerAxisDiff[i];
-        memset (controllerDiff, 0, SDL_GAMEPAD_BUTTON_COUNT);
-        memset (controllerAxisDiff, 0, SDL_AXIS_MAX);
+    if (usingSDLEvent) {
+        if (usingMouse) {
+            currentMouseState.ScrolledUp   = false;
+            currentMouseState.ScrolledDown = false;
+            if (mouseWheelCount[0] > 0) mouseWheelCount[0] -= (bool)mouseWheelDiff[0];
+            if (mouseWheelCount[1] > 0) mouseWheelCount[1] -= (bool)mouseWheelDiff[1];
+            memset (mouseWheelDiff, 0, 2);
+        }
+
+        if (usingController) {
+            for (int i=0; i<SDL_GAMEPAD_BUTTON_COUNT; i++) controllerCount[i] -= (bool)controllerDiff[i];
+            for (int i=1; i<SDL_AXIS_MAX; i++) controllerAxisCount[i] -= (bool)controllerAxisDiff[i];
+            memset (controllerDiff, 0, SDL_GAMEPAD_BUTTON_COUNT);
+            memset (controllerAxisDiff, 0, SDL_AXIS_MAX);
+        }
         SDL_Event event;
         SDL_Gamepad *controller;
         while (SDL_PollEvent (&event) != 0) {
             switch (event.type) {
+            case SDL_EVENT_MOUSE_WHEEL: {
+                if (event.wheel.y > 0) {
+                    mouseWheelCount[0] = std::min (mouseWheelCount[0] + 1, maxCount);
+                    currentMouseState.ScrolledUp = true;
+                } else if (event.wheel.y < 0) {
+                    mouseWheelCount[1] = std::min (mouseWheelCount[1] + 1, maxCount);
+                    currentMouseState.ScrolledDown = true;
+                }
+            } break;
             case SDL_EVENT_GAMEPAD_ADDED:
                 if (!SDL_IsGamepad (event.gdevice.which)) break;
                 controller = SDL_OpenGamepad (event.gdevice.which);

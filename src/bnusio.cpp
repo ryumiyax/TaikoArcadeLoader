@@ -63,7 +63,8 @@ bool inited         = false;
 bool updateByCoin   = false;
 HWND windowHandle   = nullptr;
 float axisThreshold = 0.6f;
-u8 inputState       = 0;
+u8 inputState       = 1 | (1 << 2);
+bool globalKeyboard = false;;
 HKL currentLayout;
 
 namespace bnusio {
@@ -304,11 +305,20 @@ UpdateLoop () {
     UpdatePoll (windowHandle);
 #endif
     std::vector<uint8_t> buffer = {};
-    if (IsButtonTapped (COIN_ADD)) coin_count++;
-    if (IsButtonTapped (SERVICE)) service_count++;
-    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
+    if (IsButtonTapped (COIN_ADD)) {
+        LogMessage (LogLevel::DEBUG, "Insert Coin!");
+        coin_count++;
+    }
+    if (IsButtonTapped (SERVICE)) {
+        LogMessage (LogLevel::DEBUG, "Insert Severice Coin!");
+        service_count++;
+    }
+    if (IsButtonTapped (TEST)) {
+        LogMessage (LogLevel::INFO, "Enter TestMode by Press TestMode Button!");
+        testEnabled = !testEnabled;
+    }
     if (exited == 0 && IsButtonTapped (EXIT)) {
-        LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
+        LogMessage (LogLevel::INFO, "Exit by Press Exit Button!");
         exited += 1; testEnabled = 1; std::thread([](){patches::Plugins::Exit ();}).detach();
     }
     if (GameVersion::CHN00 == gameVersion) {
@@ -341,6 +351,7 @@ Init () {
         if (const auto controller = openConfigSection (config, "controller")) {
             drumWaitPeriod   = static_cast<short> (readConfigInt (controller, "wait_period", drumWaitPeriod));
             analogInput      = readConfigBool (controller, "analog_input", analogInput);
+            globalKeyboard   = readConfigBool (controller, "global_keyboard", globalKeyboard);
         }
         auto graphics = openConfigSection (config, "graphics");
         if (graphics) {
@@ -369,6 +380,7 @@ Init () {
     const auto keyConfigPath = std::filesystem::current_path () / "keyconfig.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
+        inputState = 0;
         if (analogInput) inputState |= (1 << 2);
         const toml_table_t *keyConfig = keyConfig_ptr.get ();
         SetConfigValue (keyConfig, "EXIT", &EXIT, &inputState);
@@ -394,6 +406,9 @@ Init () {
         SetConfigValue (keyConfig, "P2_RIGHT_RED", &P2_RIGHT_RED, &inputState);
         SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE, &inputState);
     }
+
+    LogMessage (LogLevel::INFO, "Finish Loading keyconfig.toml  useKeyboard={} useMouse={} useController={}", 
+        (inputState & 1) ? "true" : "false", (inputState & (1 << 1)) ? "true" : "false", (inputState & (1 << 2)) ? "true" : "false");
 
     if (!emulateUsio && !exists (std::filesystem::current_path () / "bnusio_original.dll")) {
         emulateUsio = true;
