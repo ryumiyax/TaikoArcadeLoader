@@ -278,7 +278,7 @@ namespace Qr {
             hexStream << std::hex << std::uppercase << std::setfill ('0') << std::setw (2);
             for (size_t i = 0; i < data->size (); i++) hexStream << static_cast<int> ((*data)[i]) << " ";
             LogMessage (LogLevel::INFO, "[QR] Read QRData size: {} data: {}\n", data->size (), hexStream.str ());
-            size_t finalCopySize = std::min (data->size () + 1, (size_t)length);
+            size_t finalCopySize = std::min (data->size (), (size_t)length);
             memcpy (dest, data->data (), finalCopySize);
             scanQueue.pop ();
             delete data;
