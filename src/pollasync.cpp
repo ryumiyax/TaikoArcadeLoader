@@ -287,32 +287,33 @@ CorrectButton (uint32_t which, uint8_t button) {
 }
 
 void
-UpdatePoll (HWND windowHandle) {
-    if (!CheckForegroundWindow (windowHandle)) return; 
-
+CleanPoll () {
     if (usingKeyboard && keyboardClean) {
         keyboardClean = false;
         for (int i=0; i<0xFF; i++) keyboardCount[i] -= (bool)keyboardDiff[i]; 
         memset (keyboardDiff, 0, 0XFF);
     }
+    if (usingMouse) {
+        currentMouseState.ScrolledUp   = false;
+        currentMouseState.ScrolledDown = false;
+        if (mouseWheelCount[0] > 0) mouseWheelCount[0] -= (bool)mouseWheelDiff[0];
+        if (mouseWheelCount[1] > 0) mouseWheelCount[1] -= (bool)mouseWheelDiff[1];
+        memset (mouseWheelDiff, 0, 2);
+    }
 
-    // GetCursorPos (&currentMouseState.Position);
-    // ScreenToClient (windowHandle, &currentMouseState.Position);
+    if (usingController) {
+        for (int i=0; i<SDL_GAMEPAD_BUTTON_COUNT; i++) controllerCount[i] -= (bool)controllerDiff[i];
+        for (int i=1; i<SDL_AXIS_MAX; i++) controllerAxisCount[i] -= (bool)controllerAxisDiff[i];
+        memset (controllerDiff, 0, SDL_GAMEPAD_BUTTON_COUNT);
+        memset (controllerAxisDiff, 0, SDL_AXIS_MAX);
+    }
+}
+
+void
+UpdatePoll (HWND windowHandle) {
+    if (!CheckForegroundWindow (windowHandle)) return; 
+    CleanPoll ();
     if (usingSDLEvent) {
-        if (usingMouse) {
-            currentMouseState.ScrolledUp   = false;
-            currentMouseState.ScrolledDown = false;
-            if (mouseWheelCount[0] > 0) mouseWheelCount[0] -= (bool)mouseWheelDiff[0];
-            if (mouseWheelCount[1] > 0) mouseWheelCount[1] -= (bool)mouseWheelDiff[1];
-            memset (mouseWheelDiff, 0, 2);
-        }
-
-        if (usingController) {
-            for (int i=0; i<SDL_GAMEPAD_BUTTON_COUNT; i++) controllerCount[i] -= (bool)controllerDiff[i];
-            for (int i=1; i<SDL_AXIS_MAX; i++) controllerAxisCount[i] -= (bool)controllerAxisDiff[i];
-            memset (controllerDiff, 0, SDL_GAMEPAD_BUTTON_COUNT);
-            memset (controllerAxisDiff, 0, SDL_AXIS_MAX);
-        }
         SDL_Event event;
         SDL_Gamepad *controller;
         while (SDL_PollEvent (&event) != 0) {

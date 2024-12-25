@@ -150,12 +150,14 @@ SDLAxis analogBindings[] = {
 
 u16
 bnusio_GetAnalogIn (const u8 which) {
+    // LogMessage (LogLevel::DEBUG, "GetAnalogIn p={}", which);
     if (analogMethod) return analogMethod (which);
     else return 0;
 }
 
 u16 __fastcall bnusio_GetCoin (i32 a1) {
-    if (updateByCoin) bnusio::Update ();
+    // LogMessage (LogLevel::DEBUG, "GetCoin p={}", a1);
+    if (updateByCoin && a1 == 1) bnusio::Update ();
     return coin_count;
 }
 u16 __fastcall bnusio_GetService (i32 a1) { return service_count; }
@@ -268,74 +270,6 @@ AnalogInputSimple (const u8 which) {
         return (hitValue << 15) / 100 + 1;
     }
     return 0;
-}
-
-#ifndef ASYNC_UPDATE
-void
-Update () {
-#else
-std::thread pollThread;
-std::thread updateThread;
-std::mutex syncMtx;
-std::condition_variable syncCV;
-
-void
-UpdateLoop () {
-    LogMessage (LogLevel::WARN, "(experimental) Using Async Update!");
-    std::unique_lock<std::mutex> syncLock(syncMtx);
-    while (exited < exitWait) {
-        syncCV.wait (syncLock);
-#endif
-    if (exited && ++exited >= exitWait) ExitProcess (0);
-
-#ifndef ASYNC_IO
-    if (!inited) {
-        windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
-        InitializePoll (windowHandle);
-        if (autoIme) {
-            currentLayout  = GetKeyboardLayout (0);
-            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
-            ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
-        }
-
-        patches::Plugins::Init ();
-        inited = true;
-    }
-
-    UpdatePoll (windowHandle);
-#endif
-    std::vector<uint8_t> buffer = {};
-    if (IsButtonTapped (COIN_ADD)) {
-        LogMessage (LogLevel::DEBUG, "Insert Coin!");
-        coin_count++;
-    }
-    if (IsButtonTapped (SERVICE)) {
-        LogMessage (LogLevel::DEBUG, "Insert Severice Coin!");
-        service_count++;
-    }
-    if (IsButtonTapped (TEST)) {
-        LogMessage (LogLevel::INFO, "Enter TestMode by Press TestMode Button!");
-        testEnabled = !testEnabled;
-    }
-    if (exited == 0 && IsButtonTapped (EXIT)) {
-        LogMessage (LogLevel::INFO, "Exit by Press Exit Button!");
-        exited += 1; testEnabled = 1; std::thread([](){patches::Plugins::Exit ();}).detach();
-    }
-    if (GameVersion::CHN00 == gameVersion) {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
-    } else {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
-    }
-    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
-    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
-
-    patches::Plugins::Update ();
-    patches::Scanner::Update ();
-#ifdef ASYNC_UPDATE
-    }
-#endif
 }
 
 void
@@ -463,17 +397,11 @@ Init () {
         INSTALL_HOOK_DIRECT (bnusio_ResetCoin, bnusio_ResetCoin_Original);
         LogMessage (LogLevel::WARN, "USIO emulation disabled");
     }
-#ifdef ASYNC_UPDATE
-    else {
-        updateThread = std::thread (bnusio::UpdateLoop);
-        updateThread.detach ();
-    }
-#endif
 }
 
-#ifdef ASYNC_UPDATE
 void
 Update () {
+    if (exited && ++exited >= exitWait) ExitProcess (0);
     if (!inited) {
         windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
         InitializePoll (windowHandle);
@@ -482,14 +410,32 @@ Update () {
             auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
             ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
         }
-
         patches::Plugins::Init ();
         inited = true;
     }
     UpdatePoll (windowHandle);
-    syncCV.notify_all ();
+
+    std::vector<uint8_t> buffer = {};
+    if (IsButtonTapped (COIN_ADD)) coin_count++;
+    if (IsButtonTapped (SERVICE)) service_count++;
+    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
+    if (exited == 0 && IsButtonTapped (EXIT)) {
+        LogMessage (LogLevel::INFO, "Exit by Press Exit Button!");
+        exited += 1; testEnabled = 1; std::thread([](){patches::Plugins::Exit ();}).detach();
+    }
+    if (GameVersion::CHN00 == gameVersion) {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
+    } else {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
+    }
+    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
+    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
+
+    patches::Plugins::Update ();
+    patches::Scanner::Update ();
 }
-#endif
 
 void
 Close () {

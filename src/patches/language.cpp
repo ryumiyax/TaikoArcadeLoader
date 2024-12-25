@@ -52,7 +52,7 @@ const LanguageItem languageItems[5][5] = {
     {{"en", "64", "en_64"},{"en", "30", "en_30"},{"en", "32_EB", "en_32"   },{"en", "32_B", "en_32"  },{"en", "32_DB", "en_32"   }},
     {{"tw", "64", "tw_64"},{"tw", "30", "tw_30"},{"tw", "32_EB", "tw_32"   },{"tw", "32_B", "tw_32"  },{"tw", "32_DB", "tw_32"   }},
     {{"kr", "64", "kr_64"},{"kr", "30", "kr_30"},{"kr", "32_EB", "kr_32"   },{"kr", "32_B", "kr_32"  },{"kr", "32_DB", "kr_32"   }},
-    {{"cn", "64", "cn_64"},{"cn", "30", "cn_30"},{"cn", "32_EB", "cn_32"   },{"cn", "32_B", "cn_32"  },{"cn", "32_DB", "cn_32"   }},
+    {{"cn", "64", "cn_64"},{"cn", "30", "cn_30"},{"cn", "32_EB", "cn_32_EB"},{"cn", "32_B", "cn_32_B"},{"cn", "32_DB", "cn_32_DB"}},
 };
 
 FAST_HOOK_DYNAMIC (int, initial_load_setting) {
@@ -100,7 +100,10 @@ FAST_HOOK_DYNAMIC (double, GetCorrectionOffsetY, u64 a1, u32 a2) {
 void
 Init () {
     bool fontExistAll = true;
-    const char *fontToCheck[]{"cn_30.nutexb", "cn_30.xml", "cn_32.nutexb", "cn_32.xml", "cn_64.nutexb", "cn_64.xml"};
+    const char *fontToCheck[]{
+        "cn_30.nutexb", "cn_30.xml", "cn_32_EB.nutexb", "cn_32_EB.xml", "cn_32_B.nutexb", 
+        "cn_32_B.xml", "cn_32_DB.nutexb", "cn_32_DB.xml", "cn_64.nutexb", "cn_64.xml"
+    };
     for (int i = 0; i < 6; i++) {
         if (std::filesystem::exists (std::string ("..\\..\\Data\\x64\\font\\") + fontToCheck[i])) continue;
         fontExistAll = false;
@@ -174,10 +177,8 @@ const std::vector<std::string> languageFlas = {"taikoSelectFla", "taikoSelectFla
 
 typedef bool (*JsonHasMember) (u64, const char *);
 typedef u64 *(*JsonGetMember) (u64, const char *);
-typedef void (*VectorIterator) (char *, u64, u64, u64);
 JsonHasMember jsonHasMember = nullptr;
 JsonGetMember jsonGetMember = nullptr;
-VectorIterator vectorIterator = nullptr;
 
 uintptr_t WordlistLanguageTypeRIP = 0;
 MID_HOOK_DYNAMIC (WordlistLanguageType, SafetyHookContext &ctx) {
@@ -274,7 +275,6 @@ Init () {
     case GameVersion::JPN39: {
         jsonHasMember = (JsonHasMember)ASLR (0x1400B5A30);
         jsonGetMember = (JsonGetMember)ASLR (0x1400B6080);
-        vectorIterator = (VectorIterator)ASLR (0x14079C430);
         // App::DataTableHolder<App::WordInfo>::Serialize
         WordlistLanguageTypeRIP     = ASLR (0x1400B20B8);
         INSTALL_MID_HOOK_DYNAMIC (WordlistLanguageType, ASLR (0x1400B1E47));
@@ -614,6 +614,7 @@ Init () {
         };
         for (std::string voiceFile : voiceFiles) checkVoiceFile (("..\\..\\Data\\x64\\sound\\" + voiceFile).c_str ());
         if (enableSwitchVoice) {
+            LogMessage (LogLevel::INFO, "Detected voice files, install voice patches!");
             TestMode::RegisterItemAfter(
                 L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='LanguageItem']",
                 L"<select-item label=\"VOICE\" param-offset-x=\"35\" replace-text=\"0:JPN, 1:CHN\" group=\"Setting\" " 

@@ -210,6 +210,7 @@ inline bool sendFlag = false;
     }
 
 #define round(num) ((num > 0) ? (int)(num + 0.5) : (int)(num - 0.5))
+#define timestamp() (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now ().time_since_epoch ()).count ())
 
 toml_table_t *openConfig (const std::filesystem::path &path);
 toml_table_t *openConfigSection (const toml_table_t *config, const std::string &sectionName);

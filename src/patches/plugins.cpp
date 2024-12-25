@@ -2,6 +2,8 @@
 #include "helpers.h"
 #include "patches.h"
 
+extern int exited;
+
 namespace patches::Plugins {
     std::vector<HMODULE> plugins = {};
 
@@ -15,6 +17,9 @@ namespace patches::Plugins {
     typedef void   (*SendQRLoginEvent)    (CommitQrLoginCallback login);
     typedef void   (*StatusChangeEvent)   (size_t type, bool status);
 
+    std::mutex updateMutex;
+    std::condition_variable updateCV;
+
     void
     Init () {
         for (auto plugin : plugins) {
@@ -24,13 +29,11 @@ namespace patches::Plugins {
     }
     void
     Update () {
-        for (auto plugin : plugins) {
-            auto event = GetProcAddress (plugin, "Update");
-            if (event) ((BasicEvent)event) ();
-        }
+        updateCV.notify_all ();
     }
     void
     Exit () {
+        updateCV.notify_all ();
         for (auto plugin : plugins) {
             auto event = GetProcAddress (plugin, "Exit");
             if (event) ((BasicEvent)event) ();
@@ -129,6 +132,19 @@ namespace patches::Plugins {
                 }
             }
         }
+
+        std::thread ([&](){
+            std::unique_lock<std::mutex> updateLock(updateMutex);
+            while (exited == 0) {
+                updateCV.wait (updateLock);
+                if (exited == 0) {
+                    for (auto plugin : plugins) {
+                        auto event = GetProcAddress (plugin, "Update");
+                        if (event) ((BasicEvent)event) ();
+                    }
+                }
+            }
+        }).detach ();
     }
 
 

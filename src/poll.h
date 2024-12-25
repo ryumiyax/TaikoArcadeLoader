@@ -109,5 +109,6 @@ bool ControllerAxisIsReleased (const SDLAxis axis);
 bool IsButtonReleased (const Keybindings &bindings);
 #else
 void UpdatePoll (HWND windowHandle);
+void CleanPoll ();
 void InitializeKeyboard ();
 #endif
