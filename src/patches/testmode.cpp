@@ -483,7 +483,6 @@ Init () {
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeLoading, ASLR (0x1404793D0));
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeFinalize, ASLR (0x140479600));
         INSTALL_FAST_HOOK_DYNAMIC (SceneFirstInitialize, ASLR (0x1404574B0));
-        bool 
         originalDeviceInitialize = L"DeviceInitialize.xml";
         if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\DeviceInitialize_china.xml")) {
             usingDeviceInitialize = L"DeviceInitialize_china.xml";
