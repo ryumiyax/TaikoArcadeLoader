@@ -53,7 +53,7 @@ namespace Card {
         InsertCard (uint8_t cardData[168], bool internalInvoke) {
             if (callbackTouch) {
                 state = internalInvoke ? State::Disable : State::CopyWait;
-                patches::Plugins::UpdateStatus (1, false);
+                patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
                 if (!internalInvoke) {
                     LogMessage (LogLevel::DEBUG, "[Card] Call CallbackTouch!");
                     for (int i = 0; i < 8; i++) {
@@ -73,7 +73,7 @@ namespace Card {
         InsertError (CardErrorCode errorCode) {
             if (callbackTouch) {
                 state = State::CopyWait;
-                patches::Plugins::UpdateStatus (1, false);
+                patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
                 callbackTouch (0, errorCode, cardData, touchData);
             }
         }
@@ -82,7 +82,7 @@ namespace Card {
         AgentCallbackTouch (int32_t a1, int32_t a2, uint8_t *a3, uint64_t a4) {
             if (callbackTouch) {
                 state = State::CopyWait;
-                patches::Plugins::UpdateStatus (1, false);
+                patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
                 callbackTouch (a1, a2, a3, a4);
             }
         }
@@ -91,7 +91,7 @@ namespace Card {
         AgentCallbackTouchOfficial (int32_t a1, int32_t a2, uint8_t *a3, uint64_t a4) {
             if (callbackTouch) {
                 state = State::CopyWait;
-                patches::Plugins::UpdateStatus (1, false);
+                patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
                 LogMessage (LogLevel::DEBUG, "Official CallbackTouch a1={} a2={}", a1, a2);
                 if (acceptInvalidCards && !a3[0]) {
                     char AccessId[21] = "00000000000000000001";
@@ -154,7 +154,7 @@ namespace Card {
     }
     FAST_HOOK (u64, bngrw_ReqWaitTouch, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, CallbackTouch callback, u64 a5) {
         state = State::Ready;
-        patches::Plugins::UpdateStatus (1, true);
+        patches::Plugins::UpdateStatus (StatusType::CardStatus, true);
         patches::Plugins::WaitTouch (Internal::AgentCallbackTouch, a5);
         callbackTouch = callback;
         touchData = a5;
@@ -164,13 +164,13 @@ namespace Card {
     HOOK (i64, bngrw_ReqCancelOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel"), u32 a1) { 
         if (state != State::Disable) {
             state = State::Disable;
-            patches::Plugins::UpdateStatus (1, false);
+            patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
         }
         return originalbngrw_ReqCancelOfficial (a1);
     }
     HOOK (u64, bngrw_ReqWaitTouchOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, CallbackTouch callback, u64 a5) {
         state = State::Ready;
-        patches::Plugins::UpdateStatus (1, true);
+        patches::Plugins::UpdateStatus (StatusType::CardStatus, true);
         callbackTouch = callback;
         touchData = a5;
         return originalbngrw_ReqWaitTouchOfficial (a1, a2, a3, Internal::AgentCallbackTouchOfficial, a5);
@@ -278,7 +278,7 @@ namespace Qr {
             hexStream << std::hex << std::uppercase << std::setfill ('0') << std::setw (2);
             for (size_t i = 0; i < data->size (); i++) hexStream << static_cast<int> ((*data)[i]) << " ";
             LogMessage (LogLevel::INFO, "[QR] Read QRData size: {} data: {}\n", data->size (), hexStream.str ());
-            size_t finalCopySize = std::min (data->size () + 1, (size_t)length);
+            size_t finalCopySize = std::min (data->size (), (size_t)length);
             memcpy (dest, data->data (), finalCopySize);
             scanQueue.pop ();
             delete data;
@@ -291,7 +291,7 @@ namespace Qr {
                 scanQueue.pop ();
             }
             state = State::Ready;
-            patches::Plugins::UpdateStatus (2, true);
+            patches::Plugins::UpdateStatus (StatusType::QrStatus, true);
         }
         return 0;
     }
@@ -339,7 +339,7 @@ namespace Qr {
         if (state != State::Disable) {
             if ((lastScan + 200) < std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now ().time_since_epoch ()).count ()) {
                 state = State::Disable;
-                patches::Plugins::UpdateStatus (2, false);
+                patches::Plugins::UpdateStatus (StatusType::QrStatus, false);
             } else {
                 void *plugin = patches::Plugins::CheckQr ();
                 if (plugin) {

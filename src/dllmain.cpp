@@ -140,51 +140,6 @@ CreateCard () {
     WritePrivateProfileStringA ("card", "chipId2", buf, ".\\card.ini");
 }
 
-void 
-ElevateProcess () {
-    HANDLE hToken;
-    TOKEN_PRIVILEGES tp;
-    LUID luid;
-
-    // 获取当前进程的访问令牌
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
-        LogMessage (LogLevel::ERROR, "OpenProcessToken failed: {}", GetLastError());
-        return;
-    }
-
-    // 获取 SE_DEBUG_NAME 权限的 LUID
-    if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid)) {
-        LogMessage (LogLevel::ERROR, "LookupPrivilegeValue failed: {}", GetLastError());
-        CloseHandle(hToken);
-        return;
-    }
-
-    tp.PrivilegeCount = 1;
-    tp.Privileges[0].Luid = luid;
-    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-
-    // 调整权限
-    if (!AdjustTokenPrivileges(hToken, FALSE, &tp, 0, NULL, NULL)) {
-        LogMessage (LogLevel::ERROR, "AdjustTokenPrivileges failed: {}", GetLastError());
-        CloseHandle(hToken);
-        return;
-    }
-
-    LogMessage (LogLevel::INFO, "Privileges adjusted successfully!");
-    CloseHandle(hToken);
-}
-
-bool DisableDEP() {
-    if (SetProcessDEPPolicy(PROCESS_DEP_ENABLE)) {
-        // std::cout << "DEP disabled successfully.\n";
-        return true;
-    } else {
-        LogMessage (LogLevel::ERROR, "Failed to disable DEP: {}", GetLastError());
-        // std::cerr << "Failed to disable DEP: " << GetLastError() << std::endl;
-        return false;
-    }
-}
-
 BOOL
 DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -192,16 +147,13 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         // I/O in DllMain can easily cause a deadlock
 
         // Init logger for loading config
-        
         auto start = std::chrono::high_resolution_clock::now();
         InitializeLogger (GetLogLevel (logLevelStr), logToFile);
-        // ElevateProcess ();
-        // DisableDEP ();
         patches::Timer::Init ();
-        #ifdef ASYNC_IO
-        LogMessage (LogLevel::WARN, "(experimental) Using Async IO!");
-        InitializeKeyboard ();
-        #endif
+
+        // #ifdef ASYNC_IO
+        // InitializeKeyboard ();
+        // #endif
 
         LogMessage (LogLevel::INFO, "Loading config...");
 
@@ -314,8 +266,9 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         patches::Audio::Init ();
         patches::Dxgi::Init ();
         patches::AmAuth::Init ();
-        patches::LayeredFs::Init ();
+        patches::Language::Init ();
         patches::TestMode::Init ();
+        patches::LayeredFs::Init ();
 
         std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
         LogMessage (LogLevel::INFO, "==== Finished Loading patches! using: {:.2f}ms", duration.count () * 1000);

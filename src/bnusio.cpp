@@ -62,7 +62,9 @@ u16 service_count   = 0;
 bool inited         = false;
 bool updateByCoin   = false;
 HWND windowHandle   = nullptr;
-bool usePoll        = false;
+float axisThreshold = 0.6f;
+u8 inputState       = 1 | (1 << 2);
+bool globalKeyboard = false;;
 HKL currentLayout;
 
 namespace bnusio {
@@ -137,15 +139,9 @@ bool valueStates[] = {false, false, false, false, false, false, false, false};
 Keybindings *analogButtons[]
     = {&P1_LEFT_BLUE, &P1_LEFT_RED, &P1_RIGHT_RED, &P1_RIGHT_BLUE, &P2_LEFT_BLUE, &P2_LEFT_RED, &P2_RIGHT_RED, &P2_RIGHT_BLUE};
 
-// u16 cooldown[8] = { 0 };
+u8 cooldown[8] = { 0 };
 u16 buttonWaitPeriod[] = { 0, 0 };
 std::queue<u8> buttonQueue[] = { {}, {} };
-
-// u16 buttonWaitPeriodP1 = 0;
-// u16 buttonWaitPeriodP2 = 0;
-// std::queue<u8> buttonQueueP1;
-// std::queue<u8> buttonQueueP2;
-
 
 SDLAxis analogBindings[] = {
     SDL_AXIS_LEFT_LEFT,  SDL_AXIS_LEFT_RIGHT,  SDL_AXIS_LEFT_DOWN,  SDL_AXIS_LEFT_UP,  // P1: LB, LR, RR, RB
@@ -154,12 +150,14 @@ SDLAxis analogBindings[] = {
 
 u16
 bnusio_GetAnalogIn (const u8 which) {
+    // LogMessage (LogLevel::DEBUG, "GetAnalogIn p={}", which);
     if (analogMethod) return analogMethod (which);
     else return 0;
 }
 
 u16 __fastcall bnusio_GetCoin (i32 a1) {
-    if (updateByCoin) bnusio::Update ();
+    // LogMessage (LogLevel::DEBUG, "GetCoin p={}", a1);
+    if (updateByCoin && a1 == 1) bnusio::Update ();
     return coin_count;
 }
 u16 __fastcall bnusio_GetService (i32 a1) { return service_count; }
@@ -213,9 +211,8 @@ FUNCTION_PTR (i64, bnusio_ResetCoin_Original, PROC_ADDRESS ("bnusio_original.dll
 
 u16 __fastcall
 AnalogInputAxis (const u8 which) {
-    const u16 analogValue = static_cast<u16> (32768 * ControllerAxisIsDown (analogBindings[which]));
-    if (analogValue > 100) return analogValue;
-    else return 0;
+    u16 analogIn = (u16)(32768 * ControllerAxisIsDown (analogBindings[which])) + 1;
+    return analogIn > 100 ? analogIn : 0;
 }
 
 u16 __fastcall
@@ -248,6 +245,22 @@ AnalogInputWaitPeriod (const u8 which) {
     return analogValue;
 }
 
+u8 blueCooldown = 1, redCooldown = 1;
+u16 __fastcall
+AnalogInputCooldown (const u8 which) {
+    const auto button = analogButtons[which];
+    const bool blue = !(which % 4 % 3);
+
+    if (cooldown[which] > 0) cooldown[which]--;
+    if (IsButtonTapped (*button)) {
+        if (cooldown[which] > 0) return 0;
+        cooldown[which] = blue ? blueCooldown : redCooldown;
+        const u16 hitValue = !valueStates[which] ? 50 : 51;
+        valueStates[which] = !valueStates[which];
+        return (hitValue << 15) / 100 + 1;
+    } else return 0;
+}
+
 u16 __fastcall
 AnalogInputSimple (const u8 which) {
     const auto button = analogButtons[which];
@@ -257,65 +270,6 @@ AnalogInputSimple (const u8 which) {
         return (hitValue << 15) / 100 + 1;
     }
     return 0;
-}
-
-#ifndef ASYNC_UPDATE
-void
-Update () {
-#else
-std::thread pollThread;
-std::thread updateThread;
-std::mutex syncMtx;
-std::condition_variable syncCV;
-
-void
-UpdateLoop () {
-    LogMessage (LogLevel::WARN, "(experimental) Using Async Update!");
-    std::unique_lock<std::mutex> syncLock(syncMtx);
-    while (exited < exitWait) {
-        syncCV.wait (syncLock);
-#endif
-    if (exited && ++exited >= exitWait) ExitProcess (0);
-
-#ifndef ASYNC_IO
-    if (!inited) {
-        windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
-        InitializePoll (windowHandle);
-        if (autoIme) {
-            currentLayout  = GetKeyboardLayout (0);
-            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
-            ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
-        }
-
-        patches::Plugins::Init ();
-        inited = true;
-    }
-
-    UpdatePoll (windowHandle);
-#endif
-    std::vector<uint8_t> buffer = {};
-    if (IsButtonTapped (COIN_ADD)) coin_count++;
-    if (IsButtonTapped (SERVICE)) service_count++;
-    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
-    if (IsButtonTapped (EXIT)) {
-        LogMessage (LogLevel::INFO, "Exit By Press Exit Button!");
-        exited += 1; testEnabled = 1; patches::Plugins::Exit ();
-    }
-    if (GameVersion::CHN00 == gameVersion) {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
-    } else {
-        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
-        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
-    }
-    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
-    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
-
-    patches::Plugins::Update ();
-    patches::Scanner::Update ();
-#ifdef ASYNC_UPDATE
-    }
-#endif
 }
 
 void
@@ -331,6 +285,7 @@ Init () {
         if (const auto controller = openConfigSection (config, "controller")) {
             drumWaitPeriod   = static_cast<short> (readConfigInt (controller, "wait_period", drumWaitPeriod));
             analogInput      = readConfigBool (controller, "analog_input", analogInput);
+            globalKeyboard   = readConfigBool (controller, "global_keyboard", globalKeyboard);
         }
         auto graphics = openConfigSection (config, "graphics");
         if (graphics) {
@@ -344,6 +299,9 @@ Init () {
     } else if (drumWaitPeriod > 0) {
         LogMessage (LogLevel::WARN, "[Analog Type] WaitPeriod: Fast input might be queued");
         analogMethod = AnalogInputWaitPeriod;
+    } else if (drumWaitPeriod == 0) {
+        LogMessage (LogLevel::INFO, "[Analog Type] Cooldown: Fastest and original input");
+        analogMethod = AnalogInputCooldown;
     } else {
         LogMessage (LogLevel::INFO, "[Analog Type] Simple: Fastest and original input");
         analogMethod = AnalogInputSimple;
@@ -356,34 +314,35 @@ Init () {
     const auto keyConfigPath = std::filesystem::current_path () / "keyconfig.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
-        if (analogInput) usePoll = true;
+        inputState = 0;
+        if (analogInput) inputState |= (1 << 2);
         const toml_table_t *keyConfig = keyConfig_ptr.get ();
-        SetConfigValue (keyConfig, "EXIT", &EXIT, &usePoll);
+        SetConfigValue (keyConfig, "EXIT", &EXIT, &inputState);
 
-        SetConfigValue (keyConfig, "TEST", &TEST, &usePoll);
-        SetConfigValue (keyConfig, "SERVICE", &SERVICE, &usePoll);
-        SetConfigValue (keyConfig, "DEBUG_UP", &DEBUG_UP, &usePoll);
-        SetConfigValue (keyConfig, "DEBUG_DOWN", &DEBUG_DOWN, &usePoll);
-        SetConfigValue (keyConfig, "DEBUG_ENTER", &DEBUG_ENTER, &usePoll);
+        SetConfigValue (keyConfig, "TEST", &TEST, &inputState);
+        SetConfigValue (keyConfig, "SERVICE", &SERVICE, &inputState);
+        SetConfigValue (keyConfig, "DEBUG_UP", &DEBUG_UP, &inputState);
+        SetConfigValue (keyConfig, "DEBUG_DOWN", &DEBUG_DOWN, &inputState);
+        SetConfigValue (keyConfig, "DEBUG_ENTER", &DEBUG_ENTER, &inputState);
 
-        SetConfigValue (keyConfig, "COIN_ADD", &COIN_ADD, &usePoll);
-        SetConfigValue (keyConfig, "CARD_INSERT_1", &CARD_INSERT_1, &usePoll);
-        SetConfigValue (keyConfig, "CARD_INSERT_2", &CARD_INSERT_2, &usePoll);
-        SetConfigValue (keyConfig, "QR_DATA_READ", &QR_DATA_READ, &usePoll);
-        SetConfigValue (keyConfig, "QR_IMAGE_READ", &QR_IMAGE_READ, &usePoll);
+        SetConfigValue (keyConfig, "COIN_ADD", &COIN_ADD, &inputState);
+        SetConfigValue (keyConfig, "CARD_INSERT_1", &CARD_INSERT_1, &inputState);
+        SetConfigValue (keyConfig, "CARD_INSERT_2", &CARD_INSERT_2, &inputState);
+        SetConfigValue (keyConfig, "QR_DATA_READ", &QR_DATA_READ, &inputState);
+        SetConfigValue (keyConfig, "QR_IMAGE_READ", &QR_IMAGE_READ, &inputState);
 
-        SetConfigValue (keyConfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE, &usePoll);
-        SetConfigValue (keyConfig, "P1_LEFT_RED", &P1_LEFT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P1_RIGHT_RED", &P1_RIGHT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE, &usePoll);
-        SetConfigValue (keyConfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE, &usePoll);
-        SetConfigValue (keyConfig, "P2_LEFT_RED", &P2_LEFT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P2_RIGHT_RED", &P2_RIGHT_RED, &usePoll);
-        SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE, &usePoll);
-        if (!usePoll) {
-            LogMessage (LogLevel::WARN, "Only Keyboard config detected, disable poll!");
-        }
+        SetConfigValue (keyConfig, "P1_LEFT_BLUE", &P1_LEFT_BLUE, &inputState);
+        SetConfigValue (keyConfig, "P1_LEFT_RED", &P1_LEFT_RED, &inputState);
+        SetConfigValue (keyConfig, "P1_RIGHT_RED", &P1_RIGHT_RED, &inputState);
+        SetConfigValue (keyConfig, "P1_RIGHT_BLUE", &P1_RIGHT_BLUE, &inputState);
+        SetConfigValue (keyConfig, "P2_LEFT_BLUE", &P2_LEFT_BLUE, &inputState);
+        SetConfigValue (keyConfig, "P2_LEFT_RED", &P2_LEFT_RED, &inputState);
+        SetConfigValue (keyConfig, "P2_RIGHT_RED", &P2_RIGHT_RED, &inputState);
+        SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE, &inputState);
     }
+
+    LogMessage (LogLevel::INFO, "Finish Loading keyconfig.toml  useKeyboard={} useMouse={} useController={}", 
+        (inputState & 1) ? "true" : "false", (inputState & (1 << 1)) ? "true" : "false", (inputState & (1 << 2)) ? "true" : "false");
 
     if (!emulateUsio && !exists (std::filesystem::current_path () / "bnusio_original.dll")) {
         emulateUsio = true;
@@ -438,33 +397,45 @@ Init () {
         INSTALL_HOOK_DIRECT (bnusio_ResetCoin, bnusio_ResetCoin_Original);
         LogMessage (LogLevel::WARN, "USIO emulation disabled");
     }
-#ifdef ASYNC_UPDATE
-    else {
-        updateThread = std::thread (bnusio::UpdateLoop);
-        updateThread.detach ();
-    }
-#endif
 }
 
-#ifdef ASYNC_UPDATE
 void
 Update () {
+    if (exited && ++exited >= exitWait) ExitProcess (0);
     if (!inited) {
         windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
-        if (usePoll) InitializePoll (windowHandle);
+        InitializePoll (windowHandle);
         if (autoIme) {
             currentLayout  = GetKeyboardLayout (0);
             auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
             ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
         }
-
         patches::Plugins::Init ();
         inited = true;
     }
-    UpdatePoll (windowHandle, usePoll);
-    syncCV.notify_all ();
+    UpdatePoll (windowHandle);
+
+    std::vector<uint8_t> buffer = {};
+    if (IsButtonTapped (COIN_ADD)) coin_count++;
+    if (IsButtonTapped (SERVICE)) service_count++;
+    if (IsButtonTapped (TEST)) testEnabled = !testEnabled;
+    if (exited == 0 && IsButtonTapped (EXIT)) {
+        LogMessage (LogLevel::INFO, "Exit by Press Exit Button!");
+        exited += 1; testEnabled = 1; std::thread([](){patches::Plugins::Exit ();}).detach();
+    }
+    if (GameVersion::CHN00 == gameVersion) {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Qr::CommitLogin (accessCode1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Qr::CommitLogin (accessCode2);
+    } else {
+        if (IsButtonTapped (CARD_INSERT_1)) patches::Scanner::Card::Commit (accessCode1, chipId1);
+        if (IsButtonTapped (CARD_INSERT_2)) patches::Scanner::Card::Commit (accessCode2, chipId2);
+    }
+    if (IsButtonTapped (QR_DATA_READ))  patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRData (buffer));
+    if (IsButtonTapped (QR_IMAGE_READ)) patches::Scanner::Qr::Commit (patches::Scanner::Qr::ReadQRImage (buffer));
+
+    patches::Plugins::Update ();
+    patches::Scanner::Update ();
 }
-#endif
 
 void
 Close () {

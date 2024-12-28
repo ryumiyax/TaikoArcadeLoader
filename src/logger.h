@@ -35,6 +35,8 @@ void InitializeLogger (LogLevel level, bool logToFile);
 void LogMessageHandler (const char *function, const char *codeFile, int codeLine, LogLevel messageLevel, const char *format, ...);
 void LogMessageHandler (const char *function, const char *codeFile, int codeLine, LogLevel messageLevel, const wchar_t *format, ...);
 
+bool EnableLogging (LogLevel level);
+
 /* *
  * Logs a message with file and line information, if the log level permits.
  *
@@ -44,12 +46,14 @@ template <typename... Args>
 struct LogMessage {
     LogMessage (const LogLevel level, const std::string_view format, Args &&...args,
                 const std::source_location &loc = std::source_location::current ()) {
+        if (!EnableLogging (level)) return;
         std::string formatted_message = std::vformat(std::string(format), std::make_format_args(args...));
         LogMessageHandler (loc.function_name (), loc.file_name (), loc.line (), level, formatted_message.c_str ());
     }
 
     LogMessage (const LogLevel level, const std::wstring_view format, Args &&...args,
                 const std::source_location &loc = std::source_location::current ()) {
+        if (!EnableLogging (level)) return;
         std::wstring formatted_message = std::vformat(std::wstring(format), std::make_wformat_args(args...));
         LogMessageHandler (loc.function_name (), loc.file_name (), loc.line (), level, formatted_message.c_str ());
     }

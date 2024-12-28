@@ -41,9 +41,10 @@ FAST_HOOK_DYNAMIC (bool, LoadASIODriver, void *a1, const char *a2) {
     }
     return result;
 }
+TestMode::Value *speakerLevel = TestMode::CreateValue(L"OutputLevelSpeakerItem");
 FAST_HOOK_DYNAMIC (u64, NuscBusVolume, u64 a1, u64 a2, float a3) {
     if (volumeRate == 0.0f) {
-        int value = patches::TestMode::ReadTestModeValue (L"OutputLevelSpeakerItem");
+        int value = speakerLevel->Read ();
         if (value == -1) return originalNuscBusVolume.fastcall<u64> (a1, a2, a3);
         volumeRate = value <= 100 ? 1.0f : value / 100.0f;
     }

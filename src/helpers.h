@@ -11,6 +11,8 @@
 #include <string>
 #include <toml.h>
 #include <windows.h>
+#include <map>
+#include <functional>
 #include "constants.h"
 #include "logger.h"
 
@@ -123,15 +125,8 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
 #define INSTALL_FAST_HOOK_DYNAMIC(functionName, location)                                                      \
     {                                                                                                          \
         LogMessage (LogLevel::DEBUG, std::string ("Installing fast hook dynamic for ") + #functionName);       \
-        if (auto hook = safetyhook::InlineHook::create((void *)location, (void*)implOf##functionName)) {\
-            original##functionName = std::move(*hook); \
-        } else { \
-            LogMessage (LogLevel::ERROR, std::string ("Error Installing fast hook dynamic for ") + #functionName);\
-            ExitProcess (1); \
-        } \
+        original##functionName = safetyhook::create_inline ((void *)location, (void*)implOf##functionName);    \
     }
-        // original##functionName = safetyhook::create_inline ((void *)location, (void*)implOf##functionName);    \
-    // }
 
 inline bool sendFlag = false;
 #define SCENE_RESULT_HOOK(functionName, location)                                                                                \
@@ -215,6 +210,7 @@ inline bool sendFlag = false;
     }
 
 #define round(num) ((num > 0) ? (int)(num + 0.5) : (int)(num - 0.5))
+#define timestamp() (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now ().time_since_epoch ()).count ())
 
 toml_table_t *openConfig (const std::filesystem::path &path);
 toml_table_t *openConfigSection (const toml_table_t *config, const std::string &sectionName);
@@ -222,9 +218,11 @@ bool readConfigBool (const toml_table_t *table, const std::string &key, bool not
 i64 readConfigInt (const toml_table_t *table, const std::string &key, i64 notFoundValue);
 std::string readConfigString (const toml_table_t *table, const std::string &key, const std::string &notFoundValue);
 std::vector<i64> readConfigIntArray (const toml_table_t *table, const std::string &key, std::vector<i64> notFoundValue);
-std::wstring replace (const std::wstring &orignStr, const std::wstring &oldStr, const std::wstring &newStr);
-std::string replace (const std::string &orignStr, const std::string &oldStr, const std::string &newStr);
+std::wstring replace (const std::wstring orignStr, const std::wstring &oldStr, const std::wstring &newStr);
+std::string replace (const std::string orignStr, const std::string &oldStr, const std::string &newStr);
 const char *GameVersionToString (GameVersion version);
 const char *languageStr (int language);
 std::string ConvertWideToUtf8 (const std::wstring &wstr);
 bool AreAllBytesZero (const u8 *array, size_t offset, size_t length);
+void withFile (const char *fileName, std::function<void (u8 *)> callback);
+std::string season ();

@@ -8,3 +8,8 @@ enum class GameVersion : XXH64_hash_t {
     JPN39   = 0x49F643ADB6B18705,
     CHN00   = 0xA7EE39F2CC2C57C8,
 };
+
+enum StatusType {
+    CardStatus = 1,
+    QrStatus   = 2
+};

@@ -98,6 +98,11 @@ LogMessageHandler (const char *function, const char *codeFile, const int codeLin
     va_end (args);
 }
 
+bool
+EnableLogging (LogLevel messageLevel) {
+    return loggerInstance != nullptr && messageLevel <= loggerInstance->logLevel;
+}
+
 void
 CleanupLogger () {
     if (loggerInstance != nullptr) {

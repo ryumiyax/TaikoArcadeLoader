@@ -16,25 +16,8 @@ std::vector<std::function<void ()>> hooks = {};
 std::thread *hookInstall;
 std::mutex hooksMutex;
 std::condition_variable hooksCV;
-
-// void
-// AddHookInLoop (std::function<void ()> installMethod) {
-//     // hooks.push (installMethod);
-//     hooksCV.notify_all ();
-// }
-
-// void
-// HookInstallLoop () {
-//     std::unique_lock<std::mutex> hooksLock(hooksMutex);
-//     while (!hookInstallFinished) {
-//         while (!hooks.empty ()) {
-//             auto installMethod = hooks.front ();
-//             hooks.pop ();
-//             if (installMethod) installMethod ();
-//         }
-//         if (!hookInstallFinished) hooksCV.wait (hooksLock);
-//     }
-// }
+std::vector<SafetyHookMid> patches = {};
+std::vector<Value *> values = {};
 
 std::wstring
 mergeCondition (std::wstring original, std::wstring addition, std::wstring value) {
@@ -56,18 +39,6 @@ addConditionValue (pugi::xml_node *node, std::wstring key, std::wstring addition
         attr.set_value (mergeCondition(attr.value (), addition, value).c_str ());
     } else node->append_attribute (key.c_str ()) = std::format(L"True/{}:{}", addition, value).c_str ();
 }
-class RegisteredHook : public Applicable {
-public:
-    std::function<void ()> registerInit;
-    RegisteredHook (const std::function<void ()> &initMethod) {
-        this->registerInit = initMethod;
-    }
-    pugi::xml_node *
-    Apply (pugi::xml_node *doc, pugi::xml_node *node) override {
-        // AddHookInLoop (this->registerInit);
-        return node;
-    }
-};
 class RegisteredItem : public Applicable {
 public:
     std::wstring selectItem;
@@ -232,31 +203,67 @@ public:
         return nullptr;
     }
 };
-
+class TestModeValue : Value {
+public:
+    std::wstring key;
+    int value;
+    boolean reset;
+    TestModeValue (std::wstring key) {
+        this->key = key;
+        this->value = -1;
+        this->reset = true;
+    }
+    int
+    Read () override {
+        if (reset) { 
+            this->value = ReadTestModeValue (key.c_str ()); 
+            if (this->value != -1) {
+                LogMessage (LogLevel::DEBUG, L"TestMode Value({}) got val: {}", this->key, this->value);
+                reset = false;
+            }
+        }
+        return this->value;
+    }
+    void
+    Write (int value) override {
+        SetTestModeValue (this->key.c_str (), value);
+        this->reset = true;
+    }
+    void
+    Reset () override {
+        this->reset = true;
+    }
+};
 Menu *modManager = new RegisteredMenu (L"MOD MANAGER", L"ModManagerMenu");
-// std::vector<RegisteredItem *> registeredItems             = {};
 std::vector<RegisteredSingleItem *> registeredSingleItems = {};
 std::vector<RegisteredModify *> registeredModifies        = {};
-std::vector<RegisteredHook *> registeredHooks             = {};
 std::wstring moddedInitial                                = L"";
 std::wstring modded                                       = L"";
+
+std::wstring originalDeviceInitialize = L"";
+std::wstring usingDeviceInitialize = L"";
+std::wstring moddedDeviceInitialize = L"DeviceInitialize_mod.xml";
+std::wstring originalTestMode = L"";
+std::wstring usingTestMode = L"";
+std::wstring moddedTestMode = L"TestMode_mod.xml";
 
 u64 appAccessor             = 0;
 RefTestModeMain refTestMode = nullptr;
 
-std::wstring
-ReadXMLFileSwitcher (std::wstring &fileName) {
-    const std::size_t pos   = fileName.rfind (L"/");
-    const std::wstring file = fileName.substr (pos + 1, fileName.size ());
-    std::wstring base       = fileName.substr (0, pos + 1);
+FAST_HOOK_DYNAMIC (char, SceneTestModeLoading, u64 a1, u64 a2, u64 a3) {
+    char result = originalSceneTestModeLoading.fastcall<char> (a1, a2, a3);
+    return result;
+}
 
-    if (gameVersion == GameVersion::JPN39 && chsPatch) {
-        if (file.starts_with (L"DeviceInitialize")) base.append (L"DeviceInitialize_china.xml");
-        if (file.starts_with (L"TestMode")) base.append (L"TestMode_china.xml");
-        if (std::filesystem::exists (base)) return base;
-    }
+FAST_HOOK_DYNAMIC (char, SceneTestModeFinalize, u64 a1, u64 a2, u64 a3) {
+    char result = originalSceneTestModeFinalize.fastcall<char> (a1, a2, a3);
+    std::thread ([](){for (auto value : values) { value->Reset (); value->Read (); }}).detach ();
+    return result;
+}
 
-    return fileName;
+FAST_HOOK_DYNAMIC (void, SceneFirstInitialize, u64 a1, u64 a2, u64 a3) {
+    std::thread ([](){for (auto value : values) { value->Reset (); value->Read (); }}).detach ();
+    originalSceneFirstInitialize.fastcall<char *> (a1, a2, a3);
 }
 
 FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFileName) {
@@ -264,17 +271,15 @@ FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t
     const auto originalFileName = std::wstring (lFileName);
     LogMessage (LogLevel::DEBUG, L"Begin Loading {}", originalFileName);
     std::wstring fileName       = originalFileName;
-    if (fileName.ends_with (L"DeviceInitialize.xml") || fileName.ends_with (L"DeviceInitialize_asia.xml")
-        || fileName.ends_with (L"DeviceInitialize_china.xml")) {
+    if (fileName.ends_with (originalDeviceInitialize)) {
         if (moddedInitial == L"") {
-            fileName = ReadXMLFileSwitcher (fileName);
+            fileName = replace (originalFileName, originalDeviceInitialize, usingDeviceInitialize);
             if (pugi::xml_document doc; !doc.load_file (fileName.c_str ())) {
                 LogMessage (LogLevel::ERROR, L"Loading DeviceInitialize structure failed! path: " + fileName);
-                moddedInitial = fileName;
+                moddedInitial = originalFileName;
+                fileName      = originalFileName;
             } else {
-                const std::wstring modFileName
-                    = replace (replace (replace (fileName, L"lize_asia.xml", L"lize_mod.xml"), L"lize_china.xml", L"lize_mod.xml"), L"lize.xml",
-                               L"lize_mod.xml");
+                const std::wstring modFileName = replace (originalFileName, originalDeviceInitialize, moddedDeviceInitialize);
                 const pugi::xpath_query dongleQuery = pugi::xpath_query (L"/root/menu[@id='TopMenu']/layout[@type='Center']/select-item[@id='DongleItem']");
                 const pugi::xml_node dongleItem     = doc.select_node (dongleQuery).node ();
                 pugi::xml_node talItem        = dongleItem.parent ().append_copy (dongleItem);
@@ -288,17 +293,16 @@ FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t
                 fileName      = modFileName;
             }
         } else fileName = moddedInitial;
-    } else if (fileName.ends_with (L"TestMode.xml") || fileName.ends_with (L"TestMode_asia.xml") || fileName.ends_with (L"TestMode_china.xml")) {
+    } else if (fileName.ends_with (originalTestMode)) {
         if (modded == L"") {
             if (!((RegisteredMenu*)modManager)->items.empty () || registeredSingleItems.empty () || !registeredModifies.empty ()) {
-                fileName = ReadXMLFileSwitcher (fileName);
+                fileName = replace (originalFileName, originalTestMode, usingTestMode);
                 if (pugi::xml_document doc; !doc.load_file (fileName.c_str ())) {
                     LogMessage (LogLevel::ERROR, L"Loading TestMode structure failed! path: " + fileName);
-                    modded = fileName;
+                    modded   = originalFileName;
+                    fileName = originalFileName;
                 } else {
-                    const std::wstring modFileName
-                        = replace (replace (replace (fileName, L"Mode_asia.xml", L"Mode_mod.xml"), L"Mode_china.xml", L"Mode_mod.xml"), L"Mode.xml",
-                                   L"Mode_mod.xml");
+                    const std::wstring modFileName = replace (originalFileName, originalTestMode, moddedTestMode);
                     if (!((RegisteredMenu*)modManager)->items.empty ()) {
                         LogMessage (LogLevel::DEBUG, "Begin generate Mod Manager menu");
                         pugi::xpath_query menuQuery
@@ -320,13 +324,6 @@ FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t
                         LogMessage (LogLevel::DEBUG, "End Apply Modify Items");
                     }
 
-                    if (!registeredHooks.empty ()) {
-                        LogMessage (LogLevel::DEBUG, "Begin Apply Hooks");
-                        for (RegisteredHook *hook : registeredHooks) hook->Apply (&doc, &doc);
-                        LogMessage (LogLevel::DEBUG, "End Apply Hooks");
-                    }
-
-                    // AddHookInLoop ([&](){ hookInstallFinished = true; });
                     [[maybe_unused]] auto _ = doc.save_file (modFileName.c_str ());
                     modded   = modFileName;
                     fileName = modFileName;
@@ -339,16 +336,6 @@ FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t
     LogMessage (LogLevel::DEBUG, L"TestModeLibrary load: {}, spend: {:.2f}ms", fileName, duration.count () * 1000);
     originalTestModeSetMenuHook.fastcall<void> (testModeLibrary, fileName.c_str ());
 }
-
-// HOOK_DYNAMIC (void, TestModeGetValueHook, u64 *reader, const wchar_t *lItemName, int *value) {
-//     originalTestModeGetValueHook (reader, lItemName, value);
-//     LogMessage (LogLevel::DEBUG, L"TestMode get Item: {} Value: {}", lItemName, *value);
-// }
-
-// HOOK_DYNAMIC (void, TestModeSetValueHook, u64 *reader, const wchar_t *lItemName, int value) {
-//     LogMessage (LogLevel::DEBUG, L"TestMode set Item: {} Value: {}", lItemName, value);
-//     originalTestModeSetValueHook (reader, lItemName, value);
-// }
 
 void
 CommonModify () {
@@ -482,44 +469,53 @@ void
 Init () {
     LogMessage (LogLevel::INFO, "Init TestMode patches");
 
-    const auto configPath = std::filesystem::current_path () / "config.toml";
-    const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-
     const u64 testModeLibrary = (u64)GetModuleHandle ("TestModeLibrary.dll");
     const u64 testModeSetMenu = testModeLibrary + 0x99D0;
-    // const u64 testModeGetValue = testModeLibrary + 0x6FB18;
-    // const u64 testModeSetValue = testModeLibrary + 0x6FAC8;
 
-    LogMessage (LogLevel::DEBUG, "TestModeLibrary: {}", testModeLibrary);
-    // LogMessage (LogLevel::DEBUG, "TestModeLibrary set: {}", testModeSetValue);
-    // LogMessage (LogLevel::DEBUG, "TestModeLibrary get: {}", testModeGetValue);
+    CommonModify ();
+    for (auto method : hooks) method ();
+
     switch (gameVersion) {
     case GameVersion::UNKNOWN: break;
     case GameVersion::JPN00: break;
     case GameVersion::JPN08: break;
     case GameVersion::JPN39: {
-        if (config_ptr) {
-            if (const auto patches = openConfigSection (config_ptr.get (), "patches")) {
-                if (const auto jpn39 = openConfigSection (patches, "jpn39")) chsPatch = readConfigBool (jpn39, "chs_patch", chsPatch);
-            }
-        }
-        if (chsPatch) LocalizationCHT ();
+        INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeLoading, ASLR (0x1404793D0));
+        INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeFinalize, ASLR (0x140479600));
+        INSTALL_FAST_HOOK_DYNAMIC (SceneFirstInitialize, ASLR (0x1404574B0));
+        originalDeviceInitialize = L"DeviceInitialize.xml";
+        if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\DeviceInitialize_china.xml")) {
+            usingDeviceInitialize = L"DeviceInitialize_china.xml";
+            patches.push_back (safetyhook::create_mid (ASLR (0x140465549), [](SafetyHookContext &ctx)
+            { ctx.r8 = 2; ctx.rdx = (uintptr_t)"cn"; ctx.rip = ASLR (0x140465556); }));     // DeviceCheck = Loading Font
+            patches.push_back (safetyhook::create_mid (ASLR (0x1404676E7), [](SafetyHookContext &ctx)
+            { ctx.r8 = 2; ctx.rdx = (uintptr_t)"cn"; ctx.rip = ASLR (0x1404676F4); }));     // ??
+            WRITE_MEMORY (ASLR (0x140CD1E40), wchar_t, L"加载中\0");
+            WRITE_MEMORY (ASLR (0x140CD1E28), wchar_t, L"加载中.\0");
+            WRITE_MEMORY (ASLR (0x140CD1E68), wchar_t, L"加载中..\0");
+            WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加载中...\0");
+        } else usingDeviceInitialize = originalDeviceInitialize;
+        originalTestMode = L"TestMode.xml";
+        if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\TestMode_china.xml")) {
+            usingTestMode = L"TestMode_china.xml";
+            patches.push_back (safetyhook::create_mid (ASLR (0x14047C603), [](SafetyHookContext &ctx)
+            { ctx.r8 = 2; ctx.rdx = (uintptr_t)"cn"; ctx.rip = ASLR (0x14047C610); }));     // TestMode = DeviceInitialize
+        } else usingTestMode = originalTestMode;
     } break;
     case GameVersion::CHN00: break;
     }
 
-    CommonModify ();
-
     INSTALL_FAST_HOOK_DYNAMIC (TestModeSetMenuHook, testModeSetMenu);
-    for (auto method : hooks) method ();
-    // INSTALL_HOOK_DYNAMIC (TestModeGetValueHook, testModeGetValue);
-    // INSTALL_HOOK_DYNAMIC (TestModeSetValueHook, testModeSetValue);
 }
 
 void
 SetupAccessor (const u64 appAccessor, const RefTestModeMain refTestMode) {
-    TestMode::appAccessor = appAccessor;
-    TestMode::refTestMode = refTestMode;
+    if (TestMode::appAccessor != appAccessor) {
+        LogMessage (LogLevel::DEBUG, "TestMode setup!");
+        TestMode::appAccessor = appAccessor;
+        TestMode::refTestMode = refTestMode;
+        // std::thread ([](){for (auto value : values) { value->Reset (); value->Read (); }}).detach ();
+    }
 }
 
 int
@@ -528,13 +524,10 @@ ReadTestModeValue (const wchar_t *itemId) {
         if (const u64 testModeMain = refTestMode (appAccessor)) {
             int value   = 0;
             u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
-            // LogMessage (LogLevel::DEBUG, "TestMode get:{} set:{}", *reader + 256, *reader + 176);
             (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int *)> (*reader + 256)) (reader, itemId, &value);
-            // originalTestModeGetValueHook (reader, itemId, &value);
             return value;
         }
     }
-    LogMessage (LogLevel::ERROR, (std::wstring (L"Read TestMode(") + itemId + L") failed!").c_str ());
     return -1;
 }
 
@@ -544,7 +537,6 @@ SetTestModeValue (const wchar_t *itemId, int value) {
         if (const u64 testModeMain = refTestMode (appAccessor)) {
             u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
             (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int)> (*reader + 176)) (reader, itemId, value);
-            // ((TestModeSetValueHook)whereTestModeSetMenuHook) (reader, itemId, value);
         }
     }
 }
@@ -553,6 +545,14 @@ Menu *
 CreateMenu (const std::wstring &menuName, const std::wstring &menuId) {
     LogMessage (LogLevel::DEBUG, L"Create MenuName: {} MenuId: {}", menuName, menuId);
     return new RegisteredMenu (menuName, menuId);
+}
+
+Value *
+CreateValue (const std::wstring &key) {
+    LogMessage (LogLevel::DEBUG, L"Create TestMode Value key: {}", key);
+    Value *value = (Value *)(new TestModeValue (key));
+    values.push_back ((Value *)value);
+    return value;
 }
 
 void
@@ -629,7 +629,6 @@ void
 RegisterHook (const std::function<void()> &initMethod) {
     LogMessage (LogLevel::DEBUG, L"Register Hook");
     hooks.push_back (initMethod);
-    // registeredHooks.push_back (new RegisteredHook (initMethod));
 }
 
 void
