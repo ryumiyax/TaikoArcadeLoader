@@ -10,6 +10,8 @@ extern int exited;
 extern u8 inputState;
 extern float axisThreshold;
 extern bool globalKeyboardInput;
+extern bool autoIme;
+extern HKL currentLayout;
 
 bool wndForeground = false;
 bool usingKeyboard = false;
@@ -201,6 +203,7 @@ InitializePoll (HWND windowHandle) {
     usingController = inputState & (1 << 2);
     usingSDLEvent = usingMouse || usingController;
 
+    atexit ([](){ if (currentLayout != nullptr) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);});
     InitializeKeyboard ();
     if (usingSDLEvent) {
         LogMessage (LogLevel::DEBUG, "InitializePoll");
@@ -267,9 +270,18 @@ InitializePoll (HWND windowHandle) {
 bool
 CheckForegroundWindow (HWND processWindow) {
     if (processWindow == nullptr) return false;
-    if (wndForeground ^ (processWindow == GetForegroundWindow ())) {
+    HWND foregroundWnd = GetForegroundWindow ();
+    if (wndForeground ^ (processWindow == foregroundWnd)) {
         wndForeground = !wndForeground;
         LogMessage (LogLevel::DEBUG, "window focus={}", wndForeground);
+        if (autoIme) {
+            if (wndForeground) {
+                currentLayout  = GetKeyboardLayout (0);
+                auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
+                ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
+                LogMessage (LogLevel::DEBUG, "(experimental) auto change KeyboardLayout {}", LOWORD(engLayout));
+            }
+        }
     }
     return wndForeground;
 }

@@ -1,6 +1,10 @@
 #include "helpers.h"
 #include "../patches.h"
 
+extern i32 xRes;
+extern i32 yRes;
+extern bool vsync;
+
 namespace patches::JPN00 {
 
 HOOK_DYNAMIC (char, AMFWTerminate, i64) { return 0; }
@@ -37,9 +41,6 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
 void
 Init () {
     LogMessage (LogLevel::INFO, "Init JNP00 patches");
-    i32 xRes         = 1920;
-    i32 yRes         = 1080;
-    bool vsync       = false;
     bool unlockSongs = true;
 
     const auto configPath = std::filesystem::current_path () / "config.toml";
@@ -47,14 +48,6 @@ Init () {
     if (config_ptr) {
         if (const auto patches = openConfigSection (config_ptr.get (), "patches"))
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-
-        if (const auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
-            if (const auto res = openConfigSection (graphics, "res")) {
-                xRes = static_cast<i32> (readConfigInt (res, "x", xRes));
-                yRes = static_cast<i32> (readConfigInt (res, "y", yRes));
-            }
-            vsync = readConfigBool (graphics, "vsync", vsync);
-        }
     }
 
     // Apply common config patch

@@ -3,6 +3,9 @@
 
 extern u64 song_data_size;
 extern void *song_data;
+extern i32 xRes;
+extern i32 yRes;
+extern bool vsync;
 
 #define RDX_MOV 0x48, 0xBA
 #define R8_MOV  0x49, 0xB8
@@ -48,23 +51,12 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
 void
 Init () {
     LogMessage (LogLevel::INFO, "Init JPN08 patches");
-    i32 xRes         = 1920;
-    i32 yRes         = 1080;
-    bool vsync       = false;
     bool unlockSongs = true;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         if (auto patches = openConfigSection (config_ptr.get (), "patches")) unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-
-        if (auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
-            if (auto res = openConfigSection (graphics, "res")) {
-                xRes = static_cast<i32> (readConfigInt (res, "x", xRes));
-                yRes = static_cast<i32> (readConfigInt (res, "y", yRes));
-            }
-            vsync = readConfigBool (graphics, "vsync", vsync);
-        }
     }
 
     // Apply common config patch

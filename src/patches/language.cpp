@@ -375,8 +375,11 @@ FAST_HOOK_DYNAMIC (u64, GraphicBaseGetLanguageType, u64 a1, void *a2) {
     return (u64)GetLanguageType (taiko_assign, language, a2);
 }
 
-std::string *season_nulm = nullptr;
-std::string *season_nutexb = nullptr;
+bool titleExistSeason = true, titleExistMaid = true, titleExistMaidCn = true;
+std::string seasonNulm = "title_season.nulm", seasonNutexb = "title_" + season () + ".nutexb";
+std::string maidNulmCn = "title_maid.nulm", maidNutexbCn = "title_maid.nutexb";
+std::string maidNulm = "title_maid.nulm", maidNutexb = "title_maid.nutexb";
+TestMode::Value *titleScreen = TestMode::CreateValue (L"ModTitleScreen");
 void
 Init () {
     switch (gameVersion) {
@@ -419,35 +422,49 @@ Init () {
         language_patch.push_back (safetyhook::create_mid (ASLR (0x14012B8C8), [](SafetyHookContext &ctx)
         { InjectLanguageType (ctx.rbp + 0x180 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x14012B8D0); }));   // ScoreGetLanguageType
         LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
-            if (language != 4 || currentFileName.starts_with ("F:\\") || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
+            if (language != 4 || currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
             std::string fileName = std::string (currentFileName);
             fileName             = replace (fileName, "\\lumen\\", "\\lumen_cn\\");
             if (std::filesystem::exists (fileName)) return fileName;
             return "";
         });
         
-        LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
-            if (language != 4 || currentFileName.starts_with ("F:\\")) return "";
-            if (currentFileName.ends_with ("title.nulm")) {
-                std::string fileName = std::string (currentFileName);
-                if (season_nulm == nullptr) {
-                    fileName = replace (fileName, "title.nulm", "title_season.nulm");
-                    if (std::filesystem::exists (fileName)) {
-                        std::string nutexb = std::string (currentFileName);
-                        nutexb = replace (nutexb, "title.nulm", "title_" + season () + ".nutexb");
-                        if (std::filesystem::exists (nutexb)) {
-                            season_nulm = new std::string (fileName), season_nutexb = new std::string (nutexb);
-                            return *season_nulm;
-                        }
+        TestMode::RegisterItem (
+            L"<select-item label=\"TITLE SCREEN(NEED FILES)\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:SEASON(CHN), "
+            L"2:MAID\" group=\"Setting\" id=\"ModTitleScreen\" max=\"2\" min=\"0\" default=\"0\"/>",
+            [&](){
+                std::string base[]   = {"..\\..\\Data\\x64\\lumen\\000_default\\attract\\", "..\\..\\Data_mods\\x64\\lumen\\000_default\\attract\\"};
+                std::string baseCn[] = {"..\\..\\Data\\x64\\lumen_cn\\000_default\\attract\\", "..\\..\\Data_mods\\x64\\lumen_cn\\000_default\\attract\\"};
+                for (std::string prefix : baseCn) {
+                    if (!seasonNulm.starts_with ("..\\") && std::filesystem::exists (prefix + seasonNulm)) seasonNulm = prefix + seasonNulm;
+                    if (!seasonNutexb.starts_with ("..\\") && std::filesystem::exists (prefix + seasonNutexb)) seasonNutexb = prefix + seasonNutexb;
+                }
+                if (!seasonNulm.starts_with ("..\\") || !seasonNutexb.starts_with ("..\\")) titleExistSeason = false;
+                for (std::string prefix : baseCn) {
+                    if (!maidNulmCn.starts_with ("..\\") && std::filesystem::exists (prefix + maidNulmCn)) maidNulmCn = prefix + maidNulmCn;
+                    if (!maidNutexbCn.starts_with ("..\\") && std::filesystem::exists (prefix + maidNutexbCn)) maidNutexbCn = prefix + maidNutexbCn;
+                }
+                if (!maidNulmCn.starts_with ("..\\") || !maidNutexbCn.starts_with ("..\\")) titleExistMaidCn = false;
+                for (std::string prefix : base) {
+                    if (!maidNulm.starts_with ("..\\") && std::filesystem::exists (prefix + maidNulm)) maidNulm = prefix + maidNulm;
+                    if (!maidNutexb.starts_with ("..\\") && std::filesystem::exists (prefix + maidNutexb)) maidNutexb = prefix + maidNutexb;
+                }
+                if (!maidNulm.starts_with ("..\\") || !maidNutexb.starts_with ("..\\")) titleExistMaid = false;
+                LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
+                    if (currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("title") == std::string::npos) return ""; 
+                    if (currentFileName.ends_with ("title.nulm")) {
+                        if (language == 4 && titleScreen->Read () == 1 && titleExistSeason) return seasonNulm;
+                        if (language == 4 && titleScreen->Read () == 2 && titleExistMaidCn) return maidNulmCn;
+                        if (titleScreen->Read () == 2 && titleExistMaid) return maidNulm;
+                    } else if (currentFileName.ends_with ("title.nutexb")) {
+                        LogMessage (LogLevel::DEBUG, "nutexb");
+                        if (language == 4 && titleScreen->Read () == 1 && titleExistSeason) return seasonNutexb;
+                        if (language == 4 && titleScreen->Read () == 2 && titleExistMaidCn) return maidNutexbCn;
+                        if (titleScreen->Read () == 2 && titleExistMaid) return maidNutexb;
                     }
-                    season_nulm = new std::string (""), season_nutexb = new std::string ("");
                     return "";
-                } else return *season_nulm;
-            } else if (currentFileName.ends_with ("title.nutexb") && season_nutexb != nullptr) {
-                return *season_nutexb;
-            } else return "";
-        });
-
+                });
+            });
     } break;
     }
 }

@@ -3,6 +3,10 @@
 #include "../patches.h"
 #include <map>
 
+extern i32 xRes;
+extern i32 yRes;
+extern bool vsync;
+
 namespace patches::JPN39 {
 int language = 0;
 FAST_HOOK_DYNAMIC (char, AMFWTerminate, i64) {
@@ -281,9 +285,6 @@ ReplaceDatatableBufferAddresses () {
 void
 Init () {
     LogMessage (LogLevel::INFO, "Init JPN39 patches");
-    i32 xRes          = 1920;
-    i32 yRes          = 1080;
-    bool vsync        = false;
     bool unlockSongs  = true;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
@@ -291,14 +292,6 @@ Init () {
     if (config_ptr) {
         if (auto patches = openConfigSection (config_ptr.get (), "patches")) {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-        }
-
-        if (auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
-            if (auto res = openConfigSection (graphics, "res")) {
-                xRes = static_cast<i32> (readConfigInt (res, "x", xRes));
-                yRes = static_cast<i32> (readConfigInt (res, "y", yRes));
-            }
-            vsync = readConfigBool (graphics, "vsync", vsync);
         }
     }
 

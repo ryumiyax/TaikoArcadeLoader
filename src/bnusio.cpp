@@ -13,21 +13,10 @@ extern char accessCode1[21];
 extern char accessCode2[21];
 extern char chipId1[33];
 extern char chipId2[33];
-extern bool autoIme;
+
 extern bool emulateUsio;
-extern bool emulateCardReader;
 extern bool acceptInvalidCards;
 extern HWND hGameWnd;
-
-typedef i32 (*callbackAttach) (i32, i32, i32 *);
-typedef void (*callbackTouch) (i32, i32, u8[168], u64);
-typedef void event ();
-typedef void waitTouchEvent (callbackTouch, u64);
-bool waitingForTouch = false;
-callbackTouch touchCallback;
-u64 touchData;
-callbackAttach attachCallback;
-i32 *attachData;
 
 Keybindings EXIT          = {.keycodes = {VK_ESCAPE}};
 Keybindings TEST          = {.keycodes = {VK_F1}};
@@ -64,8 +53,7 @@ bool updateByCoin   = false;
 HWND windowHandle   = nullptr;
 float axisThreshold = 0.6f;
 u8 inputState       = 1 | (1 << 2);
-bool globalKeyboard = false;;
-HKL currentLayout;
+bool globalKeyboard = false;
 
 namespace bnusio {
 #define RETURN_FALSE(returnType, functionName, ...) \
@@ -132,7 +120,7 @@ bnusio_GetSwIn () {
 }
 
 bool waitAll = false;
-short drumWaitPeriod = 4;
+short drumWaitPeriod = 0;
 bool analogInput = false;
 bool valueStates[] = {false, false, false, false, false, false, false, false};
 
@@ -405,11 +393,6 @@ Update () {
     if (!inited) {
         windowHandle = FindWindowA ("nuFoundation.Window", nullptr);
         InitializePoll (windowHandle);
-        if (autoIme) {
-            currentLayout  = GetKeyboardLayout (0);
-            auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
-            ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
-        }
         patches::Plugins::Init ();
         inited = true;
     }
@@ -439,7 +422,6 @@ Update () {
 
 void
 Close () {
-    if (autoIme) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);
     // patches::Plugins::Exit ();
     CleanupLogger ();
 }

@@ -129,5 +129,8 @@ void Init ();
 namespace Language {
 boolean CnFontPatches ();
 void Init ();
-}
+} // namespace Language
+namespace UnlimitSong {
+void Init ();
+} // namespace UnlimitSong
 } // namespace patches
