@@ -210,6 +210,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
             }
         }
 
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
         auto activeWindow = GetActiveWindow();
         HMONITOR monitor = MonitorFromWindow(activeWindow, MONITOR_DEFAULTTONEAREST);
 
@@ -232,12 +233,15 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         auto horizontalScale = (static_cast<double> (cxPhysical) / static_cast<double> (cxLogical));
         auto verticalScale = (static_cast<double> (cyPhysical) / static_cast<double> (cyLogical));
         if (windowed) {
+            // Game will automatically adjust scale
             xRes = (int)(xRes / horizontalScale);
             yRes = (int)(yRes / verticalScale);
         } else {
             xRes = cxLogical;
             yRes = cyLogical;
         }
+
+        LogMessage (LogLevel::INFO, "Scale Rate: x={} y={}", horizontalScale, verticalScale);
         LogMessage (LogLevel::INFO, "Boot with {} mode ({}x{})", windowed ? "window" : "fullscreen", xRes, yRes);
 
         if (autoIme) {
@@ -279,7 +283,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
 
         LogMessage (LogLevel::INFO, "==== Loading patches, please wait...");
 
-        if (cursor) INSTALL_FAST_HOOK (ShowMouse);
+        if (windowed && cursor) INSTALL_FAST_HOOK (ShowMouse);
         INSTALL_FAST_HOOK (ExitWindows);
         INSTALL_FAST_HOOK (CreateWindow);
         INSTALL_FAST_HOOK (SetWindowPosition);

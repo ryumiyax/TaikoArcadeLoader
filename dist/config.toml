@@ -33,9 +33,9 @@ qr = true                   # Disable this if you want to use an original Namco 
 [graphics]
 res = { x = 1920, y = 1080 }
 windowed = false            # not windowed will automatically fullscreen
-cursor = true
+cursor = true               # fullscreen will automatically hide cursor
 vsync = false               # enable this if you are using a 120fps screen (and use "Let Application Decide" in Nvidia panel)
-# fpslimit = 0              # temporoly remove it, limit it to 120 in Nvidia panel instead!
+# fpslimit = 0              # temporoly remove it, limit it to 120 in Nvidia panel instead!!!
 
 
 [audio]

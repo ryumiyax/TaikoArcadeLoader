@@ -34,6 +34,7 @@ version = "auto"            # Patch version
                             # | - JPN39: For use with Taiko JPN 39.06
                             # | - CHN00: For use with Taiko CHN 00.32
 unlock_songs = true         # not active for JPN39 (see TestMode)
+                            # More options are available in the ModManager, in the TestMode menu (Default key is F1)
 
 [patches.chn00]             # These patches are only available for version CHN00
 fix_language = false        # Sync test mode language to attract etc
@@ -41,9 +42,6 @@ demo_movie = true           # Show demo movie
 mode_collabo025 = false     # Enable one piece collab mode
 mode_collabo026 = false     # Enable ai soshina mode
 
-[patches.jpn39]             # These patches are only available for version JPN39
-chs_patch = false           # Use Chinese font and Simplified Chinese values from the wordlist
-                            # More options are available in the ModManager, in the TestMode menu (Default key is F1)
 
 [emulation]
 usio = true                 # If usio emulation is disabled, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
@@ -51,15 +49,16 @@ card_reader = true          # Disable this if you have an original namco card re
 accept_invalid = false      # Enable this if you want to accept cards incompatible with the original readers 
 qr = true                   # Disable this if you have an original namco qr code scanner
 
+
 [graphics]
 res = { x = 1920, y = 1080 }
-windowed = false
-cursor = true
-vsync = false
-fpslimit = 120
+windowed = false            # not windowed will automatically fullscreen
+cursor = true               # fullscreen will automatically hide cursor
+vsync = false               # enable this if you are using a 120fps screen (and use "Let Application Decide" in Nvidia panel)
+# fpslimit = 0              # temporoly remove it, limit it to 120 in Nvidia panel instead!!!
 
 [audio]
-wasapi_shared = true        # Wasapi shared mode, allows you to have multiple audio sources at once at a cost of having higher latency.
+wasapi_shared = false       # Wasapi shared mode, allows you to have multiple audio sources at once at a cost of having higher latency.
 asio = false                # Use asio audio mode
 asio_driver = "ASIO4ALL v2" # Asio driver name
                             # | If you're not using asio4all, open up regedit then navigate to HKEY_LOCAL_MACHINE\SOFTWARE\ASIO for your driver's name.
@@ -76,7 +75,7 @@ type = 0                    # qr type
 song_no = []                # Song noes used for custom folder
 
 [controller]
-wait_period = 4             # Input interval (if using taiko drum controller, should be set to 0)
+wait_period = 0             # Input interval (if using taiko drum controller, should be set to 0)
 analog_input = false        # Use analog input (you need a compatible controller, this allows playing small and big notes like on arcade cabinets)
 
 [keyboard]
@@ -105,16 +104,21 @@ The follow options are available in "MOD MANAGER" menu:
 * FIX LANGUAGE (sync test mode language to attract etc)
 * UNLOCK SONGS (show all of the songs)
 * FREEZE TIMER (stop timer count down)
-* KIMETSU MODE (enable collabo024, will show a blank title)
+* KIMETSU MODE (enable collabo024, will show a blank title and crash when enter)
 * ONE PIECE MODE (enable collabo025)
 * AI SOSHINA MODE (enable collabo026)
 * AOHARU MODE (enable aprilfool001)
-* INSTANT RESULT (send result per song)  
+* INSTANT RESULT (send result per song, experimental not stable)
 
 Enhanced original option:
 
 * Louder volume (Speaker Volume is now up to 300%, **WARNING: May damage your speakers**)
 * Attract demo (Only available if FIX LANGUAGE is ON)
+
+With chs-patch (Only unlock while resource correctly settled):
+
+* Add Language: zh-cn
+* Add Voice Language (Could switch between JPN and CHN)
 
 ## Building Manually
 

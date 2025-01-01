@@ -264,7 +264,7 @@ void
 Init () {
     SetKeyboardButtons ();
 
-    int fpsLimit = 120;
+    int fpsLimit = 0;
 
     const auto configPath = std::filesystem::current_path () / "config.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -275,10 +275,10 @@ Init () {
             analogInput      = readConfigBool (controller, "analog_input", analogInput);
             globalKeyboard   = readConfigBool (controller, "global_keyboard", globalKeyboard);
         }
-        auto graphics = openConfigSection (config, "graphics");
-        if (graphics) {
-            fpsLimit = (int)readConfigInt (graphics, "fpslimit", fpsLimit);
-        }
+        // auto graphics = openConfigSection (config, "graphics");
+        // if (graphics) {
+        //     fpsLimit = (int)readConfigInt (graphics, "fpslimit", fpsLimit);
+        // }
     }
 
     if (analogInput) {
@@ -296,9 +296,9 @@ Init () {
     }
 
     updateByCoin = fpsLimit == 0;
-    if (updateByCoin) {
-        LogMessage (LogLevel::INFO, "fpsLimit is set to 0, bnusio::Update() will invoke in getCoin callback");
-    }
+    // if (updateByCoin) {
+    //     LogMessage (LogLevel::INFO, "fpsLimit is set to 0, bnusio::Update() will invoke in getCoin callback");
+    // }
     const auto keyConfigPath = std::filesystem::current_path () / "keyconfig.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
