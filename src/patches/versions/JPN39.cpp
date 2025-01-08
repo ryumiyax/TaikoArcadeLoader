@@ -43,7 +43,7 @@ FUNCTION_PTR (i32, luaL_loadstring, PROC_ADDRESS ("lua51.dll", "luaL_loadstring"
 
 FUNCTION_PTR (u64, RefTestModeMain, ASLR (0x1400337C0), u64);
 FUNCTION_PTR (u64, RefPlayDataManager, ASLR (0x140024AC0), u64);
-FUNCTION_PTR (i64, GetUserCount, ASLR (0x1403F1020), u64);
+FUNCTION_PTR (i64, GetUserCount, ASLR (0x1403F1080), u64);
 
 i64
 lua_pushbool (const i64 a1, const bool val) {
@@ -60,6 +60,11 @@ FAST_HOOK (i64, DeviceCheck, ASLR (0x140464FC0), i64 a1, i64 a2, i64 a3) {
     componentAccessor = a2;
     appAccessor = a3;
     return originalDeviceCheck.fastcall<i64> (a1, a2, a3);
+}
+
+FAST_HOOK (void, SetupCoinUser, ASLR (0x1403F0CA0), void *a1, void *a2, int a3) {
+    LogMessage (LogLevel::ERROR, "SetupCoinUser side={}", a3);
+    originalSetupCoinUser.fastcall<void> (a1, a2, a3);
 }
 
 i64
@@ -200,6 +205,52 @@ ExecuteSendResultData () {
     );
 }
 
+bool sendFlag = false;
+TestMode::Value *instantResult = TestMode::CreateValue (L"ModInstantResult");
+TestMode::Value *stageNumber = TestMode::CreateValue (L"NumberOfStageItem");
+#define SCENE_RESULT_HOOK(functionName, location)                       \
+    FAST_HOOK (void, functionName, location, i64 a1, i64 a2, i64 a3) {  \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { \
+            original##functionName.fastcall (a1, a2, a3);               \
+            return;                                                     \
+        }                                                               \
+        sendFlag = true;                                                \
+        original##functionName.fastcall (a1, a2, a3);                   \
+        ExecuteSendResultData ();                                       \
+    }
+
+#define SEND_RESULT_HOOK(functionName, location)                        \
+    FAST_HOOK (void, functionName, location, i64 a1) {                  \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { \
+            original##functionName.fastcall (a1);                       \
+            return;                                                     \
+        }                                                               \
+        if (sendFlag) {                                                 \
+            sendFlag = false;                                           \
+            original##functionName.fastcall (a1);                       \
+        }                                                               \
+    }
+
+#define CHANGE_RESULT_SIZE_HOOK(functionName, location, target)                   \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                   \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { return; } \
+        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);             \
+        u32 currentStageCount = *(u32 *)(instance + 8);                           \
+        ctx.target &= 0xFFFFFFFF00000000;                                         \
+        ctx.target |= currentStageCount;                                          \
+    }
+
+#define CHANGE_RESULT_INDEX_HOOK(functionName, location, target, offset, skip)    \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                   \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { return; } \
+        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);             \
+        u32 currentStageCount = *(u32 *)(instance + 8);                           \
+        ctx.target &= 0xFFFFFFFF00000000;                                         \
+        ctx.target |= currentStageCount - 1;                                      \
+        *(u32 *)(ctx.rsp + offset) = currentStageCount - 1;                       \
+        ctx.rip += skip;                                                          \
+    }
+
 SCENE_RESULT_HOOK (SceneResultInitialize_Enso, ASLR (0x140411FD0));
 SCENE_RESULT_HOOK (SceneResultInitialize_AI, ASLR (0x140411FD0));
 SCENE_RESULT_HOOK (SceneResultInitialize_Collabo025, ASLR (0x140411FD0));
@@ -300,7 +351,9 @@ Init () {
     INSTALL_FAST_HOOK (luaL_newstate);
     // INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
 
-    // Apply common config patch
+    INSTALL_FAST_HOOK (SetupCoinUser);
+
+    // Apply graphic patch
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
     WRITE_MEMORY (ASLR (0x14049453A), i32, yRes);
     if (!vsync) WRITE_MEMORY (ASLR (0x14064C7E9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);

@@ -9,6 +9,7 @@ namespace patches::Language {
 const std::vector<std::string> languages    = { "jpn", "en_us", "cn_tw", "kor", "cn_cn" };
 std::vector<SafetyHookMid> language_patch   = { };
 boolean cnFontPatches                       = false;
+// TestMode::Value *languageItem               = TestMode::CreateValue (L"LanguageItem");
 int language                                = 0;
 
 FUNCTION_PTR (void,         lua_settop,     PROC_ADDRESS ("lua51.dll", "lua_settop"), i64, i32);
@@ -359,20 +360,10 @@ MID_HOOK_DYNAMIC (ChangeOnpFile, SafetyHookContext &ctx) {
     ctx.rdx = (uintptr_t) onpCn.c_str ();
     ctx.r8 = 0x1F;
 }
-void *
-GetLanguageType (Taiko_assign assign, int language, void *buf) {
-    int langFix = languageFix (language);
-    return assign (buf, languageStr (langFix), (langFix == 0 || langFix == 3) ? 3 : 5);
-}
 void
 InjectLanguageType (uintptr_t language, uintptr_t &reg) {
     int langFix = languageFix ((int)language);
     reg = (uintptr_t)languageStr (langFix);
-}
-
-FAST_HOOK_DYNAMIC (u64, GraphicBaseGetLanguageType, u64 a1, void *a2) {
-    int language = *(int *)(a1 + 56);
-    return (u64)GetLanguageType (taiko_assign, language, a2);
 }
 
 bool titleExistSeason = true, titleExistMaid = true, titleExistMaidCn = true;
@@ -408,19 +399,18 @@ Init () {
             ctx.rip = ASLR (0x140134E29);
         }));
 
-        INSTALL_FAST_HOOK_DYNAMIC (GraphicBaseGetLanguageType, ASLR (0x1400E8740));
         language_patch.push_back (safetyhook::create_mid (ASLR (0x1400E8791), [](SafetyHookContext &ctx)
-        { InjectLanguageType (ctx.rsp + 0x58 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x1400E8796); }));    // HitEffectGetLanguageType
+        { InjectLanguageType (ctx.rax, ctx.rdx); ctx.rip = ASLR (0x1400E8796); }));     // HitEffectGetLanguageType
         language_patch.push_back (safetyhook::create_mid (ASLR (0x14011F8E4), [](SafetyHookContext &ctx)
-        { InjectLanguageType (ctx.rbp + 0x57 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x14011F8E9); }));    // KusudamaGetLanguageType
+        { InjectLanguageType (ctx.rax, ctx.rdx); ctx.rip = ASLR (0x14011F8E9); }));     // KusudamaGetLanguageType
         language_patch.push_back (safetyhook::create_mid (ASLR (0x140122404), [](SafetyHookContext &ctx)
-        { InjectLanguageType (ctx.rbp + 0x140 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x14012240C); }));   // NoteJumpGetLanguageType
+        { InjectLanguageType (ctx.rax, ctx.rdx); ctx.rip = ASLR (0x14012240C); }));     // NoteJumpGetLanguageType
         language_patch.push_back (safetyhook::create_mid (ASLR (0x14012425E), [](SafetyHookContext &ctx)
-        { InjectLanguageType (ctx.rbp + 0x57 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x140124263); }));    // RendaEffectGetLanguageType
+        { InjectLanguageType (ctx.rax, ctx.rdx); ctx.rip = ASLR (0x140124263); }));     // RendaEffectGetLanguageType
         language_patch.push_back (safetyhook::create_mid (ASLR (0x140129450), [](SafetyHookContext &ctx)
-        { InjectLanguageType (ctx.rbp + 0x57 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x140129455); }));    // RendaEffectGetLanguageType
+        { InjectLanguageType (ctx.rax, ctx.rdx); ctx.rip = ASLR (0x140129455); }));     // RendaEffectGetLanguageType
         language_patch.push_back (safetyhook::create_mid (ASLR (0x14012B8C8), [](SafetyHookContext &ctx)
-        { InjectLanguageType (ctx.rbp + 0x180 + ctx.rax * 8, ctx.rdx); ctx.rip = ASLR (0x14012B8D0); }));   // ScoreGetLanguageType
+        { InjectLanguageType (ctx.rax, ctx.rdx); ctx.rip = ASLR (0x14012B8D0); }));     // ScoreGetLanguageType
         LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
             if (language != 4 || currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
             std::string fileName = std::string (currentFileName);
@@ -454,16 +444,23 @@ Init () {
                 [&](){
                     LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
                         if (currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("title") == std::string::npos) return ""; 
-                        if (currentFileName.ends_with ("title.nulm")) {
+                        if (currentFileName.ends_with ("\\title.nulm")) {
                             if (language == 4 && titleScreen->Read () == 1 && titleExistSeason) return seasonNulm;
                             if (language == 4 && titleScreen->Read () == 2 && titleExistMaidCn) return maidNulmCn;
                             if (titleScreen->Read () == 2 && titleExistMaid) return maidNulm;
-                        } else if (currentFileName.ends_with ("title.nutexb")) {
+                        } else if (currentFileName.ends_with ("\\title.nutexb")) {
                             LogMessage (LogLevel::DEBUG, "nutexb");
                             if (language == 4 && titleScreen->Read () == 1 && titleExistSeason) return seasonNutexb;
                             if (language == 4 && titleScreen->Read () == 2 && titleExistMaidCn) return maidNutexbCn;
                             if (titleScreen->Read () == 2 && titleExistMaid) return maidNutexb;
                         }
+                        return "";
+                    });
+                    LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
+                        if (titleScreen->Read () != 2 || currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
+                        std::string fileName = std::string (currentFileName);
+                        fileName             = replace (fileName, "\\lumen\\", "\\lumen_maid\\");
+                        if (std::filesystem::exists (fileName)) return fileName;
                         return "";
                     });
                 });

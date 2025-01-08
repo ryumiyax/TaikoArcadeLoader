@@ -18,6 +18,7 @@ std::mutex hooksMutex;
 std::condition_variable hooksCV;
 std::vector<SafetyHookMid> patches = {};
 std::vector<Value *> values = {};
+std::map<std::wstring, Value *> valueMap = {};
 
 std::wstring
 mergeCondition (std::wstring original, std::wstring addition, std::wstring value) {
@@ -214,7 +215,7 @@ public:
         this->reset = true;
     }
     int
-    Read () override {
+    Read (int value) override {
         if (reset) { 
             this->value = ReadTestModeValue (key.c_str ()); 
             if (this->value != -1) {
@@ -222,7 +223,8 @@ public:
                 reset = false;
             }
         }
-        return this->value;
+        if (this->value == -1) return value;
+        else return this->value;
     }
     void
     Write (int value) override {
@@ -521,11 +523,15 @@ SetupAccessor (const u64 appAccessor, const RefTestModeMain refTestMode) {
 int
 ReadTestModeValue (const wchar_t *itemId) {
     if (appAccessor) {
-        if (const u64 testModeMain = refTestMode (appAccessor)) {
-            int value   = 0;
-            u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
-            (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int *)> (*reader + 256)) (reader, itemId, &value);
-            return value;
+        try {
+            if (const u64 testModeMain = refTestMode (appAccessor)) {
+                int value   = 0;
+                u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
+                (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int *)> (*reader + 256)) (reader, itemId, &value);
+                return value;
+            }
+        } catch ([[maybe_unused]] std::exception &e) {
+            LogMessage (LogLevel::ERROR, L"Reading Value({}) Error!", itemId);
         }
     }
     return -1;
@@ -550,8 +556,10 @@ CreateMenu (const std::wstring &menuName, const std::wstring &menuId) {
 Value *
 CreateValue (const std::wstring &key) {
     LogMessage (LogLevel::DEBUG, L"Create TestMode Value key: {}", key);
+    // if (valueMap.count (key)) return valueMap[key];
     Value *value = (Value *)(new TestModeValue (key));
     values.push_back ((Value *)value);
+    // valueMap[key] = value;
     return value;
 }
 

@@ -12,6 +12,7 @@ extern float axisThreshold;
 extern bool globalKeyboardInput;
 extern bool autoIme;
 extern HKL currentLayout;
+extern bool emulateUsio;
 
 bool wndForeground = false;
 bool usingKeyboard = false;
@@ -198,6 +199,9 @@ CheckFlipped (uint32_t which, SDL_Gamepad *gamepad) {
 
 bool
 InitializePoll (HWND windowHandle) {
+    wndForeground = windowHandle == GetForegroundWindow ();
+    if (!emulateUsio) return false;
+
     usingKeyboard = inputState & 1;
     usingMouse = inputState & (1 << 1);
     usingController = inputState & (1 << 2);
@@ -208,7 +212,6 @@ InitializePoll (HWND windowHandle) {
     if (usingSDLEvent) {
         LogMessage (LogLevel::DEBUG, "InitializePoll");
         bool hasRumble = true;
-        wndForeground = windowHandle == GetForegroundWindow ();
         SDL_SetMainReady ();
 
         SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS4, "1");
@@ -324,6 +327,7 @@ CleanPoll () {
 void
 UpdatePoll (HWND windowHandle) {
     if (!CheckForegroundWindow (windowHandle)) return; 
+    if (!emulateUsio) return;
     CleanPoll ();
     if (usingSDLEvent) {
         SDL_Event event;

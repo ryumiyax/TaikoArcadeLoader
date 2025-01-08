@@ -155,10 +155,6 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         InitializeLogger (GetLogLevel (logLevelStr), logToFile);
         patches::Timer::Init ();
 
-        // #ifdef ASYNC_IO
-        // InitializeKeyboard ();
-        // #endif
-
         LogMessage (LogLevel::INFO, "Loading config...");
 
         std::string version                    = "auto";
@@ -239,6 +235,8 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         } else {
             xRes = cxLogical;
             yRes = cyLogical;
+            if (yRes * 16 > xRes * 9)      yRes = (int)(xRes * 9.0 / 16.0);
+            else if (yRes * 16 < xRes * 9) xRes = (int)(yRes * 16.0 / 9.0);
         }
 
         LogMessage (LogLevel::INFO, "Scale Rate: x={} y={}", horizontalScale, verticalScale);

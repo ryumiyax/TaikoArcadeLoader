@@ -128,50 +128,6 @@ const HMODULE MODULE_HANDLE = GetModuleHandle (nullptr);
         original##functionName = safetyhook::create_inline ((void *)location, (void*)implOf##functionName);    \
     }
 
-inline bool sendFlag = false;
-#define SCENE_RESULT_HOOK(functionName, location)                                                                                \
-    FAST_HOOK (void, functionName, location, i64 a1, i64 a2, i64 a3) {                                                           \
-        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { \
-            original##functionName.fastcall (a1, a2, a3);                                                                        \
-            return;                                                                                                              \
-        }                                                                                                                        \
-        sendFlag = true;                                                                                                         \
-        original##functionName.fastcall (a1, a2, a3);                                                                            \
-        ExecuteSendResultData ();                                                                                                \
-    }
-
-#define SEND_RESULT_HOOK(functionName, location)                                                                                 \
-    FAST_HOOK (void, functionName, location, i64 a1) {                                                                           \
-        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { \
-            original##functionName.fastcall (a1);                                                                                \
-            return;                                                                                                              \
-        }                                                                                                                        \
-        if (sendFlag) {                                                                                                          \
-            sendFlag = false;                                                                                                    \
-            original##functionName.fastcall (a1);                                                                                \
-        }                                                                                                                        \
-    }
-
-#define CHANGE_RESULT_SIZE_HOOK(functionName, location, target)                                                                            \
-    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                                                                            \
-        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { return; } \
-        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);                                                                      \
-        u32 currentStageCount = *(u32 *)(instance + 8);                                                                                    \
-        ctx.target &= 0xFFFFFFFF00000000;                                                                                                  \
-        ctx.target |= currentStageCount;                                                                                                   \
-    }
-
-#define CHANGE_RESULT_INDEX_HOOK(functionName, location, target, offset, skip)                                                             \
-    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                                                                            \
-        if (TestMode::ReadTestModeValue (L"ModInstantResult") != 1 && TestMode::ReadTestModeValue (L"NumberOfStageItem") <= 4) { return; } \
-        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);                                                                      \
-        u32 currentStageCount = *(u32 *)(instance + 8);                                                                                    \
-        ctx.target &= 0xFFFFFFFF00000000;                                                                                                  \
-        ctx.target |= currentStageCount - 1;                                                                                               \
-        *(u32 *)(ctx.rsp + offset) = currentStageCount - 1;                                                                                \
-        ctx.rip += skip;                                                                                                                   \
-    }
-
 #define READ_MEMORY(location, type) *(type *)location
 
 #define WRITE_MEMORY(location, type, ...)                                                        \
