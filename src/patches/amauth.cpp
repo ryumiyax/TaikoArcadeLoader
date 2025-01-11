@@ -121,8 +121,7 @@ typedef struct amcus_state {
     /* Offset: 8 */ i32 allnet_auth_state;
     /* Offset: 12 */ i32 allnet_auth_count;
     /* Offset: 16 */ i32 allnet_last_error;
-    /* Offset: 24 */
-    mucha_state mucha_state;
+    /* Offset: 24 */ mucha_state mucha_state;
     /* Offset: 176 */ i64 clock_status;
     /* Offset: 184 */ i64 name_resolution_timeout;
     /* Offset: 192 */ /* ENUM32 */ u32 auth_type;

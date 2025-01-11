@@ -62,11 +62,6 @@ FAST_HOOK (i64, DeviceCheck, ASLR (0x140464FC0), i64 a1, i64 a2, i64 a3) {
     return originalDeviceCheck.fastcall<i64> (a1, a2, a3);
 }
 
-FAST_HOOK (void, SetupCoinUser, ASLR (0x1403F0CA0), void *a1, void *a2, int a3) {
-    LogMessage (LogLevel::ERROR, "SetupCoinUser side={}", a3);
-    originalSetupCoinUser.fastcall<void> (a1, a2, a3);
-}
-
 i64
 GetPlayererCount () {
     if (appAccessor) {
@@ -303,12 +298,13 @@ MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (attractDemo->Read () == 1) ctx.r14 = 0;
 }
 
-// HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
-//     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
-//     a3[2] = (DWORD)(int)120.0f;
-//     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
-//     return originalAcquireMostCompatibleDisplayMode (a1, a2, a3);
-// }
+FAST_HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
+    LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    // a3[0] = xRes;
+    // a3[1] = yRes;
+    // LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    return originalAcquireMostCompatibleDisplayMode.fastcall<DWORD *> (a1, a2, a3);
+}
 
 constexpr i32 datatableBufferSize = 1024 * 1024 * 12;
 uint8_t *datatableBuffer[3] = { nullptr };
@@ -337,6 +333,7 @@ void
 Init () {
     LogMessage (LogLevel::INFO, "Init JPN39 patches");
     bool unlockSongs  = true;
+    double modelResRate = 1.0;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -344,18 +341,45 @@ Init () {
         if (auto patches = openConfigSection (config_ptr.get (), "patches")) {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
         }
+        if (auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
+            modelResRate = readConfigDouble (graphics, "model_res_rate", modelResRate);
+        }
     }
 
     // Hook to get AppAccessor and ComponentAccessor
     INSTALL_FAST_HOOK (DeviceCheck);
     INSTALL_FAST_HOOK (luaL_newstate);
-    // INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
+    // INSTALL_FAST_HOOK (AcquireMostCompatibleDisplayMode);
 
-    INSTALL_FAST_HOOK (SetupCoinUser);
-
-    // Apply graphic patch
+    // Window Size
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
     WRITE_MEMORY (ASLR (0x14049453A), i32, yRes);
+    // DonSystem::DonModelRenderer::DonModelRenderer
+    if (modelResRate > 0) {
+        i32 donModelX = (i32)(xRes * modelResRate);
+        i32 donModelY = (i32)(yRes * modelResRate);
+        LogMessage (LogLevel::INFO, "Patch DonModel use resolution {}x{}", donModelX, donModelY);
+        WRITE_MEMORY (ASLR (0x1404F3D5B), i32, donModelX);
+        WRITE_MEMORY (ASLR (0x1404F3D62), i32, donModelY);
+    }
+    // // DonSystem::Renderer::Renderer
+    // WRITE_MEMORY (ASLR (0x1404FBF33), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1404FBF3A), i32, yRes);
+    // // DonSystem::Renderer::CreateOnpuPass
+    // WRITE_MEMORY (ASLR (0x1404FCF77), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1404FCF81), i32, yRes / 2);
+    // // nu::LightManager::LightManager
+    // WRITE_MEMORY (ASLR (0x1406BED7A), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1406BED82), i32, yRes);
+    // WRITE_MEMORY (ASLR (0x1406BEF26), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1406BEF33), i32, yRes);
+    // // google::protobuf::TextFormat::Parser::ParserImpl::ConsumeField
+    // WRITE_MEMORY (ASLR (0x1406F7E47), i32, xRes);
+    // // google::protobuf::DescriptorBuilder::AddSymbol
+    // WRITE_MEMORY (ASLR (0x140719191), i32, xRes);
+    // nuscDecoderCalcObjectSize
+    // WRITE_MEMORY (ASLR (0x140719191), i32, xRes);
+
     if (!vsync) WRITE_MEMORY (ASLR (0x14064C7E9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
 
     // Bypass errors
@@ -396,10 +420,10 @@ Init () {
     TestMode::RegisterItem (
         L"<select-item label=\"UNLOCK SONGS\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON, "
         L"2:FORCE\" group=\"Setting\" id=\"ModUnlockSongs\" max=\"2\" min=\"0\" default=\"1\"/>",
-        [&]() { 
-            INSTALL_FAST_HOOK (IsSongRelease); 
-            INSTALL_FAST_HOOK (IsSongReleasePlayer); 
-            INSTALL_MID_HOOK (DifficultyPanelCrown); 
+        [&]() {
+            INSTALL_FAST_HOOK (IsSongRelease);
+            INSTALL_FAST_HOOK (IsSongReleasePlayer);
+            INSTALL_MID_HOOK (DifficultyPanelCrown);
         }
     );
     // Freeze Timer

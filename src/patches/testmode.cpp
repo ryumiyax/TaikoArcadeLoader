@@ -216,8 +216,8 @@ public:
     }
     int
     Read (int value) override {
-        if (reset) { 
-            this->value = ReadTestModeValue (key.c_str ()); 
+        if (reset) {
+            this->value = ReadTestModeValue (key.c_str ());
             if (this->value != -1) {
                 LogMessage (LogLevel::DEBUG, L"TestMode Value({}) got val: {}", this->key, this->value);
                 reset = false;
@@ -359,58 +359,58 @@ LocalizationCHT () {
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModFixLanguage']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"修復語言"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"修復語言");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModUnlockSongs']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"解鎖歌曲"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓, 2:強制"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"解鎖歌曲");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓, 2:強制");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModFreezeTimer']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"凍結計時"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"凍結計時");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo024']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"鬼滅之刃模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"鬼滅之刃模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo025']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"航海王模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"航海王模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo026']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"ＡＩ粗品模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"ＡＩ粗品模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeAprilFool001']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"青春之達人模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"青春之達人模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModInstantResult']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"即時保存"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"即時保存");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
     TestMode::RegisterModify(
@@ -419,9 +419,9 @@ LocalizationCHT () {
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractDemoItem']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"演示遊玩影片"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"演示遊玩影片");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
 }

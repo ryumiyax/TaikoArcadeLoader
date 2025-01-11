@@ -40,10 +40,10 @@ struct SDLAxisState {
 enum Scroll { MOUSE_SCROLL_INVALID, MOUSE_SCROLL_UP, MOUSE_SCROLL_DOWN };
 
 struct Keybindings {
-    u8 keycodes[255];
-    SDL_GamepadButton buttons[255];
-    SDLAxis axis[255];
-    Scroll scroll[2];
+    u8 keycodes[255] = { '\0' };
+    SDL_GamepadButton buttons[255] = { SDL_GAMEPAD_BUTTON_INVALID };
+    SDLAxis axis[255] = { SDL_AXIS_NULL };
+    Scroll scroll[2] = { MOUSE_SCROLL_INVALID };
 };
 
 enum EnumType { none, keycode, button, axis, scroll };

@@ -26,7 +26,7 @@ mode_collabo026 = false     # Enable ai soshina mode
 [emulation]
 usio = true                 # Disable this if you want to use an original Namco USIO board. you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
 card_reader = true          # Disable this if you want to use an original Namco card reader
-accept_invalid = false      # Enable this if you want to accept cards incompatible with the original readers 
+accept_invalid = false      # Enable this if you want to accept cards incompatible with the original readers
 qr = true                   # Disable this if you want to use an original Namco QR code scanner
 
 
@@ -36,6 +36,9 @@ windowed = false            # not windowed will automatically fullscreen
 cursor = true               # fullscreen will automatically hide cursor
 vsync = false               # enable this if you are using a 120fps screen (and use "Let Application Decide" in Nvidia panel)
 # fpslimit = 0              # temporoly remove it, limit it to 120 in Nvidia panel instead!!!
+model_res_rate = 1.0        # Don-Model resolution rate (currently JPN39 only)
+                            # | rate <= 0: default 1280x720
+                            # | rate >  0: current resolution * rate
 
 
 [audio]
@@ -71,8 +74,8 @@ jp_layout = false           # Use jp layout scan code (if using jp layout keyboa
 [layeredfs]
 enabled = false             # Replace assets from the game using a layered file system.
                             # | For example if you want to edit the wordlist, add your edited version like so:
-                            # | .\Data_mods\x64\datatable\wordlist.json 
-                            # | You can provide both unencrypted and encrypted files. 
+                            # | .\Data_mods\x64\datatable\wordlist.json
+                            # | You can provide both unencrypted and encrypted files.
 
 
 [logging]

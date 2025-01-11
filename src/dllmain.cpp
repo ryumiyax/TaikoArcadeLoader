@@ -42,6 +42,22 @@ bool logToFile          = true;
 HWND hGameWnd;
 FAST_HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse.stdcall<i32> (true); }
 FAST_HOOK (i32, ExitWindows, PROC_ADDRESS ("user32.dll", "ExitWindowsEx")) { ExitProcess (0); }
+// FAST_HOOK (ATOM, HookRegisterClassA, PROC_ADDRESS ("winuser.h", "RegisterClassA"), WNDCLASSA *lpWndClass) {
+//     LogMessage (LogLevel::DEBUG, "RegisterClassA name={}", lpWndClass->lpszClassName);
+//     return originalHookRegisterClassA.call<ATOM> (lpWndClass);
+// }
+// FAST_HOOK (ATOM, HookRegisterClassW, PROC_ADDRESS ("winuser.h", "RegisterClassW"), WNDCLASSW *lpWndClass) {
+//     LogMessage (LogLevel::DEBUG, L"RegisterClassW name={}", lpWndClass->lpszClassName);
+//     return originalHookRegisterClassW.call<ATOM> (lpWndClass);
+// }
+// FAST_HOOK (ATOM, HookRegisterClassExA, PROC_ADDRESS ("winuser.h", "RegisterClassExA"), WNDCLASSEXA *lpWndClass) {
+//     LogMessage (LogLevel::DEBUG, "RegisterClassExA name={}", lpWndClass->lpszClassName);
+//     return originalHookRegisterClassExA.call<ATOM> (lpWndClass);
+// }
+// FAST_HOOK (ATOM, HookRegisterClassExW, PROC_ADDRESS ("winuser.h", "RegisterClassExW"), WNDCLASSEXW *lpWndClass) {
+//     LogMessage (LogLevel::DEBUG, L"RegisterClassExW name={}", lpWndClass->lpszClassName);
+//     return originalHookRegisterClassExW.call<ATOM> (lpWndClass);
+// }
 FAST_HOOK (HWND, CreateWindow, PROC_ADDRESS ("user32.dll", "CreateWindowExW"), DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle,
       i32 X, i32 Y, i32 nWidth, i32 nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam) {
     if (lpWindowName != nullptr) {
@@ -284,6 +300,10 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         if (windowed && cursor) INSTALL_FAST_HOOK (ShowMouse);
         INSTALL_FAST_HOOK (ExitWindows);
         INSTALL_FAST_HOOK (CreateWindow);
+        // INSTALL_FAST_HOOK (HookRegisterClassA);
+        // INSTALL_FAST_HOOK (HookRegisterClassW);
+        // INSTALL_FAST_HOOK (HookRegisterClassExA);
+        // INSTALL_FAST_HOOK (HookRegisterClassExW);
         INSTALL_FAST_HOOK (SetWindowPosition);
 
         INSTALL_FAST_HOOK (ExitProcessHook);

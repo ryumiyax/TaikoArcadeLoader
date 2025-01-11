@@ -120,7 +120,7 @@ namespace Card {
             patches::Scanner::Card::Internal::InsertCard (cardData, internalInvoke);
             return true;
         }
-    }    
+    }
 
     FAST_HOOK (u64, bngrw_Init, PROC_ADDRESS ("bngrw.dll", "BngRwInit")) { return 0; }
     FAST_HOOK (void, bngrw_Fin, PROC_ADDRESS ("bngrw.dll", "BngRwFin")) { return; }
@@ -140,7 +140,7 @@ namespace Card {
     FAST_HOOK (i32, bngrw_ReqLatchID, PROC_ADDRESS ("bngrw.dll", "BngRwReqLatchID")) { return 1; }
     FAST_HOOK (u64, bngrw_ReqAiccAuth, PROC_ADDRESS ("bngrw.dll", "BngRwReqAiccAuth")) { return 1; }
     FAST_HOOK (u64, bngrw_DevReset, PROC_ADDRESS ("bngrw.dll", "BngRwDevReset")) { return 1; }       // Invoke when enter testmode
-    FAST_HOOK (i32, bngrw_ReqCancel, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel")) { 
+    FAST_HOOK (i32, bngrw_ReqCancel, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel")) {
         if (state != State::Disable) {
             state = State::Disable;
             patches::Scanner::Card::Internal::Commit0 (accessCodeTemplate, chipIdTemplate, true);
@@ -161,7 +161,7 @@ namespace Card {
         return 1;
     }
 
-    HOOK (i64, bngrw_ReqCancelOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel"), u32 a1) { 
+    HOOK (i64, bngrw_ReqCancelOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel"), u32 a1) {
         if (state != State::Disable) {
             state = State::Disable;
             patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
@@ -312,7 +312,7 @@ namespace Qr {
         }
         if (scanQueue.empty() || *scanQueue.back() != buffer) {
             std::vector<uint8_t> *scanData = new std::vector<uint8_t> ();
-            for (uint8_t byte_data : buffer) 
+            for (uint8_t byte_data : buffer)
                 scanData->push_back (byte_data);
             scanQueue.push (scanData);
         }
@@ -328,7 +328,7 @@ namespace Qr {
         }
         std::vector<uint8_t> buffer = {};
         std::string accessQRDataBase = "BNTTCNID";
-        if (!accessCode.starts_with (accessQRDataBase)) 
+        if (!accessCode.starts_with (accessQRDataBase))
             for (char word : accessQRDataBase) buffer.push_back (word);
         for (char word : accessCode) buffer.push_back (word);
         return patches::Scanner::Qr::Commit (buffer);

@@ -37,9 +37,6 @@ Keybindings P2_LEFT_BLUE  = {.keycodes = {'Z'}};
 Keybindings P2_LEFT_RED   = {.keycodes = {'X'}};
 Keybindings P2_RIGHT_RED  = {.keycodes = {'C'}};
 Keybindings P2_RIGHT_BLUE = {.keycodes = {'V'}};
-// Keybindings ALL[] = { EXIT, TEST, SERVICE, DEBUG_UP, DEBUG_DOWN, DEBUG_ENTER, COIN_ADD, 
-//     CARD_INSERT_1, CARD_INSERT_2, QR_DATA_READ, QR_IMAGE_READ, P1_LEFT_BLUE, P1_LEFT_RED,
-//     P1_RIGHT_RED, P1_RIGHT_BLUE, P2_LEFT_BLUE, P2_LEFT_RED, P2_RIGHT_RED, P2_RIGHT_BLUE };
 
 const int exitWait  = 100;
 int exited          = 0;
@@ -80,7 +77,7 @@ BNUSIO_EXPORT (u16, bnusio_GetRegisterU16, i16 a1)                   CALL_BNUSIO
 BNUSIO_EXPORT (u8, bnusio_GetRegisterU8, u16 a1)                     CALL_BNUSIO_FALSE (bnusio_GetRegisterU8, a1)
 BNUSIO_EXPORT (void *, bnusio_GetBuffer, u16 a1, i64 a2, i16 a3)     CALL_BNUSIO_FALSE (bnusio_GetBuffer, a1, a2, a3)
 BNUSIO_EXPORT (i64, bnusio_SetRegisterU16, u16 a1, u16 a2)           CALL_BNUSIO_FALSE (bnusio_SetRegisterU16, a1, a2)
-BNUSIO_EXPORT (i64, bnusio_SetRegisterU8, u16 a1, u8 a2)            CALL_BNUSIO_FALSE (bnusio_SetRegisterU8, a1, a2)
+BNUSIO_EXPORT (i64, bnusio_SetRegisterU8, u16 a1, u8 a2)             CALL_BNUSIO_FALSE (bnusio_SetRegisterU8, a1, a2)
 BNUSIO_EXPORT (i64, bnusio_SetBuffer, u16 a1, i32 a2, i16 a3)        CALL_BNUSIO_FALSE (bnusio_SetBuffer, a1, a2, a3)
 BNUSIO_EXPORT (void *, bnusio_GetSystemError)                        CALL_BNUSIO_FALSE (bnusio_GetSystemError)
 BNUSIO_EXPORT (i64, bnusio_SetSystemError, i16 a1)                   CALL_BNUSIO_FALSE (bnusio_SetSystemError, a1)
@@ -236,6 +233,10 @@ Init () {
         //     fpsLimit = (int)readConfigInt (graphics, "fpslimit", fpsLimit);
         // }
     }
+    updateByCoin = fpsLimit == 0;
+    // if (updateByCoin) {
+    //     LogMessage (LogLevel::INFO, "fpsLimit is set to 0, bnusio::Update() will invoke in getCoin callback");
+    // }
 
     if (analogInput) {
         LogMessage (LogLevel::WARN, "[Analog Type] Axis: All the keyboard drum inputs have been disabled");
@@ -251,10 +252,6 @@ Init () {
         analogMethod = AnalogInputSimple;
     }
 
-    updateByCoin = fpsLimit == 0;
-    // if (updateByCoin) {
-    //     LogMessage (LogLevel::INFO, "fpsLimit is set to 0, bnusio::Update() will invoke in getCoin callback");
-    // }
     const auto keyConfigPath = std::filesystem::current_path () / "keyconfig.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> keyConfig_ptr (openConfig (keyConfigPath), toml_free);
     if (keyConfig_ptr) {
@@ -285,7 +282,7 @@ Init () {
         SetConfigValue (keyConfig, "P2_RIGHT_BLUE", &P2_RIGHT_BLUE, &inputState);
     }
 
-    LogMessage (LogLevel::INFO, "Finish Loading keyconfig.toml  useKeyboard={} useMouse={} useController={}", 
+    LogMessage (LogLevel::INFO, "Finish Loading keyconfig.toml  useKeyboard={} useMouse={} useController={}",
         (inputState & 1) ? "true" : "false", (inputState & (1 << 1)) ? "true" : "false", (inputState & (1 << 2)) ? "true" : "false");
 
     if (!emulateUsio && !exists (std::filesystem::current_path () / "bnusio_original.dll")) {

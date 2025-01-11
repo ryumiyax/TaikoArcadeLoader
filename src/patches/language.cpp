@@ -41,7 +41,7 @@ typedef struct {
 void *languageData = nullptr;
 const size_t languageOffset = languages.size () * 560;
 //                             jp_64,  jp_30,     jp_32,     en_64,      en_30,     en_32,    tw_64,  tw_30,    tw_32,      ko_64,  ko_30,    ko_32,     cn_64,       cn_30, cn_32
-const float upA[15]   = {      -1.0f,   0.0f,      0.0f,      0.0f,       0.0f,      0.0f,     0.0f,   0.0f,     0.0f,       0.0f,   0.0f,     0.0f,      0.0f,        0.0f,  0.0f }; 
+const float upA[15]   = {      -1.0f,   0.0f,      0.0f,      0.0f,       0.0f,      0.0f,     0.0f,   0.0f,     0.0f,       0.0f,   0.0f,     0.0f,      0.0f,        0.0f,  0.0f };
 const float upB[15]   = { -0.265625f,  0.15f, 0.078125f, -0.21875f, 0.2329999f, 0.140625f, -0.0625f, 0.333f, 0.28125f, -0.109375f, 0.333f, 0.28125f, -0.09375f, 0.30000001f, 0.25f };
 const float downA[15] = {     -0.25f, 0.167f,    0.125f, -0.21875f,     0.233f, 0.140625f, -0.0625f, 0.333f,    0.25f,    -0.125f, 0.333f, 0.28125f, -0.09375f, 0.30000001f, 0.25f };
 const float downB[15] = {      50.5f,  10.0f,     13.0f,     46.0f,       8.0f,     11.5f,    36.0f,   5.0f,     7.0f,      39.0f,   5.0f,     7.0f,     38.0f,        6.0f,  8.0f };
@@ -78,7 +78,7 @@ FAST_HOOK_DYNAMIC (int, initial_load_setting) {
                 *(u32 *)(basicOffset + 0x68)   = lang == 0 ? 0 : (3 * lang + shapeIndex + 1);
             }
         }
-    } 
+    }
     return 0;
 }
 
@@ -102,7 +102,7 @@ void
 Init () {
     bool fontExistAll = true;
     const char *fontToCheck[]{
-        "cn_30.nutexb", "cn_30.xml", "cn_32_EB.nutexb", "cn_32_EB.xml", "cn_32_B.nutexb", 
+        "cn_30.nutexb", "cn_30.xml", "cn_32_EB.nutexb", "cn_32_EB.xml", "cn_32_B.nutexb",
         "cn_32_B.xml", "cn_32_DB.nutexb", "cn_32_DB.xml", "cn_64.nutexb", "cn_64.xml"
     };
     for (int i = 0; i < 6; i++) {
@@ -123,7 +123,7 @@ Init () {
                 node.attribute (L"max").set_value (L"4");
                 node.attribute (L"replace-text").set_value (L"0:JPN, 1:ENG, 2:zh-tw, 3:KOR, 4:zh-cn");
             }, [&](){
-                // load_setting 
+                // load_setting
                 INSTALL_FAST_HOOK_DYNAMIC (initial_load_setting, ASLR (0x14001B010));
                 // SceneBoot::LoadFont
                 language_patch.push_back (safetyhook::create_mid (ASLR (0x140464235), [](SafetyHookContext &ctx){
@@ -131,12 +131,12 @@ Init () {
                     ctx.rax = (uintptr_t)languageData;
                     ctx.rip = ASLR (0x140464243);
                 }));
-                language_patch.push_back (safetyhook::create_mid (ASLR (0x14046426C), [](SafetyHookContext &ctx){ 
+                language_patch.push_back (safetyhook::create_mid (ASLR (0x14046426C), [](SafetyHookContext &ctx){
                     ctx.r15 = ctx.rbp + languageOffset;
                     ctx.rip = ASLR (0x140464273);
                 }));
                 // SceneBoot::SetFontShift
-                language_patch.push_back (safetyhook::create_mid (ASLR (0x1404644AF), [](SafetyHookContext &ctx){ 
+                language_patch.push_back (safetyhook::create_mid (ASLR (0x1404644AF), [](SafetyHookContext &ctx){
                     ctx.rdi = ctx.rcx * languageOffset;
                     ctx.rax = (uintptr_t)languageData;
                     ctx.rdi += ctx.rax;
@@ -203,7 +203,7 @@ MID_HOOK_DYNAMIC (WordlistLanguageType, SafetyHookContext &ctx) {
         u64 *data = jsonGetMember (json, languageTexts[0].c_str ());
         if ((*((u16 *)data + 7) & 0x1000) == 0) data = (u64 *)(data[1] & 0xFFFFFFFFFFFF);
         taiko_assign ((void *)(ctx.rsp + 0x60), (char *)data, strlen ((char *)data));
-    } else taiko_assign ((void *)(ctx.rsp + 0x60), "", 0);    
+    } else taiko_assign ((void *)(ctx.rsp + 0x60), "", 0);
 
     if (fallback != -1) {
         if (jsonHasMember (json, languageFontTypes[fallback].c_str ())) {
@@ -393,7 +393,7 @@ Init () {
             LogMessage (LogLevel::INFO, "Detected onpu_cn files, install onp patches!");
             INSTALL_MID_HOOK_DYNAMIC (ChangeOnpFile, ASLR (0x140134D16));
         }
-        language_patch.push_back (safetyhook::create_mid (ASLR (0x140134E22), [](SafetyHookContext &ctx){ 
+        language_patch.push_back (safetyhook::create_mid (ASLR (0x140134E22), [](SafetyHookContext &ctx){
             if (ctx.rcx == 4) *(int *)(ctx.r15 + 0x3100) = 2;
             else *(int *)(ctx.r15 + 0x3100) = (int)ctx.rcx;
             ctx.rip = ASLR (0x140134E29);
@@ -436,14 +436,14 @@ Init () {
             if (!maidNutexb.starts_with ("..\\") && std::filesystem::exists (prefix + maidNutexb)) maidNutexb = prefix + maidNutexb;
         }
         if (!maidNulm.starts_with ("..\\") || !maidNutexb.starts_with ("..\\")) titleExistMaid = false;
-        
+
         if (titleExistSeason || (titleExistMaid && titleExistMaidCn)) {
             TestMode::RegisterItem (
                 L"<select-item label=\"TITLE SCREEN(NEED FILES)\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:SEASON(CHN), "
                 L"2:MAID\" group=\"Setting\" id=\"ModTitleScreen\" max=\"2\" min=\"0\" default=\"0\"/>",
                 [&](){
                     LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
-                        if (currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("title") == std::string::npos) return ""; 
+                        if (currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("title") == std::string::npos) return "";
                         if (currentFileName.ends_with ("\\title.nulm")) {
                             if (language == 4 && titleScreen->Read () == 1 && titleExistSeason) return seasonNulm;
                             if (language == 4 && titleScreen->Read () == 2 && titleExistMaidCn) return maidNulmCn;
@@ -634,7 +634,7 @@ Init () {
             LogMessage (LogLevel::INFO, "Detected voice files, install voice patches!");
             TestMode::RegisterItemAfter(
                 L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='LanguageItem']",
-                L"<select-item label=\"VOICE\" param-offset-x=\"35\" replace-text=\"0:JPN, 1:CHN\" group=\"Setting\" " 
+                L"<select-item label=\"VOICE\" param-offset-x=\"35\" replace-text=\"0:JPN, 1:CHN\" group=\"Setting\" "
                 L"id=\"VoiceLanguageItem\" max=\"1\" min=\"0\" default=\"0\"/>",
                 [&](){
                     INSTALL_FAST_HOOK_DYNAMIC (PlaySoundMain, ASLR (0x1404C6DC0));
@@ -649,7 +649,7 @@ Init () {
 }
 }
 
-boolean 
+boolean
 CnFontPatches () {
     return cnFontPatches;
 }

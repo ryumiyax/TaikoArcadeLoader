@@ -172,6 +172,7 @@ toml_table_t *openConfig (const std::filesystem::path &path);
 toml_table_t *openConfigSection (const toml_table_t *config, const std::string &sectionName);
 bool readConfigBool (const toml_table_t *table, const std::string &key, bool notFoundValue);
 i64 readConfigInt (const toml_table_t *table, const std::string &key, i64 notFoundValue);
+double readConfigDouble (const toml_table_t *table, const std::string &key, const double notFoundValue);
 std::string readConfigString (const toml_table_t *table, const std::string &key, const std::string &notFoundValue);
 std::vector<i64> readConfigIntArray (const toml_table_t *table, const std::string &key, std::vector<i64> notFoundValue);
 std::wstring replace (const std::wstring orignStr, const std::wstring &oldStr, const std::wstring &newStr);
