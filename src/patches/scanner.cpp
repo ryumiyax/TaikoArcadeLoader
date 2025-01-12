@@ -89,24 +89,51 @@ namespace Card {
 
         void
         AgentCallbackTouchOfficial (int32_t a1, int32_t a2, uint8_t *a3, uint64_t a4) {
+            if (AreAllBytesZero (a3, 0x00, 168)) return callbackTouch (a1, a2, a3, a4); //This happens when entering test mode really quick upon startup.
+
             if (callbackTouch) {
                 state = State::CopyWait;
                 patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
                 LogMessage (LogLevel::DEBUG, "Official CallbackTouch a1={} a2={}", a1, a2);
-                if (acceptInvalidCards && !a3[0]) {
-                    char AccessId[21] = "00000000000000000001";
-                    uint8_t UID[8] = {a3[12], a3[14], a3[15], a3[16], 0x90, 0x00, 0x00, 0x00};
-                    uint64_t ReversedAccessID;
+
+                std::ostringstream hexCardValue;
+                for (size_t i = 0; i < 168; ++i) {
+                    hexCardValue << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(a3[i]) << " ";
+                    if ((i + 1) % 21 == 0 && 167 != i) hexCardValue << "\n";
+                }
+
+                LogMessage(LogLevel::DEBUG, "[Card] Card data: \n{}", hexCardValue.str());
+
+                char accessCode[21] = {0};
+                char chipId[33] = "000000000000";
+
+                if (acceptInvalidCards && a2 != 0) {
+                    LogMessage (LogLevel::DEBUG, "[Card] Card is probably not supported");
+                    uint8_t UID[8] = {a3[12], a3[13], a3[14], a3[15], a3[16], a3[17], a3[18], a3[19]};
+
+                    for (int i = 0; i < 8; ++i)
+                        sprintf(&accessCode[i * 2], "%02X", UID[i]);
+                    accessCode[16] = '\0'; // Null terminator at Felica Length.
+
+                    u64 ReversedAccessID     = 0;
+                    char ReverseAccessId[21] = "00000000000000000001";
                     for (int i = 0; i < 8; i++)
                         ReversedAccessID = (ReversedAccessID << 8) | UID[i];
-                    sprintf(AccessId, "%020llu", ReversedAccessID);
-                    std::string accessCode = std::string (AccessId), chipId = "";
-                    if (chipId.length () == 0) chipId = accessCode;
-                    if (chipId.length () < 32) chipId = accessCodeTemplate.substr (0, 32 - chipId.length ()) + chipId;
-                    for (size_t i = 0; i < 32; i++) *(cardData + 0x2C + i) = i < chipId.length() ? chipId[i] : 0;
-                    for (size_t i = 0; i < 20; i++) *(cardData + 0x50 + i) = i < accessCode.length() ? accessCode[i] : 0;
+                    sprintf(ReverseAccessId, "%020llu", ReversedAccessID);
+                    strcat(chipId, ReverseAccessId);
+
+                    // Populate cardData with chipId and accessCode
+                    memcpy(cardData + 0x2C, chipId, 33);
+                    memcpy(cardData + 0x50, accessCode, 21);
+                    LogMessage (LogLevel::INFO, R"([Card] Insert Card accessCode: "{}" chipId: "{}")", accessCode, chipId);
                     callbackTouch (0, 0, cardData, a4);
-                } else callbackTouch (a1, a2, a3, a4);
+                } else {
+                    LogMessage (LogLevel::DEBUG, "[Card] Card is probably valid");
+                    memcpy (accessCode, a3 + 0x50, 20);
+                    memcpy (chipId, a3 + 0x2C, 32);
+                    LogMessage (LogLevel::INFO, R"([Card] Insert Card accessCode: "{}" chipId: "{}")", accessCode, chipId);
+                    callbackTouch (a1, a2, a3, a4);
+                }
             }
         }
 
@@ -116,7 +143,7 @@ namespace Card {
             if (chipId.length () < 32) chipId = accessCodeTemplate.substr (0, 32 - chipId.length ()) + chipId;
             for (size_t i = 0; i < 32; i++) *(cardData + 0x2C + i) = i < chipId.length() ? chipId[i] : 0;
             for (size_t i = 0; i < 20; i++) *(cardData + 0x50 + i) = i < accessCode.length() ? accessCode[i] : 0;
-            if (!internalInvoke) LogMessage (LogLevel::INFO, "[Card] Insert Card accessCode: \"{}\" chipId: \"{}\"", accessCode, chipId);
+            if (!internalInvoke) LogMessage (LogLevel::INFO, R"([Card] Insert Card accessCode: "{}" chipId: "{}")", accessCode, chipId);
             patches::Scanner::Card::Internal::InsertCard (cardData, internalInvoke);
             return true;
         }
