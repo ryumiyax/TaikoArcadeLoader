@@ -12,7 +12,7 @@ tm *timeInfo;
 SYSTEMTIME systemTime;
 
 void
-InitializeLogger (const LogLevel level, const bool logToFile) {
+InitializeLogger (const LogLevel level, const bool logToFile, const std::string& logPath) {
     if (loggerInstance == nullptr) {
         loggerInstance = static_cast<Logger *> (malloc (sizeof (Logger)));
         if (consoleHandle == nullptr) consoleHandle = GetStdHandle (STD_OUTPUT_HANDLE);
@@ -21,7 +21,7 @@ InitializeLogger (const LogLevel level, const bool logToFile) {
     loggerInstance->logLevel = level;
 
     if (logToFile) {
-        loggerInstance->logFile = fopen ("TaikoArcadeLoader.log", "w"); // Open in write mode
+        loggerInstance->logFile = fopen (logPath.c_str (), "w"); // Open in write mode
         if (!loggerInstance->logFile) LogMessage (LogLevel::WARN, std::string ("Failed to open TaikoArcadeLoader.log for writing."));
     } else loggerInstance->logFile = nullptr; // No file logging
 }

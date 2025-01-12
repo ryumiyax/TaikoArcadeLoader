@@ -30,7 +30,7 @@ typedef struct {
 } Logger;
 
 /* Initializes a global Logger instance. */
-void InitializeLogger (LogLevel level, bool logToFile);
+void InitializeLogger (LogLevel level, bool logToFile, const std::string& logPath);
 
 void LogMessageHandler (const char *function, const char *codeFile, int codeLine, LogLevel messageLevel, const char *format, ...);
 void LogMessageHandler (const char *function, const char *codeFile, int codeLine, LogLevel messageLevel, const wchar_t *format, ...);

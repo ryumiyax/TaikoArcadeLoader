@@ -34,6 +34,7 @@ bool acceptInvalidCards = false;
 
 std::string logLevelStr = "INFO";
 bool logToFile          = true;
+std::string logPath = "TaikoArcadeLoader.log";
 
 HWND hGameWnd;
 FAST_HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse.stdcall<i32> (true); }
@@ -148,7 +149,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
 
         // Init logger for loading config
         auto start = std::chrono::high_resolution_clock::now();
-        InitializeLogger (GetLogLevel (logLevelStr), logToFile);
+        InitializeLogger (GetLogLevel (logLevelStr), logToFile, logPath);
         patches::Timer::Init ();
 
         // #ifdef ASYNC_IO
@@ -198,11 +199,12 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
             if (const auto logging = openConfigSection (config, "logging")) {
                 logLevelStr = readConfigString (logging, "log_level", logLevelStr);
                 logToFile   = readConfigBool (logging, "log_to_file", logToFile);
+                logPath = readConfigString (logging, "log_path", logPath);
             }
         }
 
         // Update the logger with the level read from config file.
-        InitializeLogger (GetLogLevel (logLevelStr), logToFile);
+        InitializeLogger (GetLogLevel (logLevelStr), logToFile, logPath);
         LogMessage (LogLevel::INFO, "Application started.");
 
         if (version == "auto") {
