@@ -279,7 +279,7 @@ FAST_HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA")
 
     LPCSTR pFinalFileName = changed ? currentFileName.c_str () : lpFileName;
     if (changed) LogMessage (LogLevel::HOOKS, "Final Redirect: {}", currentFileName);
-    return originalCreateFileAHook.stdcall<HANDLE> (pFinalFileName, dwDesiredAccess, dwShareMode, 
+    return originalCreateFileAHook.stdcall<HANDLE> (pFinalFileName, dwDesiredAccess, dwShareMode,
         lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
 
@@ -293,7 +293,7 @@ Init () {
     }
     register_cipher (&aes_desc);
     if (useLayeredFs || !beforeHandlers.empty () || !afterHandlers.empty ()) {
-        LogMessage (LogLevel::INFO, "using LayeredFs! Data_mods={} beforHandlers={} afterHandlers={}", 
+        LogMessage (LogLevel::INFO, "using LayeredFs! Data_mods={} beforHandlers={} afterHandlers={}",
             useLayeredFs ? "enabled" : "disabled", beforeHandlers.size (), afterHandlers.size ());
         INSTALL_FAST_HOOK (CreateFileAHook);
     }

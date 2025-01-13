@@ -40,7 +40,7 @@ namespace patches::Plugins {
         }
     }
     // Card API
-    void 
+    void
     WaitTouch (CallBackTouchCard callback, uint64_t touchData) {
         for (auto plugin : plugins) {
             auto event = GetProcAddress (plugin, "WaitTouch");
@@ -48,7 +48,7 @@ namespace patches::Plugins {
         }
     }
     // QR API (deprecated)
-    void 
+    void
     InitQr (GameVersion gameVersion) {
         for (auto plugin : plugins) {
             auto event = GetProcAddress (plugin, "InitQr");
@@ -62,7 +62,7 @@ namespace patches::Plugins {
             if (event) ((BasicEvent)event) ();
         }
     }
-    void * 
+    void *
     CheckQr () {
         for (auto plugin : plugins) {
             auto event = GetProcAddress (plugin, "UsingQr");
@@ -70,7 +70,7 @@ namespace patches::Plugins {
         }
         return nullptr;
     }
-    size_t 
+    size_t
     GetQr (void *plugin, size_t size, uint8_t *buffer) {
         auto event = GetProcAddress (*(HMODULE *)plugin, "GetQr");
         if (event) return ((CopyDataEvent)event) (size, buffer);

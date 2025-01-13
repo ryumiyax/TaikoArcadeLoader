@@ -73,6 +73,16 @@ readConfigInt (const toml_table_t *table, const std::string &key, const i64 notF
     return u.i;
 }
 
+double
+readConfigDouble (const toml_table_t *table, const std::string &key, const double notFoundValue) {
+    const auto [ok, u] = toml_double_in (table, key.c_str ());
+    if (!ok) {
+        LogMessage (LogLevel::WARN, ("Could not find Int named " + key).c_str ());
+        return notFoundValue;
+    }
+    return u.d;
+}
+
 std::string
 readConfigString (const toml_table_t *table, const std::string &key, const std::string &notFoundValue) {
     const auto [ok, u] = toml_string_in (table, key.c_str ());
@@ -184,7 +194,7 @@ AreAllBytesZero (const u8 *array, const size_t offset, const size_t length) {
     return true;
 }
 
-void 
+void
 withFile (const char *fileName, std::function<void (u8 *)> callback) {
     FILE *file = fopen (fileName, "rb");
     if (file == nullptr) return;

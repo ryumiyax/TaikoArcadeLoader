@@ -2,6 +2,9 @@
 #include "../patches.h"
 
 extern std::string chassisId;
+extern i32 xRes;
+extern i32 yRes;
+extern bool vsync;
 
 namespace patches::CHN00 {
 int language = 0;
@@ -101,9 +104,6 @@ ReplaceLeaBufferAddress (const std::vector<uintptr_t> &bufferAddresses, void *ne
 void
 Init () {
     LogMessage (LogLevel::INFO, "Init CHN00 patches");
-    i32 xRes            = 1920;
-    i32 yRes            = 1080;
-    bool vsync          = false;
     bool unlockSongs    = true;
     bool fixLanguage    = false;
     bool demoMovie      = true;
@@ -138,14 +138,6 @@ Init () {
                 modeCollabo025 = readConfigBool (chn00, "mode_collabo025", modeCollabo025);
                 modeCollabo026 = readConfigBool (chn00, "mode_collabo026", modeCollabo026);
             }
-        }
-
-        if (const auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
-            if (const auto res = openConfigSection (graphics, "res")) {
-                xRes = static_cast<i32> (readConfigInt (res, "x", xRes));
-                yRes = static_cast<i32> (readConfigInt (res, "y", yRes));
-            }
-            vsync = readConfigBool (graphics, "vsync", vsync);
         }
     }
 

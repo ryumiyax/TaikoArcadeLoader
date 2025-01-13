@@ -21,7 +21,7 @@ P2_LEFT_RED = ["X"]
 P2_RIGHT_RED = ["C"]
 P2_RIGHT_BLUE = ["V"]
 
-# ESCAPE F1 through F12 
+# ESCAPE F1 through F12
 # ` 1 through 0 -= BACKSPACE ^ YEN
 # TAB QWERTYUIOP [ ] BACKSLASH @
 # CAPS_LOCK ASDFGHJKL ;' ENTER :

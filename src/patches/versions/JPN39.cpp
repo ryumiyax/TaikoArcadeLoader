@@ -3,6 +3,10 @@
 #include "../patches.h"
 #include <map>
 
+extern i32 xRes;
+extern i32 yRes;
+extern bool vsync;
+
 namespace patches::JPN39 {
 int language = 0;
 FAST_HOOK_DYNAMIC (char, AMFWTerminate, i64) {
@@ -39,7 +43,7 @@ FUNCTION_PTR (i32, luaL_loadstring, PROC_ADDRESS ("lua51.dll", "luaL_loadstring"
 
 FUNCTION_PTR (u64, RefTestModeMain, ASLR (0x1400337C0), u64);
 FUNCTION_PTR (u64, RefPlayDataManager, ASLR (0x140024AC0), u64);
-FUNCTION_PTR (i64, GetUserCount, ASLR (0x1403F1020), u64);
+FUNCTION_PTR (i64, GetUserCount, ASLR (0x1403F1080), u64);
 
 i64
 lua_pushbool (const i64 a1, const bool val) {
@@ -196,6 +200,52 @@ ExecuteSendResultData () {
     );
 }
 
+bool sendFlag = false;
+TestMode::Value *instantResult = TestMode::CreateValue (L"ModInstantResult");
+TestMode::Value *stageNumber = TestMode::CreateValue (L"NumberOfStageItem");
+#define SCENE_RESULT_HOOK(functionName, location)                       \
+    FAST_HOOK (void, functionName, location, i64 a1, i64 a2, i64 a3) {  \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { \
+            original##functionName.fastcall (a1, a2, a3);               \
+            return;                                                     \
+        }                                                               \
+        sendFlag = true;                                                \
+        original##functionName.fastcall (a1, a2, a3);                   \
+        ExecuteSendResultData ();                                       \
+    }
+
+#define SEND_RESULT_HOOK(functionName, location)                        \
+    FAST_HOOK (void, functionName, location, i64 a1) {                  \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { \
+            original##functionName.fastcall (a1);                       \
+            return;                                                     \
+        }                                                               \
+        if (sendFlag) {                                                 \
+            sendFlag = false;                                           \
+            original##functionName.fastcall (a1);                       \
+        }                                                               \
+    }
+
+#define CHANGE_RESULT_SIZE_HOOK(functionName, location, target)                   \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                   \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { return; } \
+        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);             \
+        u32 currentStageCount = *(u32 *)(instance + 8);                           \
+        ctx.target &= 0xFFFFFFFF00000000;                                         \
+        ctx.target |= currentStageCount;                                          \
+    }
+
+#define CHANGE_RESULT_INDEX_HOOK(functionName, location, target, offset, skip)    \
+    MID_HOOK (functionName, location, SafetyHookContext &ctx) {                   \
+        if (instantResult->Read () != 1 && stageNumber->Read () <= 4) { return; } \
+        i64 instance          = RefPlayDataManager (*(i64 *)ctx.r12);             \
+        u32 currentStageCount = *(u32 *)(instance + 8);                           \
+        ctx.target &= 0xFFFFFFFF00000000;                                         \
+        ctx.target |= currentStageCount - 1;                                      \
+        *(u32 *)(ctx.rsp + offset) = currentStageCount - 1;                       \
+        ctx.rip += skip;                                                          \
+    }
+
 SCENE_RESULT_HOOK (SceneResultInitialize_Enso, ASLR (0x140411FD0));
 SCENE_RESULT_HOOK (SceneResultInitialize_AI, ASLR (0x140411FD0));
 SCENE_RESULT_HOOK (SceneResultInitialize_Collabo025, ASLR (0x140411FD0));
@@ -248,12 +298,13 @@ MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
     if (attractDemo->Read () == 1) ctx.r14 = 0;
 }
 
-// HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
-//     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
-//     a3[2] = (DWORD)(int)120.0f;
-//     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
-//     return originalAcquireMostCompatibleDisplayMode (a1, a2, a3);
-// }
+FAST_HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
+    LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    // a3[0] = xRes;
+    // a3[1] = yRes;
+    // LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    return originalAcquireMostCompatibleDisplayMode.fastcall<DWORD *> (a1, a2, a3);
+}
 
 constexpr i32 datatableBufferSize = 1024 * 1024 * 12;
 uint8_t *datatableBuffer[3] = { nullptr };
@@ -281,10 +332,8 @@ ReplaceDatatableBufferAddresses () {
 void
 Init () {
     LogMessage (LogLevel::INFO, "Init JPN39 patches");
-    i32 xRes          = 1920;
-    i32 yRes          = 1080;
-    bool vsync        = false;
     bool unlockSongs  = true;
+    double modelResRate = 1.0;
 
     auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
@@ -292,24 +341,45 @@ Init () {
         if (auto patches = openConfigSection (config_ptr.get (), "patches")) {
             unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
         }
-
         if (auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
-            if (auto res = openConfigSection (graphics, "res")) {
-                xRes = static_cast<i32> (readConfigInt (res, "x", xRes));
-                yRes = static_cast<i32> (readConfigInt (res, "y", yRes));
-            }
-            vsync = readConfigBool (graphics, "vsync", vsync);
+            modelResRate = readConfigDouble (graphics, "model_res_rate", modelResRate);
         }
     }
 
     // Hook to get AppAccessor and ComponentAccessor
     INSTALL_FAST_HOOK (DeviceCheck);
     INSTALL_FAST_HOOK (luaL_newstate);
-    // INSTALL_HOOK (AcquireMostCompatibleDisplayMode);
+    // INSTALL_FAST_HOOK (AcquireMostCompatibleDisplayMode);
 
-    // Apply common config patch
+    // Window Size
     WRITE_MEMORY (ASLR (0x140494533), i32, xRes);
     WRITE_MEMORY (ASLR (0x14049453A), i32, yRes);
+    // DonSystem::DonModelRenderer::DonModelRenderer
+    if (modelResRate > 0) {
+        i32 donModelX = (i32)(xRes * modelResRate);
+        i32 donModelY = (i32)(yRes * modelResRate);
+        LogMessage (LogLevel::INFO, "Patch DonModel use resolution {}x{}", donModelX, donModelY);
+        WRITE_MEMORY (ASLR (0x1404F3D5B), i32, donModelX);
+        WRITE_MEMORY (ASLR (0x1404F3D62), i32, donModelY);
+    }
+    // // DonSystem::Renderer::Renderer
+    // WRITE_MEMORY (ASLR (0x1404FBF33), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1404FBF3A), i32, yRes);
+    // // DonSystem::Renderer::CreateOnpuPass
+    // WRITE_MEMORY (ASLR (0x1404FCF77), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1404FCF81), i32, yRes / 2);
+    // // nu::LightManager::LightManager
+    // WRITE_MEMORY (ASLR (0x1406BED7A), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1406BED82), i32, yRes);
+    // WRITE_MEMORY (ASLR (0x1406BEF26), i32, xRes);
+    // WRITE_MEMORY (ASLR (0x1406BEF33), i32, yRes);
+    // // google::protobuf::TextFormat::Parser::ParserImpl::ConsumeField
+    // WRITE_MEMORY (ASLR (0x1406F7E47), i32, xRes);
+    // // google::protobuf::DescriptorBuilder::AddSymbol
+    // WRITE_MEMORY (ASLR (0x140719191), i32, xRes);
+    // nuscDecoderCalcObjectSize
+    // WRITE_MEMORY (ASLR (0x140719191), i32, xRes);
+
     if (!vsync) WRITE_MEMORY (ASLR (0x14064C7E9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
 
     // Bypass errors
@@ -350,10 +420,10 @@ Init () {
     TestMode::RegisterItem (
         L"<select-item label=\"UNLOCK SONGS\" param-offset-x=\"35\" replace-text=\"0:OFF, 1:ON, "
         L"2:FORCE\" group=\"Setting\" id=\"ModUnlockSongs\" max=\"2\" min=\"0\" default=\"1\"/>",
-        [&]() { 
-            INSTALL_FAST_HOOK (IsSongRelease); 
-            INSTALL_FAST_HOOK (IsSongReleasePlayer); 
-            INSTALL_MID_HOOK (DifficultyPanelCrown); 
+        [&]() {
+            INSTALL_FAST_HOOK (IsSongRelease);
+            INSTALL_FAST_HOOK (IsSongReleasePlayer);
+            INSTALL_MID_HOOK (DifficultyPanelCrown);
         }
     );
     // Freeze Timer

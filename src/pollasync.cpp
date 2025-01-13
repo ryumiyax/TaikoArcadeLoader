@@ -10,6 +10,9 @@ extern int exited;
 extern u8 inputState;
 extern float axisThreshold;
 extern bool globalKeyboardInput;
+extern bool autoIme;
+extern HKL currentLayout;
+extern bool emulateUsio;
 
 bool wndForeground = false;
 bool usingKeyboard = false;
@@ -67,6 +70,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
 
         switch (value.type) {
         case keycode: {
+            LogMessage (LogLevel::DEBUG, "config {} type=keycode value={}", key, (int)value.keycode);
             *inputState |= 1;
             for (int i = 0; i < std::size (key_bind->keycodes); i++) {
                 if (key_bind->keycodes[i] == 0) {
@@ -77,6 +81,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case button: {
+            LogMessage (LogLevel::DEBUG, "config {} type=button value={}", key, (int)value.button);
             *inputState |= (1 << 2);
             for (int i = 0; i < std::size (key_bind->buttons); i++) {
                 if (key_bind->buttons[i] == SDL_GAMEPAD_BUTTON_INVALID) {
@@ -87,6 +92,7 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
             break;
         }
         case axis: {
+            LogMessage (LogLevel::DEBUG, "config {} type=axis value={}", key, (int)value.axis);
             *inputState |= (1 << 2);
             for (int i = 0; i < std::size (key_bind->axis); i++) {
                 if (key_bind->axis[i] == 0) {
@@ -94,8 +100,10 @@ SetConfigValue (const toml_table_t *table, const char *key, Keybindings *key_bin
                     break;
                 }
             }
+            break;
         }
         case scroll: {
+            LogMessage (LogLevel::DEBUG, "config {} type=scroll value={}", key, (int)value.scroll);
             *inputState |= (1 << 1);
             for (int i = 0; i < std::size (key_bind->scroll); i++) {
                 if (key_bind->scroll[i] == 0) {
@@ -196,16 +204,19 @@ CheckFlipped (uint32_t which, SDL_Gamepad *gamepad) {
 
 bool
 InitializePoll (HWND windowHandle) {
+    wndForeground = windowHandle == GetForegroundWindow ();
+    if (!emulateUsio) return false;
+
     usingKeyboard = inputState & 1;
     usingMouse = inputState & (1 << 1);
     usingController = inputState & (1 << 2);
     usingSDLEvent = usingMouse || usingController;
 
+    atexit ([](){ if (currentLayout != nullptr) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);});
     InitializeKeyboard ();
     if (usingSDLEvent) {
         LogMessage (LogLevel::DEBUG, "InitializePoll");
         bool hasRumble = true;
-        wndForeground = windowHandle == GetForegroundWindow ();
         SDL_SetMainReady ();
 
         SDL_SetHint (SDL_HINT_JOYSTICK_HIDAPI_PS4, "1");
@@ -267,9 +278,18 @@ InitializePoll (HWND windowHandle) {
 bool
 CheckForegroundWindow (HWND processWindow) {
     if (processWindow == nullptr) return false;
-    if (wndForeground ^ (processWindow == GetForegroundWindow ())) {
+    HWND foregroundWnd = GetForegroundWindow ();
+    if (wndForeground ^ (processWindow == foregroundWnd)) {
         wndForeground = !wndForeground;
         LogMessage (LogLevel::DEBUG, "window focus={}", wndForeground);
+        if (autoIme) {
+            if (wndForeground) {
+                currentLayout  = GetKeyboardLayout (0);
+                auto engLayout = LoadKeyboardLayout (TEXT ("00000409"), KLF_ACTIVATE);
+                ActivateKeyboardLayout (engLayout, KLF_SETFORPROCESS);
+                LogMessage (LogLevel::DEBUG, "(experimental) auto change KeyboardLayout {}", LOWORD(engLayout));
+            }
+        }
     }
     return wndForeground;
 }
@@ -288,11 +308,11 @@ CorrectButton (uint32_t which, uint8_t button) {
 
 void
 CleanPoll () {
-    if (usingKeyboard && keyboardClean) {
-        keyboardClean = false;
-        for (int i=0; i<0xFF; i++) keyboardCount[i] -= (bool)keyboardDiff[i]; 
+    if (usingKeyboard) {
+        for (int i=0; i<0xFF; i++) keyboardCount[i] -= (bool)keyboardDiff[i];
         memset (keyboardDiff, 0, 0XFF);
     }
+
     if (usingMouse) {
         currentMouseState.ScrolledUp   = false;
         currentMouseState.ScrolledDown = false;
@@ -311,7 +331,8 @@ CleanPoll () {
 
 void
 UpdatePoll (HWND windowHandle) {
-    if (!CheckForegroundWindow (windowHandle)) return; 
+    if (!CheckForegroundWindow (windowHandle)) return;
+    if (!emulateUsio) return;
     CleanPoll ();
     if (usingSDLEvent) {
         SDL_Event event;
@@ -347,7 +368,7 @@ UpdatePoll (HWND windowHandle) {
                 uint8_t button = CorrectButton (event.gbutton.which, event.gbutton.button);
                 currentControllerButtonsState[button] = false;
             } break;
-            case SDL_EVENT_GAMEPAD_BUTTON_DOWN: 
+            case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
                 if (wndForeground) {
                     uint8_t button = CorrectButton (event.gbutton.which, event.gbutton.button);
                     LogMessage (LogLevel::DEBUG, "Controller {}: button {} pressed, remapped to {}", event.gbutton.which, event.gbutton.button, button);
@@ -379,7 +400,7 @@ UpdatePoll (HWND windowHandle) {
                         currentControllerAxisState[button] = sensorValue;
                     } break;
                     } break;
-                } 
+                }
             }
         }
     }
@@ -504,20 +525,28 @@ ControllerAxisIsTapped (const SDLAxis axis) {
 bool
 IsButtonTapped (const Keybindings &bindings) {
     for (size_t i = 0; i < ConfigKeyboardButtonsCount; i++) {
-        if (bindings.keycodes[i] == 0) continue;
-        if (KeyboardIsTapped (bindings.keycodes[i])) return true;
+        if (bindings.keycodes[i] == '\0') continue;
+        if (KeyboardIsTapped (bindings.keycodes[i])) {
+            return true;
+        }
     }
     for (size_t i = 0; i < std::size (ConfigControllerButtons); i++) {
         if (bindings.buttons[i] == SDL_GAMEPAD_BUTTON_INVALID) continue;
-        if (ControllerButtonIsTapped (bindings.buttons[i])) return true;
+        if (ControllerButtonIsTapped (bindings.buttons[i])) {
+            return true;
+        }
     }
     for (size_t i = 0; i < std::size (ConfigControllerAXIS); i++) {
-        if (bindings.axis[i] == 0) continue;
-        if (float val = ControllerAxisIsTapped (bindings.axis[i]); val > 0) return true; 
+        if (bindings.axis[i] == SDL_AXIS_NULL) continue;
+        if (ControllerAxisIsTapped (bindings.axis[i])) {
+            return true;
+        }
     }
     for (size_t i = 0; i < std::size (ConfigMouseScroll); i++) {
-        if (bindings.scroll[i] == 0) continue;
-        if (GetMouseScrollIsTapped (bindings.scroll[i])) return true;
+        if (bindings.scroll[i] == MOUSE_SCROLL_INVALID) continue;
+        if (GetMouseScrollIsTapped (bindings.scroll[i])) {
+            return true;
+        }
     }
     return false;
 }

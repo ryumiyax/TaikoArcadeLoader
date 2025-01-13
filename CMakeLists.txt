@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.25)
 
 project(TaikoArcadeLoader VERSION 1.0.0 LANGUAGES C CXX)
 
+# Set runtime library to static
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE INTERNAL "")
+endif()
+
 # Set C and C++ standards
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 23)
@@ -134,8 +139,8 @@ set(SOURCES
     src/pollasync.cpp
     src/bnusio.cpp
     src/patches/amauth.cpp
-    src/patches/dxgi.cpp
-    src/patches/fpslimiter.cpp
+    # src/patches/dxgi.cpp
+    # src/patches/fpslimiter.cpp
     src/patches/audio.cpp
     src/patches/plugins.cpp
     src/patches/scanner.cpp
@@ -143,6 +148,7 @@ set(SOURCES
     src/patches/testmode.cpp
     src/patches/timer.cpp
     src/patches/language.cpp
+    # src/patches/unlimitsong.cpp
     src/patches/versions/JPN00.cpp
     src/patches/versions/JPN08.cpp
     src/patches/versions/JPN39.cpp

@@ -18,6 +18,7 @@ std::mutex hooksMutex;
 std::condition_variable hooksCV;
 std::vector<SafetyHookMid> patches = {};
 std::vector<Value *> values = {};
+std::map<std::wstring, Value *> valueMap = {};
 
 std::wstring
 mergeCondition (std::wstring original, std::wstring addition, std::wstring value) {
@@ -214,15 +215,16 @@ public:
         this->reset = true;
     }
     int
-    Read () override {
-        if (reset) { 
-            this->value = ReadTestModeValue (key.c_str ()); 
+    Read (int value) override {
+        if (reset) {
+            this->value = ReadTestModeValue (key.c_str ());
             if (this->value != -1) {
                 LogMessage (LogLevel::DEBUG, L"TestMode Value({}) got val: {}", this->key, this->value);
                 reset = false;
             }
         }
-        return this->value;
+        if (this->value == -1) return value;
+        else return this->value;
     }
     void
     Write (int value) override {
@@ -357,58 +359,58 @@ LocalizationCHT () {
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModFixLanguage']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"修復語言"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"修復語言");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModUnlockSongs']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"解鎖歌曲"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓, 2:強制"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"解鎖歌曲");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓, 2:強制");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModFreezeTimer']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"凍結計時"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"凍結計時");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo024']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"鬼滅之刃模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"鬼滅之刃模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo025']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"航海王模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"航海王模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo026']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"ＡＩ粗品模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"ＡＩ粗品模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeAprilFool001']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"青春之達人模式"); 
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"青春之達人模式");
+            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
         }, [](){}
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModInstantResult']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"即時保存"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"即時保存");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
     TestMode::RegisterModify(
@@ -417,9 +419,9 @@ LocalizationCHT () {
     );
     TestMode::RegisterModify(
         L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractDemoItem']",
-        [&](pugi::xml_node &node) { 
-            node.attribute(L"label").set_value(L"演示遊玩影片"); 
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓"); 
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"演示遊玩影片");
+            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
         }, [](){}
     );
 }
@@ -521,11 +523,15 @@ SetupAccessor (const u64 appAccessor, const RefTestModeMain refTestMode) {
 int
 ReadTestModeValue (const wchar_t *itemId) {
     if (appAccessor) {
-        if (const u64 testModeMain = refTestMode (appAccessor)) {
-            int value   = 0;
-            u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
-            (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int *)> (*reader + 256)) (reader, itemId, &value);
-            return value;
+        try {
+            if (const u64 testModeMain = refTestMode (appAccessor)) {
+                int value   = 0;
+                u64 *reader = *reinterpret_cast<u64 **> (testModeMain + 16);
+                (*reinterpret_cast<void (__fastcall **) (u64 *, const wchar_t *, int *)> (*reader + 256)) (reader, itemId, &value);
+                return value;
+            }
+        } catch ([[maybe_unused]] std::exception &e) {
+            LogMessage (LogLevel::ERROR, L"Reading Value({}) Error!", itemId);
         }
     }
     return -1;
@@ -550,8 +556,10 @@ CreateMenu (const std::wstring &menuName, const std::wstring &menuId) {
 Value *
 CreateValue (const std::wstring &key) {
     LogMessage (LogLevel::DEBUG, L"Create TestMode Value key: {}", key);
+    // if (valueMap.count (key)) return valueMap[key];
     Value *value = (Value *)(new TestModeValue (key));
     values.push_back ((Value *)value);
+    // valueMap[key] = value;
     return value;
 }
 

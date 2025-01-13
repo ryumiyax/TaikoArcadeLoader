@@ -52,7 +52,7 @@ public:
 };
 class Value {
 public:
-    virtual int Read() = 0;
+    virtual int Read(int value = -1) = 0;
     virtual void Write(int value) = 0;
     virtual void Reset() = 0;
 };
@@ -129,5 +129,8 @@ void Init ();
 namespace Language {
 boolean CnFontPatches ();
 void Init ();
-}
+} // namespace Language
+namespace UnlimitSong {
+void Init ();
+} // namespace UnlimitSong
 } // namespace patches
