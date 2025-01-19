@@ -31,6 +31,7 @@ bool emulateUsio        = true;
 bool emulateCardReader  = true;
 bool emulateQr          = true;
 bool acceptInvalidCards = false;
+bool localFiles         = true;
 HKL currentLayout       = nullptr;
 i32 xRes                = 1920;
 i32 yRes                = 1080;
@@ -196,7 +197,10 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
                 std::strcat (placeId, countryCode.c_str ());
                 std::strcat (placeId, "0FF0");
             }
-            if (const auto patches = openConfigSection (config, "patches")) version = readConfigString (patches, "version", version);
+            if (const auto patches = openConfigSection (config, "patches")) {
+                version = readConfigString (patches, "version", version);
+                localFiles = readConfigBool (patches, "local_files", localFiles);
+            }
             if (const auto emulation = openConfigSection (config, "emulation")) {
                 emulateUsio        = readConfigBool (emulation, "usio", emulateUsio);
                 emulateCardReader  = readConfigBool (emulation, "card_reader", emulateCardReader);

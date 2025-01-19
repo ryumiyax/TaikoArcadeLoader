@@ -5,6 +5,7 @@ extern std::string chassisId;
 extern i32 xRes;
 extern i32 yRes;
 extern bool vsync;
+extern bool localFiles;
 
 namespace patches::CHN00 {
 int language = 0;
@@ -156,17 +157,6 @@ Init () {
     // Disable SSLVerify
     WRITE_MEMORY (ASLR (0x14034C182), u8, 0x00);
 
-    // Move various files to current directory
-    WRITE_MEMORY (ASLR (0x140C33C40), char, "./"); // F:/
-    WRITE_MEMORY (ASLR (0x140C33C44), char, "./"); // G:/
-    WRITE_MEMORY (ASLR (0x140C7B158), char, ".\\SettingChina1.bin");
-    WRITE_MEMORY (ASLR (0x140C7B2B8), char, ".\\SettingChina1.bin");
-    WRITE_MEMORY (ASLR (0x140C7B2A0), char, ".\\SettingChina2.bin");
-    WRITE_MEMORY (ASLR (0x140C3CF58), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
-    WRITE_MEMORY (ASLR (0x140C3CFC8), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
-    WRITE_MEMORY (ASLR (0x140C3CF90), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
-    WRITE_MEMORY (ASLR (0x140C3D000), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
-
     // Remove datatable size limit
     {
         for (const auto address : memsetSizeAddresses)
@@ -203,14 +193,27 @@ Init () {
     const auto amHandle = reinterpret_cast<u64> (GetModuleHandle ("AMFrameWork.dll"));
     INSTALL_HOOK_DYNAMIC (AMFWTerminate, reinterpret_cast<void *> (amHandle + 0x25A00));
 
-    // Move various files to current directory
-    WRITE_MEMORY (amHandle + 0xC652, u8, 0xEB);  // CreditLogPathA
-    WRITE_MEMORY (amHandle + 0xC819, u8, 0xEB);  // CreditLogPathB
-    WRITE_MEMORY (amHandle + 0x243BA, u8, 0xEB); // ErrorLogPathA
-    WRITE_MEMORY (amHandle + 0x24539, u8, 0xEB); // ErrorLogPathB
-    WRITE_MEMORY (amHandle + 0x24901, u8, 0xEB); // CommonLogPathA
-    WRITE_MEMORY (amHandle + 0x24A85, u8, 0xEB); // CommonLogPathB
-    WRITE_NOP (amHandle + 0x24DD1, 0x05);        // BackupDataPathA
-    WRITE_NOP (amHandle + 0x24E47, 0x05);        // BackupDataPathB
+    if (localFiles) {
+        // Move various files to current directory
+        WRITE_MEMORY (ASLR (0x140C33C40), char, "./"); // F:/
+        WRITE_MEMORY (ASLR (0x140C33C44), char, "./"); // G:/
+        WRITE_MEMORY (ASLR (0x140C7B158), char, ".\\SettingChina1.bin");
+        WRITE_MEMORY (ASLR (0x140C7B2B8), char, ".\\SettingChina1.bin");
+        WRITE_MEMORY (ASLR (0x140C7B2A0), char, ".\\SettingChina2.bin");
+        WRITE_MEMORY (ASLR (0x140C3CF58), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
+        WRITE_MEMORY (ASLR (0x140C3CFC8), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
+        WRITE_MEMORY (ASLR (0x140C3CF90), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
+        WRITE_MEMORY (ASLR (0x140C3D000), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
+
+        // Move various files to current directory
+        WRITE_MEMORY (amHandle + 0xC652, u8, 0xEB);  // CreditLogPathA
+        WRITE_MEMORY (amHandle + 0xC819, u8, 0xEB);  // CreditLogPathB
+        WRITE_MEMORY (amHandle + 0x243BA, u8, 0xEB); // ErrorLogPathA
+        WRITE_MEMORY (amHandle + 0x24539, u8, 0xEB); // ErrorLogPathB
+        WRITE_MEMORY (amHandle + 0x24901, u8, 0xEB); // CommonLogPathA
+        WRITE_MEMORY (amHandle + 0x24A85, u8, 0xEB); // CommonLogPathB
+        WRITE_NOP (amHandle + 0x24DD1, 0x05);        // BackupDataPathA
+        WRITE_NOP (amHandle + 0x24E47, 0x05);        // BackupDataPathB
+    }
 }
 } // namespace patches::CHN00

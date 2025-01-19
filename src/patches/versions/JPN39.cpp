@@ -6,6 +6,7 @@
 extern i32 xRes;
 extern i32 yRes;
 extern bool vsync;
+extern bool localFiles;
 
 namespace patches::JPN39 {
 int language = 0;
@@ -388,31 +389,6 @@ Init () {
     // Use TLS v1.2
     WRITE_MEMORY (ASLR (0x140580459), u8, 0x10);
 
-    // Disable F/G check
-    WRITE_MEMORY (ASLR (0x140CD4858), char, "./");
-
-    // Move various files to current directory
-    WRITE_MEMORY (ASLR (0x140C8AB60), char, "./"); // F:/
-    WRITE_MEMORY (ASLR (0x140C8AB5C), char, "./"); // G:/
-    WRITE_MEMORY (ASLR (0x140CD4DC0), char, ".\\Setting1.bin");
-    WRITE_MEMORY (ASLR (0x140CD4DB0), char, ".\\Setting2.bin");
-    WRITE_MEMORY (ASLR (0x140C95B40), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
-    WRITE_MEMORY (ASLR (0x140C95B78), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
-    WRITE_MEMORY (ASLR (0x140C95BB0), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
-    WRITE_MEMORY (ASLR (0x140C95BE8), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
-    WRITE_MEMORY (ASLR (0x140CC0508), char, ".\\Garmc\\BillingData\\GarmcBillingData.dat");
-    WRITE_MEMORY (ASLR (0x140CC0538), char, ".\\Garmc\\BillingData\\GarmcBillingData.dat");
-    WRITE_MEMORY (ASLR (0x140CC0660), char, ".\\Garmc\\BillingData\\GarmcOBillingData.dat");
-    WRITE_MEMORY (ASLR (0x140CC0690), char, ".\\Garmc\\BillingData\\GarmcOBillingData.dat");
-    WRITE_MEMORY (ASLR (0x140CC05E0), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcBillingNetIdLocationId.dat");
-    WRITE_MEMORY (ASLR (0x140CC0620), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcBillingNetIdLocationId.dat");
-    WRITE_MEMORY (ASLR (0x140CC0830), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcOBillingNetIdLocationId.dat");
-    WRITE_MEMORY (ASLR (0x140CC0880), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcOBillingNetIdLocationId.dat");
-    WRITE_MEMORY (ASLR (0x140CC06C0), char, ".\\Garmc\\ErrorLogData\\GarmcErrorLogData.dat");
-    WRITE_MEMORY (ASLR (0x140CC06F0), char, ".\\Garmc\\ErrorLogData\\GarmcErrorLogData.dat");
-    WRITE_MEMORY (ASLR (0x140CC0580), char, ".\\Garmc\\ErrorLogData\\GarmcOErrorLogData.dat");
-    WRITE_MEMORY (ASLR (0x140CC05B0), char, ".\\Garmc\\ErrorLogData\\GarmcOErrorLogData.dat");
-
     // Remove datatable size limit
     ReplaceDatatableBufferAddresses ();
 
@@ -511,15 +487,42 @@ Init () {
     auto amHandle = reinterpret_cast<u64> (GetModuleHandle ("AMFrameWork.dll"));
     INSTALL_FAST_HOOK_DYNAMIC (AMFWTerminate, reinterpret_cast<void *> (amHandle + 0x42DE0));
 
-    // Move various files to current directory
-    WRITE_MEMORY (amHandle + 0x15252, u8, 0xEB); // CreditLogPathA
-    WRITE_MEMORY (amHandle + 0x15419, u8, 0xEB); // CreditLogPathB
-    WRITE_MEMORY (amHandle + 0x416DA, u8, 0xEB); // ErrorLogPathA
-    WRITE_MEMORY (amHandle + 0x41859, u8, 0xEB); // ErrorLogPathB
-    WRITE_MEMORY (amHandle + 0x41C21, u8, 0xEB); // CommonLogPathA
-    WRITE_MEMORY (amHandle + 0x41DA5, u8, 0xEB); // CommonLogPathB
-    WRITE_NOP (amHandle + 0x420F1, 0x05);        // BackupDataPathA
-    WRITE_NOP (amHandle + 0x42167, 0x05);        // BackupDataPathB
+    if (localFiles){
+        // Disable F/G check
+        WRITE_MEMORY (ASLR (0x140CD4858), char, "./");
+
+        // Move various files to current directory
+        WRITE_MEMORY (ASLR (0x140C8AB60), char, "./"); // F:/
+        WRITE_MEMORY (ASLR (0x140C8AB5C), char, "./"); // G:/
+        WRITE_MEMORY (ASLR (0x140CD4DC0), char, ".\\Setting1.bin");
+        WRITE_MEMORY (ASLR (0x140CD4DB0), char, ".\\Setting2.bin");
+        WRITE_MEMORY (ASLR (0x140C95B40), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
+        WRITE_MEMORY (ASLR (0x140C95B78), char, ".\\TournamentData\\PlayData\\TournamentPlayData.dat");
+        WRITE_MEMORY (ASLR (0x140C95BB0), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
+        WRITE_MEMORY (ASLR (0x140C95BE8), char, ".\\TournamentData\\InfoData\\TournamentInfoData.dat");
+        WRITE_MEMORY (ASLR (0x140CC0508), char, ".\\Garmc\\BillingData\\GarmcBillingData.dat");
+        WRITE_MEMORY (ASLR (0x140CC0538), char, ".\\Garmc\\BillingData\\GarmcBillingData.dat");
+        WRITE_MEMORY (ASLR (0x140CC0660), char, ".\\Garmc\\BillingData\\GarmcOBillingData.dat");
+        WRITE_MEMORY (ASLR (0x140CC0690), char, ".\\Garmc\\BillingData\\GarmcOBillingData.dat");
+        WRITE_MEMORY (ASLR (0x140CC05E0), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcBillingNetIdLocationId.dat");
+        WRITE_MEMORY (ASLR (0x140CC0620), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcBillingNetIdLocationId.dat");
+        WRITE_MEMORY (ASLR (0x140CC0830), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcOBillingNetIdLocationId.dat");
+        WRITE_MEMORY (ASLR (0x140CC0880), char, ".\\Garmc\\BillingNetIdLocationId\\GarmcOBillingNetIdLocationId.dat");
+        WRITE_MEMORY (ASLR (0x140CC06C0), char, ".\\Garmc\\ErrorLogData\\GarmcErrorLogData.dat");
+        WRITE_MEMORY (ASLR (0x140CC06F0), char, ".\\Garmc\\ErrorLogData\\GarmcErrorLogData.dat");
+        WRITE_MEMORY (ASLR (0x140CC0580), char, ".\\Garmc\\ErrorLogData\\GarmcOErrorLogData.dat");
+        WRITE_MEMORY (ASLR (0x140CC05B0), char, ".\\Garmc\\ErrorLogData\\GarmcOErrorLogData.dat");
+
+        // Move various files to current directory
+        WRITE_MEMORY (amHandle + 0x15252, u8, 0xEB); // CreditLogPathA
+        WRITE_MEMORY (amHandle + 0x15419, u8, 0xEB); // CreditLogPathB
+        WRITE_MEMORY (amHandle + 0x416DA, u8, 0xEB); // ErrorLogPathA
+        WRITE_MEMORY (amHandle + 0x41859, u8, 0xEB); // ErrorLogPathB
+        WRITE_MEMORY (amHandle + 0x41C21, u8, 0xEB); // CommonLogPathA
+        WRITE_MEMORY (amHandle + 0x41DA5, u8, 0xEB); // CommonLogPathB
+        WRITE_NOP (amHandle + 0x420F1, 0x05);        // BackupDataPathA
+        WRITE_NOP (amHandle + 0x42167, 0x05);        // BackupDataPathB
+    }
 
     // Redirect garmc requests
     auto garmcHandle = reinterpret_cast<u64> (GetModuleHandle ("garmc.dll"));

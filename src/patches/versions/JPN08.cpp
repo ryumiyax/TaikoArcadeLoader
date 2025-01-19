@@ -6,6 +6,7 @@ extern void *song_data;
 extern i32 xRes;
 extern i32 yRes;
 extern bool vsync;
+extern bool localFiles;
 
 #define RDX_MOV 0x48, 0xBA
 #define R8_MOV  0x49, 0xB8
@@ -70,12 +71,6 @@ Init () {
 
     // Use TLS v1.2
     WRITE_MEMORY (ASLR (0x14044B1A9), u8, 0x10);
-
-    // Move various files to current directory
-    WRITE_MEMORY (ASLR (0x14001C941), u8, 0x02);
-    WRITE_MEMORY (ASLR (0x140B1B4B0), char, "./"); // F:/
-    WRITE_MEMORY (ASLR (0x140B5C528), char, ".\\Setting1.bin");
-    WRITE_MEMORY (ASLR (0x140B5C538), char, ".\\Setting2.bin");
 
     // Remove datatable size limit
     {
@@ -158,14 +153,22 @@ Init () {
     auto amHandle = reinterpret_cast<u64> (GetModuleHandle ("AMFrameWork.dll"));
     INSTALL_HOOK_DYNAMIC (AMFWTerminate, reinterpret_cast<void *> (amHandle + 0x35A00));
 
-    // Move various files to current directory
-    WRITE_MEMORY (amHandle + 0x148AF, u8, 0xEB); // CreditLogPathA
-    WRITE_MEMORY (amHandle + 0x14A1A, u8, 0xEB); // CreditLogPathB
-    WRITE_MEMORY (amHandle + 0x33EF7, u8, 0xEB); // ErrorLogPathA
-    WRITE_MEMORY (amHandle + 0x3404A, u8, 0xEB); // ErrorLogPathB
-    WRITE_MEMORY (amHandle + 0x34429, u8, 0xEB); // CommonLogPathA
-    WRITE_MEMORY (amHandle + 0x3457C, u8, 0xEB); // CommonLogPathB
-    WRITE_MEMORY (amHandle + 0x3497A, u8, 0xEB); // BackupDataPathA
-    WRITE_MEMORY (amHandle + 0x34ACD, u8, 0xEB); // BackupDataPathB
+    if (localFiles) {
+        // Move various files to current directory
+        WRITE_MEMORY (ASLR (0x14001C941), u8, 0x02);
+        WRITE_MEMORY (ASLR (0x140B1B4B0), char, "./"); // F:/
+        WRITE_MEMORY (ASLR (0x140B5C528), char, ".\\Setting1.bin");
+        WRITE_MEMORY (ASLR (0x140B5C538), char, ".\\Setting2.bin");
+
+        // Move various files to current directory
+        WRITE_MEMORY (amHandle + 0x148AF, u8, 0xEB); // CreditLogPathA
+        WRITE_MEMORY (amHandle + 0x14A1A, u8, 0xEB); // CreditLogPathB
+        WRITE_MEMORY (amHandle + 0x33EF7, u8, 0xEB); // ErrorLogPathA
+        WRITE_MEMORY (amHandle + 0x3404A, u8, 0xEB); // ErrorLogPathB
+        WRITE_MEMORY (amHandle + 0x34429, u8, 0xEB); // CommonLogPathA
+        WRITE_MEMORY (amHandle + 0x3457C, u8, 0xEB); // CommonLogPathB
+        WRITE_MEMORY (amHandle + 0x3497A, u8, 0xEB); // BackupDataPathA
+        WRITE_MEMORY (amHandle + 0x34ACD, u8, 0xEB); // BackupDataPathB
+    }
 }
 } // namespace patches::JPN08
