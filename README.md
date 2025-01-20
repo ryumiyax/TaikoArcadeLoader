@@ -26,6 +26,7 @@ shop_id = "TAIKO ARCADE LOADER"
 game_ver = "00.00"
 country_code = "JPN"
 
+
 [patches]
 version = "auto"            # Patch version
                             # | - auto: hash detection (you need to use the original exe otherwise it will not load).
@@ -33,8 +34,8 @@ version = "auto"            # Patch version
                             # | - JPN08: For use with Taiko JPN 08.18
                             # | - JPN39: For use with Taiko JPN 39.06
                             # | - CHN00: For use with Taiko CHN 00.32
-unlock_songs = true         # not active for JPN39 (see TestMode)
-                            # More options are available in the ModManager, in the TestMode menu (Default key is F1)
+unlock_songs = true         # Self-explanatory
+local_files = true          # Only set this to false if you're using this on a Nijiiro Cabinet, running on BNA1
 
 [patches.chn00]             # These patches are only available for version CHN00
 fix_language = false        # Sync test mode language to attract etc
@@ -44,46 +45,52 @@ mode_collabo026 = false     # Enable ai soshina mode
 
 
 [emulation]
-usio = true                 # If usio emulation is disabled, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
-card_reader = true          # Disable this if you have an original namco card reader
+usio = true                 # Disable this if you want to use an original Namco USIO board. you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
+card_reader = true          # Disable this if you want to use an original Namco card reader
 accept_invalid = false      # Enable this if you want to accept cards incompatible with the original readers
-qr = true                   # Disable this if you have an original namco qr code scanner
+qr = true                   # Disable this if you want to use an original Namco QR code scanner
 
 
 [graphics]
 res = { x = 1920, y = 1080 }
-windowed = false            # not windowed will automatically fullscreen
-cursor = true               # fullscreen will automatically hide cursor
-vsync = false               # enable this if you are using a 120fps screen (and use "Let Application Decide" in Nvidia panel)
-# fpslimit = 0              # temporoly remove it, limit it to 120 in Nvidia panel instead!!!
+windowed = false            # if set to false, will automatically go Fullscreen
+cursor = true               # Fullscreen will automatically hide cursor
+vsync = false               # Enable this if you are using a 120fps screen (and use "Let Application Decide" in Nvidia panel)
+# fpslimit = 0              # Temporarily disabled, limit to 120 fps in Nvidia panel instead!!!
 model_res_rate = 1.0        # Don-Model resolution rate (currently JPN39 only)
                             # | rate <= 0: default 1280x720
                             # | rate >  0: current resolution * rate
+
 
 [audio]
 wasapi_shared = false       # Wasapi shared mode, allows you to have multiple audio sources at once at a cost of having higher latency.
 asio = false                # Use asio audio mode
 asio_driver = "ASIO4ALL v2" # Asio driver name
                             # | If you're not using asio4all, open up regedit then navigate to HKEY_LOCAL_MACHINE\SOFTWARE\ASIO for your driver's name.
-                            # | It is case sensitive.
+                            # | It is case-sensitive.
+
 
 [qr]
 image_path = ""             # Path to the image of the QR Code you want to use
 
-[qr.data]                   # qr data used for other events (ex. gaiden, custom folder)
-serial = ""                 # qr serial
-type = 0                    # qr type
+
+[qr.data]                   # QR data used for other events (ex. gaiden, custom folder)
+serial = ""                 # QR serial
+type = 0                    # QR type
                             # | 0: default (serial only)
                             # | 5: custom folder
 song_no = []                # Song noes used for custom folder
+
 
 [controller]
 wait_period = 0             # Input interval (if using taiko drum controller, should be set to 0)
 analog_input = false        # Use analog input (you need a compatible controller, this allows playing small and big notes like on arcade cabinets)
 
+
 [keyboard]
-auto_ime = false            # Automatically change to english ime mode upon game startup
+auto_ime = true             # Automatically change to english ime mode upon game startup
 jp_layout = false           # Use jp layout scan code (if using jp layout keyboard, must be set to true)
+
 
 [layeredfs]
 enabled = false             # Replace assets from the game using a layered file system.
@@ -91,14 +98,16 @@ enabled = false             # Replace assets from the game using a layered file 
                             # | .\Data_mods\x64\datatable\wordlist.json
                             # | You can provide both unencrypted and encrypted files.
 
+
 [logging]
 log_level = "INFO"          # Log level, Can be either "NONE", "ERROR", "WARN", "INFO", "DEBUG" and "HOOKS"
                             # | Keep this as low as possible (Info is usually more than enough) as more logging will slow down your game
 log_to_file = false         # Log to file, set this to true to save the logs from your last session to TaikoArcadeLoader.log
                             # |Again, if you do not have a use for this (debugging mods or whatnot), turn it off.
+log_path = "logs.log"       # Log file path (Can be both relative and absolute).
 ```
 
-## TestMode options (JPN39 only)
+### TestMode options (JPN39 only)
 
 TaikoArcadeLoader offers several patches to select in TestMode  
 
@@ -122,6 +131,10 @@ With chs-patch (Only unlock while resource correctly settled):
 
 * Add Language: zh-cn
 * Add Voice Language (Could switch between JPN and CHN)
+
+### Running on BNA1
+
+If you're planning to use the loader on real hardware, you'll also need to extract the two dlls contained in the [BNA1.zip](./BNA1.zip) file next to the game's executable.
 
 ## Building Manually
 

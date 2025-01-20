@@ -89,7 +89,6 @@ fabric.properties
 # Compiled Dynamic libraries
 *.so
 *.dylib
-*.dll
 
 # Fortran module files
 *.mod
@@ -145,3 +144,4 @@ subprojects/pugixml-1.14
 libtomcrypt-1.18.2
 dist.7z
 /.idea
+dist/bnusio.dll
