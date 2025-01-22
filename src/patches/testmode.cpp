@@ -242,10 +242,8 @@ std::vector<RegisteredModify *> registeredModifies        = {};
 std::wstring moddedInitial                                = L"";
 std::wstring modded                                       = L"";
 
-std::wstring originalDeviceInitialize = L"";
 std::wstring usingDeviceInitialize = L"";
 std::wstring moddedDeviceInitialize = L"DeviceInitialize_mod.xml";
-std::wstring originalTestMode = L"";
 std::wstring usingTestMode = L"";
 std::wstring moddedTestMode = L"TestMode_mod.xml";
 
@@ -268,20 +266,30 @@ FAST_HOOK_DYNAMIC (void, SceneFirstInitialize, u64 a1, u64 a2, u64 a3) {
     originalSceneFirstInitialize.fastcall<char *> (a1, a2, a3);
 }
 
+std::wstring
+replaceFileName (std::wstring fullFileName, std::wstring usingLastFileName) {
+    size_t lastPosition = fullFileName.find_last_of (L"/");
+    if (lastPosition == -1) return usingLastFileName;
+    else return fullFileName.substr(0, lastPosition) + usingLastFileName;
+}
+
 FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFileName) {
     auto start = std::chrono::high_resolution_clock::now();
     const auto originalFileName = std::wstring (lFileName);
     LogMessage (LogLevel::DEBUG, L"Begin Loading {}", originalFileName);
     std::wstring fileName       = originalFileName;
-    if (fileName.ends_with (originalDeviceInitialize)) {
+    if (fileName.find (L"/DeviceInitialize") != -1) {
         if (moddedInitial == L"") {
-            fileName = replace (originalFileName, originalDeviceInitialize, usingDeviceInitialize);
+            if (usingDeviceInitialize != L"") {
+                fileName = replaceFileName (originalFileName, usingDeviceInitialize);
+            } else fileName = originalFileName;
+            LogMessage (LogLevel::DEBUG, L"final path: {}", fileName);
             if (pugi::xml_document doc; !doc.load_file (fileName.c_str ())) {
                 LogMessage (LogLevel::ERROR, L"Loading DeviceInitialize structure failed! path: " + fileName);
                 moddedInitial = originalFileName;
                 fileName      = originalFileName;
             } else {
-                const std::wstring modFileName = replace (originalFileName, originalDeviceInitialize, moddedDeviceInitialize);
+                const std::wstring modFileName = replaceFileName (originalFileName, moddedDeviceInitialize);
                 const pugi::xpath_query dongleQuery = pugi::xpath_query (L"/root/menu[@id='TopMenu']/layout[@type='Center']/select-item[@id='DongleItem']");
                 const pugi::xml_node dongleItem     = doc.select_node (dongleQuery).node ();
                 pugi::xml_node talItem        = dongleItem.parent ().append_copy (dongleItem);
@@ -295,16 +303,19 @@ FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t
                 fileName      = modFileName;
             }
         } else fileName = moddedInitial;
-    } else if (fileName.ends_with (originalTestMode)) {
+    } else if (fileName.find (L"/TestMode") != -1) {
         if (modded == L"") {
             if (!((RegisteredMenu*)modManager)->items.empty () || registeredSingleItems.empty () || !registeredModifies.empty ()) {
-                fileName = replace (originalFileName, originalTestMode, usingTestMode);
+                if (usingTestMode != L"") {
+                    fileName = replaceFileName (originalFileName, usingTestMode);
+                } else fileName = originalFileName;
+                LogMessage (LogLevel::DEBUG, L"final path: {}", fileName);
                 if (pugi::xml_document doc; !doc.load_file (fileName.c_str ())) {
                     LogMessage (LogLevel::ERROR, L"Loading TestMode structure failed! path: " + fileName);
                     modded   = originalFileName;
                     fileName = originalFileName;
                 } else {
-                    const std::wstring modFileName = replace (originalFileName, originalTestMode, moddedTestMode);
+                    const std::wstring modFileName = replaceFileName (originalFileName, moddedTestMode);
                     if (!((RegisteredMenu*)modManager)->items.empty ()) {
                         LogMessage (LogLevel::DEBUG, "Begin generate Mod Manager menu");
                         pugi::xpath_query menuQuery
@@ -348,123 +359,89 @@ CommonModify () {
 }
 
 void
-LocalizationCHT () {
-    TestMode::RegisterModify(
-        L"/root/menu[@id='TopMenu']/layout[@type='Center']/menu-item[@menu='ModManagerMenu']",
-        [&](pugi::xml_node &node) { node.attribute(L"label").set_value(L"模組管理"); }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Header']/text-item",
-        [&](pugi::xml_node &node) { node.attribute(L"label").set_value(L"模組管理"); }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModFixLanguage']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"修復語言");
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModUnlockSongs']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"解鎖歌曲");
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓, 2:強制");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModFreezeTimer']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"凍結計時");
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo024']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"鬼滅之刃模式");
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo025']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"航海王模式");
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo026']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"ＡＩ粗品模式");
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeAprilFool001']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"青春之達人模式");
-            node.attribute(L"replace-text").set_value(L"0:黙認, 1:啓用, 2:僅登入");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModInstantResult']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"即時保存");
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
-        }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/menu-item[@menu='TopMenu']",
-        [&](pugi::xml_node &node) { node.attribute(L"label").set_value(L"離開"); }, [](){}
-    );
-    TestMode::RegisterModify(
-        L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractDemoItem']",
-        [&](pugi::xml_node &node) {
-            node.attribute(L"label").set_value(L"演示遊玩影片");
-            node.attribute(L"replace-text").set_value(L"0:關閉, 1:開啓");
-        }, [](){}
-    );
-}
-
-void
 LocalizationCHS () {
-    RegisterModify (
+    TestMode::RegisterModify (
         L"/root/menu[@id='TopMenu']/layout[@type='Center']/menu-item[@menu='ModManagerMenu']",
-        [&] (const pugi::xml_node &node) { node.attribute (L"label").set_value (L"模组管理"); }, [] {});
-    RegisterModify (
+        [&] (const pugi::xml_node &node) { node.attribute (L"label").set_value (L"模组管理"); }, [](){});
+    TestMode::RegisterModify (
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Header']/text-item",
-        [&] (const pugi::xml_node &node) { node.attribute (L"label").set_value (L"模组管理"); }, [] {});
-    RegisterModify (
+        [&] (const pugi::xml_node &node) { node.attribute (L"label").set_value (L"模组管理"); }, [](){});
+    TestMode::RegisterModify (
+        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModUnlockSongs']",
+        [&] (const pugi::xml_node &node) {
+            node.attribute (L"label").set_value (L"解锁歌曲");
+            node.attribute (L"replace-text").set_value (L"0:禁用, 1:启用, 2:强制");
+        }, [](){});
+    TestMode::RegisterModify (
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModFreezeTimer']",
         [&] (const pugi::xml_node &node) {
-            node.attribute (L"label").set_value (L"冻结计时");
+            node.attribute (L"label").set_value (L"冻结计时器");
             node.attribute (L"replace-text").set_value (L"0:禁用, 1:启用");
-        },
-        [] {});
-    RegisterModify (
+        }, [](){});
+    TestMode::RegisterModify (
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo024']",
         [&] (const pugi::xml_node &node) {
             node.attribute (L"label").set_value (L"鬼灭之刃模式");
             node.attribute (L"replace-text").set_value (L"0:默认, 1:启用, 2:仅刷卡");
-        },
-        [] {});
-    RegisterModify (
+        }, [](){});
+    TestMode::RegisterModify (
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo025']",
         [&] (const pugi::xml_node &node) {
             node.attribute (L"label").set_value (L"航海王模式");
             node.attribute (L"replace-text").set_value (L"0:默认, 1:启用, 2:仅刷卡");
-        },
-        [] {});
-    RegisterModify (
+        }, [](){});
+    TestMode::RegisterModify (
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeCollabo026']",
         [&] (const pugi::xml_node &node) {
             node.attribute (L"label").set_value (L"ＡＩ粗品模式");
             node.attribute (L"replace-text").set_value (L"0:默认, 1:启用, 2:仅刷卡");
-        },
-        [] {});
-    RegisterModify (
+        }, [](){});
+    TestMode::RegisterModify(
+        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModModeAprilFool001']",
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"青春之达人模式");
+            node.attribute(L"replace-text").set_value(L"0:默认, 1:启用, 2:仅刷卡");
+        }, [](){});
+    TestMode::RegisterModify (
+        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModInstantResult']",
+        [&] (const pugi::xml_node &node) {
+            node.attribute (L"label").set_value (L"即时上传成绩");
+            node.attribute (L"replace-text").set_value (L"0:禁用, 1:启用");
+        }, [](){});
+    TestMode::RegisterModify (
+        L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/select-item[@id='ModTheme']",
+        [&] (const pugi::xml_node &node) {
+            node.attribute (L"label").set_value (L"界面主题");
+            node.attribute (L"replace-text").set_value (L"0:默认, 1:四季(仅中文), 2:秋叶原女仆");
+        }, [](){});
+    TestMode::RegisterModify (
         L"/root/menu[@id='ModManagerMenu']/layout[@type='Center']/menu-item[@menu='TopMenu']",
-        [&] (const pugi::xml_node &node) { node.attribute (L"label").set_value (L"离开"); }, [] {});
+        [&] (const pugi::xml_node &node) { node.attribute (L"label").set_value (L"离开"); }, [](){});
+    TestMode::RegisterModify(
+        L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='AttractDemoItem']",
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"演示游玩影片");
+            node.attribute(L"replace-text").set_value(L"0:关闭, 1:开启");
+        }, [](){});
+    TestMode::RegisterModify(
+        L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='LanguageItem']",
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"文本语言");
+            const wchar_t *vals = node.attribute(L"replace-text").value ();
+            std::wstring langaugeReplace = std::wstring (vals);
+            langaugeReplace = replace (langaugeReplace, L"JPN", L"日语");
+            langaugeReplace = replace (langaugeReplace, L"ENG", L"英语");
+            langaugeReplace = replace (langaugeReplace, L"zh-tw", L"繁体中文");
+            langaugeReplace = replace (langaugeReplace, L"KOR", L"韩语");
+            langaugeReplace = replace (langaugeReplace, L"zh-cn", L"简体中文");
+            node.attribute(L"replace-text").set_value(langaugeReplace.c_str ());
+        }, [](){});
+    TestMode::RegisterModify(
+        L"/root/menu[@id='OthersMenu']/layout[@type='Center']/select-item[@id='VoiceLanguageItem']",
+        [&](pugi::xml_node &node) {
+            node.attribute(L"label").set_value(L"语音语言");
+            node.attribute(L"replace-text").set_value(L"0:日语, 1:中文");
+        }, [](){});
 }
 
 void
@@ -478,14 +455,12 @@ Init () {
     for (auto method : hooks) method ();
 
     switch (gameVersion) {
-    case GameVersion::UNKNOWN: break;
     case GameVersion::JPN00: break;
     case GameVersion::JPN08: break;
     case GameVersion::JPN39: {
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeLoading, ASLR (0x1404793D0));
         INSTALL_FAST_HOOK_DYNAMIC (SceneTestModeFinalize, ASLR (0x140479600));
         INSTALL_FAST_HOOK_DYNAMIC (SceneFirstInitialize, ASLR (0x1404574B0));
-        originalDeviceInitialize = L"DeviceInitialize.xml";
         if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\DeviceInitialize_china.xml")) {
             usingDeviceInitialize = L"DeviceInitialize_china.xml";
             patches.push_back (safetyhook::create_mid (ASLR (0x140465549), [](SafetyHookContext &ctx)
@@ -496,13 +471,13 @@ Init () {
             WRITE_MEMORY (ASLR (0x140CD1E28), wchar_t, L"加载中.\0");
             WRITE_MEMORY (ASLR (0x140CD1E68), wchar_t, L"加载中..\0");
             WRITE_MEMORY (ASLR (0x140CD1E50), wchar_t, L"加载中...\0");
-        } else usingDeviceInitialize = originalDeviceInitialize;
-        originalTestMode = L"TestMode.xml";
+        }
         if (Language::CnFontPatches () && std::filesystem::exists ("..\\..\\Data\\x64\\testmode\\TestMode_china.xml")) {
             usingTestMode = L"TestMode_china.xml";
             patches.push_back (safetyhook::create_mid (ASLR (0x14047C603), [](SafetyHookContext &ctx)
             { ctx.r8 = 2; ctx.rdx = (uintptr_t)"cn"; ctx.rip = ASLR (0x14047C610); }));     // TestMode = DeviceInitialize
-        } else usingTestMode = originalTestMode;
+            LocalizationCHS ();
+        }
     } break;
     case GameVersion::CHN00: break;
     }

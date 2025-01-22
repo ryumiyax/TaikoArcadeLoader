@@ -114,7 +114,9 @@ Init () {
     languageData = calloc (languages.size () * languages.size () * 0x70 * 0x5, sizeof (u8));
 
     switch (gameVersion) {
-    default: case GameVersion::JPN00: case GameVersion::JPN08: case GameVersion::CHN00: break;
+    default: break;
+    case GameVersion::JPN00: break;
+    case GameVersion::JPN08: break;
     case GameVersion::JPN39: {
         taiko_mapping = (Taiko_mapping)ASLR (0x140369B60);
         TestMode::RegisterModify (
@@ -167,6 +169,7 @@ Init () {
             }
         );
     } break;
+    case GameVersion::CHN00: break;
     }
 }
 }
@@ -370,11 +373,13 @@ bool titleExistSeason = true, titleExistMaid = true, titleExistMaidCn = true;
 std::string seasonNulm = "title_season.nulm", seasonNutexb = "title_" + season () + ".nutexb";
 std::string maidNulmCn = "title_maid.nulm", maidNutexbCn = "title_maid.nutexb";
 std::string maidNulm = "title_maid.nulm", maidNutexb = "title_maid.nutexb";
-TestMode::Value *titleScreen = TestMode::CreateValue (L"ModTitleScreen");
+TestMode::Value *theme = TestMode::CreateValue (L"ModTheme");
 void
 Init () {
     switch (gameVersion) {
-    default: case GameVersion::JPN00: case GameVersion::JPN08: case GameVersion::CHN00: break;
+    default: break;
+    case GameVersion::JPN00: break;
+    case GameVersion::JPN08: break;
     case GameVersion::JPN39: {
         bool demoMovieExistAll = true;
         const char *movieToCheck[]{"movie\\attractdemo_cn_cn.wmv", "sound\\attractdemo_cn_cn.nus3bank"};
@@ -439,25 +444,25 @@ Init () {
 
         if (titleExistSeason || (titleExistMaid && titleExistMaidCn)) {
             TestMode::RegisterItem (
-                L"<select-item label=\"TITLE SCREEN(NEED FILES)\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:SEASON(CHN), "
-                L"2:MAID\" group=\"Setting\" id=\"ModTitleScreen\" max=\"2\" min=\"0\" default=\"0\"/>",
+                L"<select-item label=\"THEME\" param-offset-x=\"35\" replace-text=\"0:DEFAULT, 1:SEASON(CHN), "
+                L"2:MAID\" group=\"Setting\" id=\"ModTheme\" max=\"2\" min=\"0\" default=\"0\"/>",
                 [&](){
                     LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
                         if (currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("title") == std::string::npos) return "";
                         if (currentFileName.ends_with ("\\title.nulm")) {
-                            if (language == 4 && titleScreen->Read () == 1 && titleExistSeason) return seasonNulm;
-                            if (language == 4 && titleScreen->Read () == 2 && titleExistMaidCn) return maidNulmCn;
-                            if (titleScreen->Read () == 2 && titleExistMaid) return maidNulm;
+                            if (language == 4 && theme->Read () == 1 && titleExistSeason) return seasonNulm;
+                            if (language == 4 && theme->Read () == 2 && titleExistMaidCn) return maidNulmCn;
+                            if (theme->Read () == 2 && titleExistMaid) return maidNulm;
                         } else if (currentFileName.ends_with ("\\title.nutexb")) {
                             LogMessage (LogLevel::DEBUG, "nutexb");
-                            if (language == 4 && titleScreen->Read () == 1 && titleExistSeason) return seasonNutexb;
-                            if (language == 4 && titleScreen->Read () == 2 && titleExistMaidCn) return maidNutexbCn;
-                            if (titleScreen->Read () == 2 && titleExistMaid) return maidNutexb;
+                            if (language == 4 && theme->Read () == 1 && titleExistSeason) return seasonNutexb;
+                            if (language == 4 && theme->Read () == 2 && titleExistMaidCn) return maidNutexbCn;
+                            if (theme->Read () == 2 && titleExistMaid) return maidNutexb;
                         }
                         return "";
                     });
                     LayeredFs::RegisterBefore ([&] (const std::string &originalFileName, const std::string &currentFileName) -> std::string {
-                        if (titleScreen->Read () != 2 || currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
+                        if (theme->Read () != 2 || currentFileName.starts_with ("F:\\lumen\\") || currentFileName.find ("\\lumen\\") == std::string::npos) return "";
                         std::string fileName = std::string (currentFileName);
                         fileName             = replace (fileName, "\\lumen\\", "\\lumen_maid\\");
                         if (std::filesystem::exists (fileName)) return fileName;
@@ -466,6 +471,7 @@ Init () {
                 });
         }
     } break;
+    case GameVersion::CHN00: break;
     }
 }
 }
@@ -657,7 +663,9 @@ CnFontPatches () {
 void
 Init () {
     switch (gameVersion) {
-    default: case GameVersion::JPN00: case GameVersion::JPN08: case GameVersion::CHN00: break;
+    default: break;
+    case GameVersion::JPN00: break;
+    case GameVersion::JPN08: break;
     case GameVersion::JPN39: {
         languageFix  = [](int lang){ return lang == 4 ? 2 : lang; };
         taiko_string = (Taiko_string)ASLR (0x1400203B0);
@@ -670,6 +678,7 @@ Init () {
         Language::Lumen::Init ();
         Language::Voice::Init ();
     } break;
+    case GameVersion::CHN00: break;
     }
 }
 }

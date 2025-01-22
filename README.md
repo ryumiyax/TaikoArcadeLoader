@@ -34,8 +34,12 @@ version = "auto"            # Patch version
                             # | - JPN08: For use with Taiko JPN 08.18
                             # | - JPN39: For use with Taiko JPN 39.06
                             # | - CHN00: For use with Taiko CHN 00.32
+<<<<<<< HEAD
 unlock_songs = true         # Self-explanatory
 local_files = true          # Only set this to false if you're using this on a Nijiiro Cabinet, running on BNA1
+=======
+unlock_songs = true
+>>>>>>> 684ee61 (Several fix & optimize)
 
 [patches.chn00]             # These patches are only available for version CHN00
 fix_language = false        # Sync test mode language to attract etc
@@ -63,11 +67,13 @@ model_res_rate = 1.0        # Don-Model resolution rate (currently JPN39 only)
 
 
 [audio]
-wasapi_shared = false       # Wasapi shared mode, allows you to have multiple audio sources at once at a cost of having higher latency.
+real = true                 # Reduce audio latency when you are using "High Definition Audio" driver
+wasapi_shared = true        # Wasapi shared mode, allows you to have multiple audio sources at once at a cost of having higher latency.
 asio = false                # Use asio audio mode
 asio_driver = "ASIO4ALL v2" # Asio driver name
                             # | If you're not using asio4all, open up regedit then navigate to HKEY_LOCAL_MACHINE\SOFTWARE\ASIO for your driver's name.
                             # | It is case-sensitive.
+
 
 
 [qr]
@@ -85,6 +91,8 @@ song_no = []                # Song noes used for custom folder
 [controller]
 wait_period = 0             # Input interval (if using taiko drum controller, should be set to 0)
 analog_input = false        # Use analog input (you need a compatible controller, this allows playing small and big notes like on arcade cabinets)
+global_keyboard = false     # Accept keyboard input even if Taiko.exe is not foreground
+
 
 
 [keyboard]
@@ -151,7 +159,7 @@ Clone this repository, open *cmd* and run the following commands:
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 # Configure the build folder (this is only needed the first time)
-cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_VERSION="10.0.26100.0"
 
 # Build TaikoArcadeLoader
 cmake --build build --config Release --target bnusio
