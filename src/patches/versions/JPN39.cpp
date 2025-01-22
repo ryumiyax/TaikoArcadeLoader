@@ -301,9 +301,10 @@ MID_HOOK (AttractDemo, ASLR (0x14045A720), SafetyHookContext &ctx) {
 
 FAST_HOOK (DWORD*, AcquireMostCompatibleDisplayMode, ASLR (0x14064C870), i64 a1, DWORD *a2, DWORD *a3) {
     LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    a3[2] = (DWORD)(float)120.0;
     // a3[0] = xRes;
     // a3[1] = yRes;
-    // LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
+    LogMessage (LogLevel::DEBUG, "AcquireMostCompatibleDisplayMode {:d} {:d} {:f} {:f}", a3[0], a3[1], (float)(int)a3[2], (float)(int)a3[3]);
     return originalAcquireMostCompatibleDisplayMode.fastcall<DWORD *> (a1, a2, a3);
 }
 
@@ -363,23 +364,6 @@ Init () {
         WRITE_MEMORY (ASLR (0x1404F3D5B), i32, donModelX);
         WRITE_MEMORY (ASLR (0x1404F3D62), i32, donModelY);
     }
-    // // DonSystem::Renderer::Renderer
-    // WRITE_MEMORY (ASLR (0x1404FBF33), i32, xRes);
-    // WRITE_MEMORY (ASLR (0x1404FBF3A), i32, yRes);
-    // // DonSystem::Renderer::CreateOnpuPass
-    // WRITE_MEMORY (ASLR (0x1404FCF77), i32, xRes);
-    // WRITE_MEMORY (ASLR (0x1404FCF81), i32, yRes / 2);
-    // // nu::LightManager::LightManager
-    // WRITE_MEMORY (ASLR (0x1406BED7A), i32, xRes);
-    // WRITE_MEMORY (ASLR (0x1406BED82), i32, yRes);
-    // WRITE_MEMORY (ASLR (0x1406BEF26), i32, xRes);
-    // WRITE_MEMORY (ASLR (0x1406BEF33), i32, yRes);
-    // // google::protobuf::TextFormat::Parser::ParserImpl::ConsumeField
-    // WRITE_MEMORY (ASLR (0x1406F7E47), i32, xRes);
-    // // google::protobuf::DescriptorBuilder::AddSymbol
-    // WRITE_MEMORY (ASLR (0x140719191), i32, xRes);
-    // nuscDecoderCalcObjectSize
-    // WRITE_MEMORY (ASLR (0x140719191), i32, xRes);
 
     if (!vsync) WRITE_MEMORY (ASLR (0x14064C7E9), u8, 0xBA, 0x00, 0x00, 0x00, 0x00, 0x90);
 

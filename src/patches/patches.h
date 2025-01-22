@@ -133,4 +133,16 @@ void Init ();
 namespace UnlimitSong {
 void Init ();
 } // namespace UnlimitSong
+namespace Wordlist {
+typedef u64 (*RefDataTableManager) (u64);
+typedef struct {
+    std::string key;
+    std::string text;
+    int fontType;
+} WordInfo;
+void Init             ();
+void SetupAccessor    (u64 appAccessor, RefDataTableManager refDataTableManager);
+WordInfo *GetWordInfo (std::string &key);
+void SetWordInfo      (WordInfo *wordInfo);
+}
 } // namespace patches

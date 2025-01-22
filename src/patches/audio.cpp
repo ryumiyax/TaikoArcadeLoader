@@ -1,6 +1,7 @@
 #include "constants.h"
 #include "helpers.h"
 #include "patches.h"
+#include "../Windows/MinimumLatencyAudioClient.h"
 
 extern GameVersion gameVersion;
 
@@ -18,6 +19,7 @@ typedef struct nusc_init_config {
     void *wasapi_audioSes;
 } nusc_init_config_t;
 
+bool real              = true;
 bool wasapiShared      = true;
 bool asio              = false;
 std::string asioDriver;
@@ -56,6 +58,22 @@ SetVolumeRate (float rate) {
     volumeRate = rate;
 }
 
+int
+ReduceAudioLatency () {
+    // Start the low-latency audio client
+    if (const auto audioClient = miniant::Windows::WasapiLatency::MinimumLatencyAudioClient::Start (); !audioClient) {
+        LogMessage (LogLevel::INFO, "Unable to Reduce Audio Latency");
+        return 1; // Exit with error
+    } else {
+        auto properties = audioClient->GetProperties ();
+        auto prop = properties.value();
+        double currentDelay = prop.minimumBufferSize * 1000.0 / prop.sampleRate;
+        double defaultDelay = prop.defaultBufferSize * 1000.0 / prop.sampleRate;
+        LogMessage (LogLevel::INFO, "Audio latency: {:.2f}ms -> {:.2f}ms", defaultDelay, currentDelay);
+    }
+    return 0;
+}
+
 void
 Init () {
     LogMessage (LogLevel::INFO, "Init Audio patches");
@@ -64,11 +82,15 @@ Init () {
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         if (const auto audio = openConfigSection (config_ptr.get (), "audio")) {
+            real         = readConfigBool (audio, "real", real);
             wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
             asio         = readConfigBool (audio, "asio", asio);
             asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
+
         }
     }
+
+    if (real) ReduceAudioLatency ();
 
     switch (gameVersion) {
     case GameVersion::JPN00: {

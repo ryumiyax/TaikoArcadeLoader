@@ -3,10 +3,7 @@
 
 static void
 toml_myfree (void *p) {
-    if (p) {
-        const char *pp = static_cast<char *> (p);
-        delete[] pp;
-    }
+    if (p) free (p);
 }
 
 toml_table_t *
