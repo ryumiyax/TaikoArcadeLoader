@@ -26,6 +26,7 @@ shop_id = "TAIKO ARCADE LOADER"
 game_ver = "00.00"
 country_code = "JPN"
 
+
 [patches]
 version = "auto"            # Patch version
                             # | - auto: hash detection (you need to use the original exe otherwise it will not load).
@@ -33,8 +34,7 @@ version = "auto"            # Patch version
                             # | - JPN08: For use with Taiko JPN 08.18
                             # | - JPN39: For use with Taiko JPN 39.06
                             # | - CHN00: For use with Taiko CHN 00.32
-unlock_songs = true         # not active for JPN39 (see TestMode)
-                            # More options are available in the ModManager, in the TestMode menu (Default key is F1)
+unlock_songs = true
 
 [patches.chn00]             # These patches are only available for version CHN00
 fix_language = false        # Sync test mode language to attract etc
@@ -44,10 +44,10 @@ mode_collabo026 = false     # Enable ai soshina mode
 
 
 [emulation]
-usio = true                 # If usio emulation is disabled, you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
-card_reader = true          # Disable this if you have an original namco card reader
+usio = true                 # Disable this if you want to use an original Namco USIO board. you need to place bnusio_original.dll (unmodified bnusio.dll) in the executable folder.
+card_reader = true          # Disable this if you want to use an original Namco card reader
 accept_invalid = false      # Enable this if you want to accept cards incompatible with the original readers
-qr = true                   # Disable this if you have an original namco qr code scanner
+qr = true                   # Disable this if you want to use an original Namco QR code scanner
 
 
 [graphics]
@@ -60,36 +60,45 @@ model_res_rate = 1.0        # Don-Model resolution rate (currently JPN39 only)
                             # | rate <= 0: default 1280x720
                             # | rate >  0: current resolution * rate
 
+
 [audio]
-wasapi_shared = false       # Wasapi shared mode, allows you to have multiple audio sources at once at a cost of having higher latency.
+real = true                 # Reduce audio latency when you are using "High Definition Audio" driver
+wasapi_shared = true        # Wasapi shared mode, allows you to have multiple audio sources at once at a cost of having higher latency.
 asio = false                # Use asio audio mode
 asio_driver = "ASIO4ALL v2" # Asio driver name
                             # | If you're not using asio4all, open up regedit then navigate to HKEY_LOCAL_MACHINE\SOFTWARE\ASIO for your driver's name.
                             # | It is case sensitive.
 
+
 [qr]
 image_path = ""             # Path to the image of the QR Code you want to use
 
-[qr.data]                   # qr data used for other events (ex. gaiden, custom folder)
-serial = ""                 # qr serial
-type = 0                    # qr type
+
+[qr.data]                   # QR data used for other events (ex. gaiden, custom folder)
+serial = ""                 # QR serial
+type = 0                    # QR type
                             # | 0: default (serial only)
                             # | 5: custom folder
 song_no = []                # Song noes used for custom folder
 
+
 [controller]
 wait_period = 0             # Input interval (if using taiko drum controller, should be set to 0)
 analog_input = false        # Use analog input (you need a compatible controller, this allows playing small and big notes like on arcade cabinets)
+global_keyboard = false     # Accept keyboard input even if Taiko.exe is not foreground
+
 
 [keyboard]
-auto_ime = false            # Automatically change to english ime mode upon game startup
+auto_ime = true             # Automatically change to english ime mode upon game startup
 jp_layout = false           # Use jp layout scan code (if using jp layout keyboard, must be set to true)
+
 
 [layeredfs]
 enabled = false             # Replace assets from the game using a layered file system.
                             # | For example if you want to edit the wordlist, add your edited version like so:
                             # | .\Data_mods\x64\datatable\wordlist.json
                             # | You can provide both unencrypted and encrypted files.
+
 
 [logging]
 log_level = "INFO"          # Log level, Can be either "NONE", "ERROR", "WARN", "INFO", "DEBUG" and "HOOKS"
@@ -138,7 +147,7 @@ Clone this repository, open *cmd* and run the following commands:
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 # Configure the build folder (this is only needed the first time)
-cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_SYSTEM_VERSION="10.0.26100.0"
 
 # Build TaikoArcadeLoader
 cmake --build build --config Release --target bnusio

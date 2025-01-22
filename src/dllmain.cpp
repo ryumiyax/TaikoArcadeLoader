@@ -139,7 +139,10 @@ GetGameVersion () {
     case GameVersion::JPN08:
     case GameVersion::JPN39:
     case GameVersion::CHN00: break;
-    default: MessageBoxA (nullptr, "Unknown game version", nullptr, MB_OK); ExitProcess (0);
+    default: {
+        LogMessage (LogLevel::ERROR, "Detected GameVersion is Unsupported!");
+        MessageBoxA (nullptr, "Unsupported game version", nullptr, MB_OK); ExitProcess (0);
+    }
     }
 }
 
@@ -269,18 +272,13 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         InitializeLogger (GetLogLevel (logLevelStr), logToFile);
         LogMessage (LogLevel::INFO, "Application started.");
 
-        if (version == "auto") {
-            GetGameVersion ();
-        } else if (version == "JPN00") {
-            gameVersion = GameVersion::JPN00;
-        } else if (version == "JPN08") {
-            gameVersion = GameVersion::JPN08;
-        } else if (version == "JPN39") {
-            gameVersion = GameVersion::JPN39;
-        } else if (version == "CHN00") {
-            gameVersion = GameVersion::CHN00;
-        } else {
-            LogMessage (LogLevel::ERROR, "GameVersion is UNKNOWN!");
+        if (version == "auto") GetGameVersion ();
+        else if (version == "JPN00") gameVersion = GameVersion::JPN00;
+        else if (version == "JPN08") gameVersion = GameVersion::JPN08;
+        else if (version == "JPN39") gameVersion = GameVersion::JPN39;
+        else if (version == "CHN00") gameVersion = GameVersion::CHN00;
+        else {
+            LogMessage (LogLevel::ERROR, "Input GameVersion is UNKNOWN!");
             MessageBoxA (nullptr, "Unknown patch version", nullptr, MB_OK);
             ExitProcess (0);
         }

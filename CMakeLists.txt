@@ -138,6 +138,8 @@ set(SOURCES
     src/poll.cpp
     src/pollasync.cpp
     src/bnusio.cpp
+    src/Windows/WindowsError.cpp
+    src/Windows/MinimumLatencyAudioClient.cpp
     src/patches/amauth.cpp
     # src/patches/dxgi.cpp
     # src/patches/fpslimiter.cpp

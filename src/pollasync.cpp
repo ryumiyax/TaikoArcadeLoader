@@ -13,6 +13,7 @@ extern bool globalKeyboardInput;
 extern bool autoIme;
 extern HKL currentLayout;
 extern bool emulateUsio;
+extern bool globalKeyboard;
 
 bool wndForeground = false;
 bool usingKeyboard = false;
@@ -126,7 +127,7 @@ HHOOK mouseHook;
 LRESULT CALLBACK InputProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
         switch (wParam) {
-            case WM_KEYDOWN: if (wndForeground) {
+            case WM_KEYDOWN: if (globalKeyboard || wndForeground) {
                 auto* pKeyboard = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
                 DWORD keyCode = pKeyboard->vkCode;
                 if (!currentKeyboardState[keyCode]) keyboardCount[keyCode] = std::min (keyboardCount[keyCode] + 1, maxCount);
