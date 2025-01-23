@@ -189,19 +189,19 @@ namespace Card {
         return 1;
     }
 
-    HOOK (i64, bngrw_ReqCancelOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel"), u32 a1) {
+    FAST_HOOK (i64, bngrw_ReqCancelOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqCancel"), u32 a1) {
         if (state != State::Disable) {
             state = State::Disable;
             patches::Plugins::UpdateStatus (StatusType::CardStatus, false);
         }
-        return originalbngrw_ReqCancelOfficial (a1);
+        return originalbngrw_ReqCancelOfficial.fastcall<i64> (a1);
     }
-    HOOK (u64, bngrw_ReqWaitTouchOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, CallbackTouch callback, u64 a5) {
+    FAST_HOOK (u64, bngrw_ReqWaitTouchOfficial, PROC_ADDRESS ("bngrw.dll", "BngRwReqWaitTouch"), u32 a1, i32 a2, u32 a3, CallbackTouch callback, u64 a5) {
         state = State::Ready;
         patches::Plugins::UpdateStatus (StatusType::CardStatus, true);
         callbackTouch = callback;
         touchData = a5;
-        return originalbngrw_ReqWaitTouchOfficial (a1, a2, a3, Internal::AgentCallbackTouchOfficial, a5);
+        return originalbngrw_ReqWaitTouchOfficial.fastcall<u64> (a1, a2, a3, Internal::AgentCallbackTouchOfficial, a5);
     }
 
     bool
@@ -237,8 +237,8 @@ namespace Card {
         LogMessage (LogLevel::INFO, "Init Card patches");
         if (!emulateCardReader) {
             LogMessage (LogLevel::WARN, "[Card] Card reader emulation disabled!");
-            INSTALL_HOOK (bngrw_ReqCancelOfficial);
-            INSTALL_HOOK (bngrw_ReqWaitTouchOfficial);
+            INSTALL_FAST_HOOK (bngrw_ReqCancelOfficial);
+            INSTALL_FAST_HOOK (bngrw_ReqWaitTouchOfficial);
             // patches::Plugins::InitCardReader (patches::Scanner::Card::Commit);
             return;
         }

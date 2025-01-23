@@ -459,6 +459,11 @@ public:
     const loggingConfig& getLoggingConfig() const { return config.logging; }
     const keybindingConfig& getKeyBindings() const { return keyBindings; }
 
+    void setRes(i32 x, i32 y) {
+        config.graphics.res.x = x;
+        config.graphics.res.y = y;
+    }
+
 private:
 
     ConfigManager();
