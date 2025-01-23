@@ -12,12 +12,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_WINDOWS_UTF8
 #include "stb_image.h"
+#include "config.h"
 
 extern GameVersion gameVersion;
 extern std::vector<HMODULE> plugins;
-extern bool acceptInvalidCards;
-extern bool emulateCardReader;
-extern bool emulateQr;
+static bool acceptInvalidCards = Config::ConfigManager::instance ().getEmulationConfig ().accept_invalid;
+static bool emulateCardReader = Config::ConfigManager::instance ().getEmulationConfig ().card_reader;
+static bool emulateQr = Config::ConfigManager::instance ().getEmulationConfig ().qr;
 extern char accessCode1[21];
 extern char accessCode2[21];
 extern char chipId1[33];
@@ -384,24 +385,12 @@ namespace Qr {
 
     std::vector<uint8_t> &
     ReadQRData (std::vector<uint8_t> &buffer) {
-        std::string serial = "";
-        u16 type           = 0;
-        std::vector<i64> songNoes;
+        std::string serial = Config::ConfigManager::instance ().getQrConfig ().data.serial;
+        u16 type           = Config::ConfigManager::instance ().getQrConfig ().data.type;
+        std::vector<int> songNoes = Config::ConfigManager::instance ().getQrConfig ().data.song_no;
 
         buffer.clear ();
-        auto configPath = std::filesystem::current_path () / "config.toml";
-        std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-        if (config_ptr) {
-            auto qr = openConfigSection (config_ptr.get (), "qr");
-            if (qr) {
-                auto data = openConfigSection (qr, "data");
-                if (data) {
-                    serial   = readConfigString (data, "serial", "");
-                    type     = (u16) readConfigInt (data, "type", 0);
-                    songNoes = readConfigIntArray (data, "song_no", songNoes);
-                }
-            }
-        }
+
         std::vector<uint8_t> header = { 0x53, 0x31, 0x32, 0x00, 0x00, 0xFF, 0xFF, (uint8_t)serial.size (), 0x01, 0x00 };
         for (uint8_t byte_data : header) buffer.push_back (byte_data);
         for (char word : serial)         buffer.push_back ((uint8_t)word);
@@ -420,18 +409,12 @@ namespace Qr {
 
     std::vector<uint8_t> &
     ReadQRImage (std::vector<uint8_t> &buffer) {
-        std::string imagePath = "";
+        std::string imagePath = Config::ConfigManager::instance ().getQrConfig ().image_path;
 
         buffer.clear ();
-        auto configPath = std::filesystem::current_path () / "config.toml";
-        std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-        if (config_ptr) {
-            auto qr = openConfigSection (config_ptr.get (), "qr");
-            if (qr) imagePath = readConfigString (qr, "image_path", "");
-        }
         std::u8string u8PathStr (imagePath.begin (), imagePath.end ());
         std::filesystem::path u8Path (u8PathStr);
-        if (!std::filesystem::is_regular_file (u8Path)) {
+        if (!is_regular_file (u8Path)) {
             LogMessage (LogLevel::ERROR, "Failed to open image: {} (file not found)", u8Path.string());
             return buffer;
         }

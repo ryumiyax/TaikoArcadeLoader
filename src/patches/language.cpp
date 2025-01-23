@@ -1,7 +1,8 @@
 #include "constants.h"
 #include "helpers.h"
 #include "patches.h"
-#include <emmintrin.h>
+#include <map>
+
 
 extern GameVersion gameVersion;
 

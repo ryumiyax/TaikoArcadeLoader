@@ -1,0 +1,88 @@
+diff --git a/src/config.h b/src/config.h
+index be682de..7d3388c 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -459,6 +459,11 @@ public:
+     const loggingConfig& getLoggingConfig() const { return config.logging; }
+     const keybindingConfig& getKeyBindings() const { return keyBindings; }
+ 
++    void setRes(i32 x, i32 y) {
++        config.graphics.res.x = x;
++        config.graphics.res.y = y;
++    }
++
+ private:
+ 
+     ConfigManager();
+diff --git a/src/dllmain.cpp b/src/dllmain.cpp
+index 6cb5b49..673663c 100644
+--- a/src/dllmain.cpp
++++ b/src/dllmain.cpp
+@@ -265,6 +265,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
+             if (yRes * 16 > xRes * 9)      yRes = (int)(xRes * 9.0 / 16.0);
+             else if (yRes * 16 < xRes * 9) xRes = (int)(yRes * 16.0 / 9.0);
+         }
++        Config::ConfigManager::instance ().setRes (xRes, yRes);
+ 
+         LogMessage (LogLevel::INFO, "Scale Rate: x={} y={}", horizontalScale, verticalScale);
+         LogMessage (LogLevel::INFO, "Boot with {} mode ({}x{})", windowed ? "window" : "fullscreen", xRes, yRes);
+diff --git a/src/patches/versions/CHN00.cpp b/src/patches/versions/CHN00.cpp
+index 2d59616..31ca3c1 100644
+--- a/src/patches/versions/CHN00.cpp
++++ b/src/patches/versions/CHN00.cpp
+@@ -3,8 +3,8 @@
+ #include "config.h"
+ 
+ static std::string chassisId = Config::ConfigManager::instance ().getAmauthConfig ().chassis_id.value ();
+-static i32 xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
+-static i32 yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
++static const i32& xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
++static const i32& yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
+ static bool vsync = Config::ConfigManager::instance ().getGraphicsConfig ().vsync;
+ static bool localFiles = Config::ConfigManager::instance ().getPatchesConfig ().local_files;
+ 
+diff --git a/src/patches/versions/JPN00.cpp b/src/patches/versions/JPN00.cpp
+index 1490c8f..c4580c1 100644
+--- a/src/patches/versions/JPN00.cpp
++++ b/src/patches/versions/JPN00.cpp
+@@ -2,8 +2,8 @@
+ #include "../patches.h"
+ #include "config.h"
+ 
+-static i32 xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
+-static i32 yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
++static const i32& xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
++static const i32& yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
+ static bool vsync = Config::ConfigManager::instance ().getGraphicsConfig ().vsync;
+ static bool localFiles = Config::ConfigManager::instance ().getPatchesConfig ().local_files;
+ namespace patches::JPN00 {
+diff --git a/src/patches/versions/JPN08.cpp b/src/patches/versions/JPN08.cpp
+index 0dac8f0..bc07616 100644
+--- a/src/patches/versions/JPN08.cpp
++++ b/src/patches/versions/JPN08.cpp
+@@ -4,8 +4,8 @@
+ 
+ extern u64 song_data_size;
+ extern void *song_data;
+-static i32 xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
+-static i32 yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
++static const i32& xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
++static const i32& yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
+ static bool vsync = Config::ConfigManager::instance ().getGraphicsConfig ().vsync;
+ static bool localFiles = Config::ConfigManager::instance ().getPatchesConfig ().local_files;
+ #define RDX_MOV 0x48, 0xBA
+diff --git a/src/patches/versions/JPN39.cpp b/src/patches/versions/JPN39.cpp
+index 2b37ac7..e5edbd1 100644
+--- a/src/patches/versions/JPN39.cpp
++++ b/src/patches/versions/JPN39.cpp
+@@ -4,8 +4,8 @@
+ #include <map>
+ #include "config.h"
+ 
+-static i32 xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
+-static i32 yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
++static const i32& xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
++static const i32& yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
+ static bool vsync = Config::ConfigManager::instance ().getGraphicsConfig ().vsync;
+ static bool localFiles = Config::ConfigManager::instance ().getPatchesConfig ().local_files;
+ 

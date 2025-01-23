@@ -2,8 +2,9 @@
 #include "helpers.h"
 #include <tomcrypt.h>
 #include <zlib.h>
+#include "config.h"
 
-bool useLayeredFs = false;
+bool useLayeredFs = Config::ConfigManager::instance ().getLayeredFsConfig ().enabled;
 
 std::string datatableKey = "3530304242323633353537423431384139353134383346433246464231354534";
 std::string fumenKey     = "4434423946383537303842433443383030333843444132343339373531353830";
@@ -285,12 +286,12 @@ FAST_HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA")
 
 void
 Init () {
-    const auto configPath = std::filesystem::current_path () / "config.toml";
+    /*const auto configPath = std::filesystem::current_path () / "config.toml";
     const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         if (const auto layeredFs = openConfigSection (config_ptr.get (), "layeredfs"))
             useLayeredFs = readConfigBool (layeredFs, "enabled", useLayeredFs);
-    }
+    }*/
     register_cipher (&aes_desc);
     if (useLayeredFs || !beforeHandlers.empty () || !afterHandlers.empty ()) {
         LogMessage (LogLevel::INFO, "using LayeredFs! Data_mods={} beforHandlers={} afterHandlers={}",

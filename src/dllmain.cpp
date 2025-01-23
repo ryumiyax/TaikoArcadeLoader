@@ -4,6 +4,7 @@
 #include "patches/patches.h"
 #include "poll.h"
 #include "logger.h"
+#include "config.h"
 #include <dbghelp.h>
 
 auto gameVersion = GameVersion::UNKNOWN;
@@ -11,35 +12,36 @@ std::vector<HMODULE> plugins;
 u64 song_data_size = 1024 * 1024 * 64;
 void *song_data;
 
-std::string server      = "127.0.0.1";
+/*std::string server      = "127.0.0.1";
 std::string port        = "54430";
 std::string chassisId   = "284111080000";
 std::string shopId      = "TAIKO ARCADE LOADER";
 std::string gameVerNum  = "00.00";
 std::string countryCode = "JPN";
 char fullAddress[256]   = {};
-char placeId[16]        = {};
+char placeId[16]        = {};*/
 char accessCode1[21]    = "00000000000000000001";
 char accessCode2[21]    = "00000000000000000002";
 char chipId1[33]        = "00000000000000000000000000000001";
 char chipId2[33]        = "00000000000000000000000000000002";
-bool windowed           = false;
-bool autoIme            = true;
-bool jpLayout           = false;
-bool cursor             = true;
-bool emulateUsio        = true;
-bool emulateCardReader  = true;
-bool emulateQr          = true;
-bool acceptInvalidCards = false;
-bool localFiles         = true;
-HKL currentLayout       = nullptr;
-i32 xRes                = 1920;
-i32 yRes                = 1080;
-bool vsync              = false;
+bool windowed           = Config::ConfigManager::instance ().getGraphicsConfig ().windowed;
+bool autoIme            = Config::ConfigManager::instance ().getKeyboardConfig ().auto_ime;
+bool jpLayout           = Config::ConfigManager::instance ().getKeyboardConfig ().jp_layout;
+bool cursor             = Config::ConfigManager::instance ().getGraphicsConfig ().cursor;
+bool emulateUsio        = Config::ConfigManager::instance ().getEmulationConfig ().usio;
+bool emulateCardReader  = Config::ConfigManager::instance ().getEmulationConfig ().card_reader;
+bool emulateQr          = Config::ConfigManager::instance ().getEmulationConfig ().qr;
+bool acceptInvalidCards = Config::ConfigManager::instance ().getEmulationConfig ().accept_invalid;
+bool localFiles         = Config::ConfigManager::instance ().getPatchesConfig ().local_files;
 
-std::string logLevelStr = "INFO";
-bool logToFile          = true;
-std::string logPath = "TaikoArcadeLoader.log";
+HKL currentLayout       = nullptr;
+i32 xRes                = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
+i32 yRes                = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
+bool vsync              = Config::ConfigManager::instance ().getGraphicsConfig ().vsync;
+
+std::string logLevelStr = Config::ConfigManager::instance ().getLoggingConfig ().log_level.name ();
+bool logToFile          = Config::ConfigManager::instance ().getLoggingConfig ().log_to_file;
+std::string logPath = Config::ConfigManager::instance ().getLoggingConfig ().log_path;
 
 HWND hGameWnd;
 FAST_HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse.stdcall<i32> (true); }
@@ -64,7 +66,7 @@ FAST_HOOK (HWND, CreateWindow, PROC_ADDRESS ("user32.dll", "CreateWindowExW"), D
       i32 X, i32 Y, i32 nWidth, i32 nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam) {
     if (lpWindowName != nullptr) {
         if (wcscmp (lpWindowName, L"Taiko") == 0) {
-            if (windowed) dwStyle = WS_TILEDWINDOW ^ WS_MAXIMIZEBOX ^ WS_THICKFRAME;
+            if (Config::ConfigManager::instance ().getGraphicsConfig ().windowed) dwStyle = WS_TILEDWINDOW ^ WS_MAXIMIZEBOX ^ WS_THICKFRAME;
 
             hGameWnd
                 = originalCreateWindow.stdcall<HWND> (dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight, hWndParent, hMenu, hInstance, lpParam);
@@ -99,12 +101,12 @@ FAST_HOOK (i32, ssleay_Shutdown, PROC_ADDRESS ("ssleay32.dll", "SSL_shutdown")) 
 FAST_HOOK (i64, UsbFinderInitialize, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderInitialize")) { return 0; }
 FAST_HOOK (i64, UsbFinderRelease, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderRelease")) { return 0; }
 FAST_HOOK (i64, UsbFinderGetSerialNumber, PROC_ADDRESS ("nbamUsbFinder.dll", "nbamUsbFinderGetSerialNumber"), i32 a1, char *a2) {
-    strcpy (a2, chassisId.c_str ());
+    strcpy (a2, Config::ConfigManager::instance ().getAmauthConfig ().chassis_id.value ().c_str ());
     return 0;
 }
 
 FAST_HOOK (i32, ws2_getaddrinfo, PROC_ADDRESS ("ws2_32.dll", "getaddrinfo"), const char *node, char *service, void *hints, void *out) {
-    return originalws2_getaddrinfo.stdcall<i32> (server.c_str (), service, hints, out);
+    return originalws2_getaddrinfo.stdcall<i32> (Config::ConfigManager::instance ().getAmauthConfig ().server.c_str (), service, hints, out);
 }
 
 void
@@ -176,10 +178,10 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         InitializeLogger (GetLogLevel (logLevelStr), logToFile, logPath);
         patches::Timer::Init ();
 
-        LogMessage (LogLevel::INFO, "Loading config...");
+        // LogMessage (LogLevel::INFO, "Loading config...");
 
-        std::string version                    = "auto";
-        const std::filesystem::path configPath = std::filesystem::current_path () / "config.toml";
+        std::string version                    = Config::ConfigManager::instance ().getPatchesConfig ().version.name ();
+        /*const std::filesystem::path configPath = std::filesystem::current_path () / "config.toml";
         const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
         if (config_ptr) {
             const toml_table_t *config = config_ptr.get ();
@@ -229,7 +231,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
                 logToFile   = readConfigBool (logging, "log_to_file", logToFile);
                 logPath = readConfigString (logging, "log_path", logPath);
             }
-        }
+        }*/
 
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
         auto activeWindow = GetActiveWindow();
@@ -263,6 +265,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
             if (yRes * 16 > xRes * 9)      yRes = (int)(xRes * 9.0 / 16.0);
             else if (yRes * 16 < xRes * 9) xRes = (int)(yRes * 16.0 / 9.0);
         }
+        Config::ConfigManager::instance ().setRes (xRes, yRes);
 
         LogMessage (LogLevel::INFO, "Scale Rate: x={} y={}", horizontalScale, verticalScale);
         LogMessage (LogLevel::INFO, "Boot with {} mode ({}x{})", windowed ? "window" : "fullscreen", xRes, yRes);

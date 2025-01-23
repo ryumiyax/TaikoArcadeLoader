@@ -4,6 +4,7 @@
 #include <exception>
 #include <format>
 #include <queue>
+#include <map>
 
 extern GameVersion gameVersion;
 
@@ -270,7 +271,7 @@ std::wstring
 replaceFileName (std::wstring fullFileName, std::wstring usingLastFileName) {
     size_t lastPosition = fullFileName.find_last_of (L"/");
     if (lastPosition == -1) return usingLastFileName;
-    else return fullFileName.substr(0, lastPosition) + usingLastFileName;
+    else return fullFileName.substr(0, lastPosition + 1) + usingLastFileName;
 }
 
 FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t *lFileName) {

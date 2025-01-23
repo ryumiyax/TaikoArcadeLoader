@@ -2,11 +2,12 @@
 #include "helpers.h"
 #include "../patches.h"
 #include <map>
+#include "config.h"
 
-extern i32 xRes;
-extern i32 yRes;
-extern bool vsync;
-extern bool localFiles;
+static const i32& xRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.x;
+static const i32& yRes = Config::ConfigManager::instance ().getGraphicsConfig ().res.y;
+static bool vsync = Config::ConfigManager::instance ().getGraphicsConfig ().vsync;
+static bool localFiles = Config::ConfigManager::instance ().getPatchesConfig ().local_files;
 
 namespace patches::JPN39 {
 int language = 0;
@@ -334,10 +335,10 @@ ReplaceDatatableBufferAddresses () {
 void
 Init () {
     LogMessage (LogLevel::INFO, "Init JPN39 patches");
-    bool unlockSongs  = true;
-    double modelResRate = 1.0;
+    bool unlockSongs  = Config::ConfigManager::instance ().getPatchesConfig ().unlock_songs;
+    double modelResRate = Config::ConfigManager::instance ().getGraphicsConfig ().model_res_rate;
 
-    auto configPath = std::filesystem::current_path () / "config.toml";
+    /*auto configPath = std::filesystem::current_path () / "config.toml";
     std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
     if (config_ptr) {
         if (auto patches = openConfigSection (config_ptr.get (), "patches")) {
@@ -346,7 +347,7 @@ Init () {
         if (auto graphics = openConfigSection (config_ptr.get (), "graphics")) {
             modelResRate = readConfigDouble (graphics, "model_res_rate", modelResRate);
         }
-    }
+    }*/
 
     // Hook to get AppAccessor and ComponentAccessor
     INSTALL_FAST_HOOK (DeviceCheck);

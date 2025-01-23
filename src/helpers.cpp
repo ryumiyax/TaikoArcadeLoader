@@ -1,7 +1,7 @@
 #include <codecvt>
 #include "helpers.h"
 
-static void
+/*static void
 toml_myfree (void *p) {
     if (p) free (p);
 }
@@ -108,7 +108,7 @@ readConfigIntArray (const toml_table_t *table, const std::string &key, std::vect
     }
 
     return ret;
-}
+}*/
 
 std::wstring
 replace (const std::wstring orignStr, const std::wstring &oldStr, const std::wstring &newStr) {
