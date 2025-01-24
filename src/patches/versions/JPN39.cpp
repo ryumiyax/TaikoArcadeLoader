@@ -248,10 +248,10 @@ TestMode::Value *stageNumber = TestMode::CreateValue (L"NumberOfStageItem");
     }
 
 SCENE_RESULT_HOOK (SceneResultInitialize_Enso, ASLR (0x140411FD0));
-SCENE_RESULT_HOOK (SceneResultInitialize_AI, ASLR (0x140411FD0));
-SCENE_RESULT_HOOK (SceneResultInitialize_Collabo025, ASLR (0x140411FD0));
-SCENE_RESULT_HOOK (SceneResultInitialize_Collabo026, ASLR (0x140411FD0));
-SCENE_RESULT_HOOK (SceneResultInitialize_AprilFool, ASLR (0x140411FD0));
+SCENE_RESULT_HOOK (SceneResultInitialize_AI, ASLR (0x14041E8C0));
+SCENE_RESULT_HOOK (SceneResultInitialize_Collabo025, ASLR (0x140434060));
+SCENE_RESULT_HOOK (SceneResultInitialize_Collabo026, ASLR (0x140438BF0));
+SCENE_RESULT_HOOK (SceneResultInitialize_AprilFool, ASLR (0x140429A80));
 SEND_RESULT_HOOK (SendResultData_Enso, ASLR (0x1401817B0));
 SEND_RESULT_HOOK (SendResultData_AI, ASLR (0x1401755E0));
 SEND_RESULT_HOOK (SendResultData_Collabo025_026, ASLR (0x140179A00));
