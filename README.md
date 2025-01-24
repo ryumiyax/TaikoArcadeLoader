@@ -34,12 +34,8 @@ version = "auto"            # Patch version
                             # | - JPN08: For use with Taiko JPN 08.18
                             # | - JPN39: For use with Taiko JPN 39.06
                             # | - CHN00: For use with Taiko CHN 00.32
-<<<<<<< HEAD
 unlock_songs = true         # Self-explanatory
 local_files = true          # Only set this to false if you're using this on a Nijiiro Cabinet, running on BNA1
-=======
-unlock_songs = true
->>>>>>> 684ee61 (Several fix & optimize)
 
 [patches.chn00]             # These patches are only available for version CHN00
 fix_language = false        # Sync test mode language to attract etc

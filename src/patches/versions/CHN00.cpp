@@ -129,20 +129,6 @@ Init () {
     INSTALL_HOOK (HaspGetInfo);
     INSTALL_HOOK (HaspRead);
 
-    /*const auto configPath = std::filesystem::current_path () / "config.toml";
-    const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-    if (config_ptr) {
-        if (const auto patches = openConfigSection (config_ptr.get (), "patches")) {
-            unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-            if (const auto chn00 = openConfigSection (patches, "chn00")) {
-                fixLanguage    = readConfigBool (chn00, "fix_language", fixLanguage);
-                demoMovie      = readConfigBool (chn00, "demo_movie", demoMovie);
-                modeCollabo025 = readConfigBool (chn00, "mode_collabo025", modeCollabo025);
-                modeCollabo026 = readConfigBool (chn00, "mode_collabo026", modeCollabo026);
-            }
-        }
-    }*/
-
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x1404A4ED3), i32, xRes);
     WRITE_MEMORY (ASLR (0x1404A4EDA), i32, yRes);

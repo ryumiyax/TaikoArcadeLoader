@@ -5,6 +5,7 @@
 #include <rfl/toml.hpp>
 #include <map>
 
+#include "banner.h"
 #include "config.h"
 #include "logger.h"
 
@@ -41,7 +42,6 @@ bool
 ConfigManager::loadConfig () {
     std::lock_guard lock (mutex);
 
-    InitializeLogger (LogLevel::INFO, true, "TaikoArcadeLoader.log");
     if (isLoaded) { return true; }
 
     const auto configPath = std::filesystem::current_path () / "config.toml";
@@ -88,12 +88,15 @@ ConfigManager::getQrConfig () {
 }
 
 ConfigManager::ConfigManager () {
+    Banner::Version::instance ();
+    Logger::InitializeLogger (LogLevel::INFO, false, "");
     auto result = loadConfig ();
     if (!result) {
         LogMessage (LogLevel::ERROR, "Failed to load config file");
         MessageBoxA (nullptr, "Failed to load config", nullptr, MB_OK);
         ExitProcess (0);
     }
+    Logger::CleanupLogger ();
 }
 
 bool
@@ -119,8 +122,10 @@ ConfigManager::loadKeyBindings () {
         keyBindings.usingKeyboard = usingKeyboard;
         keyBindings.usingMouse = usingMouse;
         keyBindings.usingController = usingController;
-        LogMessage (LogLevel::INFO, "Finish Loading keyconfig.toml  useKeyboard={} useMouse={} useController={}",
-            usingKeyboard ? "true" : "false", usingMouse ? "true" : "false", usingController ? "true" : "false");
+        LogMessage (LogLevel::INFO, "Finish Loading keyconfig.toml");
+        if (usingKeyboard)   LogMessage (LogLevel::DEBUG, ">>>>> Using Keyboard!");
+        if (usingMouse)      LogMessage (LogLevel::DEBUG, ">>>>> Using Mouse!");
+        if (usingController) LogMessage (LogLevel::DEBUG, ">>>>> Using Controller!");
         return true;
     }
 

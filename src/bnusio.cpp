@@ -288,6 +288,6 @@ Update () {
 void
 Close () {
     // patches::Plugins::Exit ();
-    CleanupLogger ();
+    Logger::CleanupLogger ();
 }
 } // namespace bnusio

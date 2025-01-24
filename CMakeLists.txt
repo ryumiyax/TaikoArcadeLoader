@@ -7,6 +7,20 @@ if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE INTERNAL "")
 endif()
 
+find_package(Git REQUIRED)
+
+# Commands to read each needed variable
+set(variablesToRead "GIT_BRANCH;GIT_SHA1;GIT_SHORTSHA1;GIT_DIRTY")
+set(CMD_GIT_VERSION     ${GIT_EXECUTABLE} describe --tags --dirty)
+
+execute_process(
+    COMMAND ${CMD_GIT_VERSION}
+    RESULT_VARIABLE GIT_VERSION_RESULT
+    OUTPUT_VARIABLE GIT_VERSION
+    ERROR_VARIABLE GIT_ERROR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 # Set C and C++ standards
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 23)
@@ -24,7 +38,9 @@ endif()
 
 # Add project definitions (Add ASYNC_UPDATE/ASYNC_IO to enable new async feature [experimental])
 # add_definitions(-DNOMINMAX -DLTC_NO_PROTOTYPES -D_CRT_SECURE_NO_WARNINGS -DASYNC_UPDATE)
-add_definitions(-DNOMINMAX -DLTC_NO_PROTOTYPES -D_CRT_SECURE_NO_WARNINGS)
+add_definitions(-DNOMINMAX -DLTC_NO_PROTOTYPES -D_CRT_SECURE_NO_WARNINGS -DTAL_VERSION="${GIT_VERSION}")
+MESSAGE( STATUS "Build Version = ${GIT_VERSION}.")
+
 
 # Include FetchContent module
 include(FetchContent)
@@ -161,6 +177,7 @@ set(SOURCES
         src/patches/versions/JPN39.cpp
         src/patches/versions/CHN00.cpp
         src/config.cpp
+        src/banner.cpp
 )
 
 set(VALIDATOR_SOURCES

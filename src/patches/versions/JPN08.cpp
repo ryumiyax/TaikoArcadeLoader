@@ -54,12 +54,6 @@ Init () {
     LogMessage (LogLevel::INFO, "Init JPN08 patches");
     bool unlockSongs = Config::ConfigManager::instance ().getPatchesConfig ().unlock_songs;
 
-    /*auto configPath = std::filesystem::current_path () / "config.toml";
-    std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-    if (config_ptr) {
-        if (auto patches = openConfigSection (config_ptr.get (), "patches")) unlockSongs = readConfigBool (patches, "unlock_songs", unlockSongs);
-    }*/
-
     // Apply common config patch
     WRITE_MEMORY (ASLR (0x14035FC5B), i32, xRes);
     WRITE_MEMORY (ASLR (0x14035FC62), i32, yRes);

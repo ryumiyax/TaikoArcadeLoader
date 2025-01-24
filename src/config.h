@@ -106,8 +106,8 @@ using logLevels = rfl::Literal<"NONE", "ERROR", "WARN", "INFO", "DEBUG", "HOOKS"
 
 struct loggingConfig {
     logLevels log_level{ "INFO"};
-    bool log_to_file = true;
-    std::string log_path = "TaikoArcadeLoader.log";
+    bool log_to_file = false;
+    std::string log_dir = "./logs/";
 };
 
 struct globalConfig {

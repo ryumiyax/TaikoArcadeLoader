@@ -79,17 +79,6 @@ void
 Init () {
     LogMessage (LogLevel::INFO, "Init Audio patches");
 
-    /*const auto configPath = std::filesystem::current_path () / "config.toml";
-    const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-    if (config_ptr) {
-        if (const auto audio = openConfigSection (config_ptr.get (), "audio")) {
-            wasapiShared = readConfigBool (audio, "wasapi_shared", wasapiShared);
-            asio         = readConfigBool (audio, "asio", asio);
-            asioDriver   = readConfigString (audio, "asio_driver", asioDriver);
-
-        }
-    }*/
-
     if (real) ReduceAudioLatency ();
 
     switch (gameVersion) {

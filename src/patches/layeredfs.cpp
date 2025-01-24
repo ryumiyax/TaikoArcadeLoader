@@ -286,12 +286,6 @@ FAST_HOOK (HANDLE, CreateFileAHook, PROC_ADDRESS ("kernel32.dll", "CreateFileA")
 
 void
 Init () {
-    /*const auto configPath = std::filesystem::current_path () / "config.toml";
-    const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-    if (config_ptr) {
-        if (const auto layeredFs = openConfigSection (config_ptr.get (), "layeredfs"))
-            useLayeredFs = readConfigBool (layeredFs, "enabled", useLayeredFs);
-    }*/
     register_cipher (&aes_desc);
     if (useLayeredFs || !beforeHandlers.empty () || !afterHandlers.empty ()) {
         LogMessage (LogLevel::INFO, "using LayeredFs! Data_mods={} beforHandlers={} afterHandlers={}",

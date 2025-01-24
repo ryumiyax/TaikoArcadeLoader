@@ -1,6 +1,7 @@
 #include "constants.h"
 #include "helpers.h"
 #include "patches.h"
+#include "banner.h"
 #include <exception>
 #include <format>
 #include <queue>
@@ -20,6 +21,8 @@ std::condition_variable hooksCV;
 std::vector<SafetyHookMid> patches = {};
 std::vector<Value *> values = {};
 std::map<std::wstring, Value *> valueMap = {};
+
+std::string ver = Banner::Version::instance ().getVer ();
 
 std::wstring
 mergeCondition (std::wstring original, std::wstring addition, std::wstring value) {
@@ -296,6 +299,7 @@ FAST_HOOK_DYNAMIC (void, TestModeSetMenuHook, u64 testModeLibrary, const wchar_t
                 pugi::xml_node talItem        = dongleItem.parent ().append_copy (dongleItem);
                 talItem.attribute (L"label").set_value (L"TAIKOARCADELOADER");
                 talItem.attribute (L"id").set_value (L"TaikoArcadeLoader");
+                talItem.attribute (L"replace-text").set_value ((L"1:@Color/Lime;V" + std::wstring ({ver.begin (), ver.end ()})).c_str ());
                 talItem.append_attribute (L"default") = L"1";
                 dongleItem.parent ().append_child (L"break-item");
 

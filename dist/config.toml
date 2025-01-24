@@ -86,4 +86,4 @@ log_level = "INFO"          # Log level, Can be either "NONE", "ERROR", "WARN", 
                             # | Keep this as low as possible (Info is usually more than enough) as more logging will slow down your game
 log_to_file = false         # Log to file, set this to true to save the logs from your last session to TaikoArcadeLoader.log
                             # |Again, if you do not have a use for this (debugging mods or whatnot), turn it off.
-log_path = "logs.log"       # Log file path (Can be both relative and absolute).
+log_dir = "./logs/"         # Log file path (Can be both relative and absolute).

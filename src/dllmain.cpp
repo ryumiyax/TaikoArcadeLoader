@@ -4,6 +4,7 @@
 #include "patches/patches.h"
 #include "poll.h"
 #include "logger.h"
+#include "banner.h"
 #include "config.h"
 #include <dbghelp.h>
 
@@ -12,14 +13,6 @@ std::vector<HMODULE> plugins;
 u64 song_data_size = 1024 * 1024 * 64;
 void *song_data;
 
-/*std::string server      = "127.0.0.1";
-std::string port        = "54430";
-std::string chassisId   = "284111080000";
-std::string shopId      = "TAIKO ARCADE LOADER";
-std::string gameVerNum  = "00.00";
-std::string countryCode = "JPN";
-char fullAddress[256]   = {};
-char placeId[16]        = {};*/
 char accessCode1[21]    = "00000000000000000001";
 char accessCode2[21]    = "00000000000000000002";
 char chipId1[33]        = "00000000000000000000000000000001";
@@ -41,7 +34,7 @@ bool vsync              = Config::ConfigManager::instance ().getGraphicsConfig (
 
 std::string logLevelStr = Config::ConfigManager::instance ().getLoggingConfig ().log_level.name ();
 bool logToFile          = Config::ConfigManager::instance ().getLoggingConfig ().log_to_file;
-std::string logPath = Config::ConfigManager::instance ().getLoggingConfig ().log_path;
+std::string logDir      = Config::ConfigManager::instance ().getLoggingConfig ().log_dir;
 
 HWND hGameWnd;
 FAST_HOOK (i32, ShowMouse, PROC_ADDRESS ("user32.dll", "ShowCursor"), bool) { return originalShowMouse.stdcall<i32> (true); }
@@ -175,63 +168,10 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
 
         // Init logger for loading config
         auto start = std::chrono::high_resolution_clock::now();
-        InitializeLogger (GetLogLevel (logLevelStr), logToFile, logPath);
+        Logger::InitializeLogger (Logger::GetLogLevel (logLevelStr), logToFile, logDir);
         patches::Timer::Init ();
 
-        // LogMessage (LogLevel::INFO, "Loading config...");
-
-        std::string version                    = Config::ConfigManager::instance ().getPatchesConfig ().version.name ();
-        /*const std::filesystem::path configPath = std::filesystem::current_path () / "config.toml";
-        const std::unique_ptr<toml_table_t, void (*) (toml_table_t *)> config_ptr (openConfig (configPath), toml_free);
-        if (config_ptr) {
-            const toml_table_t *config = config_ptr.get ();
-            if (const auto amauthConfig = openConfigSection (config, "amauth")) {
-                server      = readConfigString (amauthConfig, "server", server);
-                port        = readConfigString (amauthConfig, "port", port);
-                chassisId   = readConfigString (amauthConfig, "chassis_id", chassisId);
-                shopId      = readConfigString (amauthConfig, "shop_id", shopId);
-                gameVerNum  = readConfigString (amauthConfig, "game_ver", gameVerNum);
-                countryCode = readConfigString (amauthConfig, "country_code", countryCode);
-
-                std::strcat (fullAddress, server.c_str ());
-                if (!port.empty ()) {
-                    std::strcat (fullAddress, ":");
-                    std::strcat (fullAddress, port.c_str ());
-                }
-
-                std::strcat (placeId, countryCode.c_str ());
-                std::strcat (placeId, "0FF0");
-            }
-            if (const auto patches = openConfigSection (config, "patches")) {
-                version = readConfigString (patches, "version", version);
-                localFiles = readConfigBool (patches, "local_files", localFiles);
-            }
-            if (const auto emulation = openConfigSection (config, "emulation")) {
-                emulateUsio        = readConfigBool (emulation, "usio", emulateUsio);
-                emulateCardReader  = readConfigBool (emulation, "card_reader", emulateCardReader);
-                acceptInvalidCards = readConfigBool (emulation, "accept_invalid", acceptInvalidCards);
-                emulateQr          = readConfigBool (emulation, "qr", emulateQr);
-            }
-            if (const auto graphics = openConfigSection (config, "graphics")) {
-                windowed = readConfigBool (graphics, "windowed", windowed);
-                cursor   = readConfigBool (graphics, "cursor", cursor);
-                if (auto res = openConfigSection (graphics, "res")) {
-                    xRes = static_cast<i32> (readConfigInt (res, "x", xRes));
-                    yRes = static_cast<i32> (readConfigInt (res, "y", yRes));
-                }
-                vsync = readConfigBool (graphics, "vsync", vsync);
-            }
-            if (const auto keyboard = openConfigSection (config, "keyboard")) {
-                autoIme  = readConfigBool (keyboard, "auto_ime", autoIme);
-                jpLayout = readConfigBool (keyboard, "jp_layout", jpLayout);
-            }
-
-            if (const auto logging = openConfigSection (config, "logging")) {
-                logLevelStr = readConfigString (logging, "log_level", logLevelStr);
-                logToFile   = readConfigBool (logging, "log_to_file", logToFile);
-                logPath = readConfigString (logging, "log_path", logPath);
-            }
-        }*/
+        std::string version = Config::ConfigManager::instance ().getPatchesConfig ().version.name ();
 
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
         auto activeWindow = GetActiveWindow();
@@ -253,12 +193,12 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         auto cyPhysical = devMode.dmPelsHeight;
 
         // Calculate the scaling factor
-        auto horizontalScale = (static_cast<double> (cxPhysical) / static_cast<double> (cxLogical));
-        auto verticalScale = (static_cast<double> (cyPhysical) / static_cast<double> (cyLogical));
+        auto hScale = (static_cast<double> (cxPhysical) / static_cast<double> (cxLogical));
+        auto vScale = (static_cast<double> (cyPhysical) / static_cast<double> (cyLogical));
         if (windowed) {
             // Game will automatically adjust scale
-            xRes = (int)(xRes / horizontalScale);
-            yRes = (int)(yRes / verticalScale);
+            xRes = (int)(xRes / hScale);
+            yRes = (int)(yRes / vScale);
         } else {
             xRes = cxLogical;
             yRes = cyLogical;
@@ -266,9 +206,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
             else if (yRes * 16 < xRes * 9) xRes = (int)(yRes * 16.0 / 9.0);
         }
         Config::ConfigManager::instance ().setRes (xRes, yRes);
-
-        LogMessage (LogLevel::INFO, "Scale Rate: x={} y={}", horizontalScale, verticalScale);
-        LogMessage (LogLevel::INFO, "Boot with {} mode ({}x{})", windowed ? "window" : "fullscreen", xRes, yRes);
+        LogMessage (LogLevel::INFO, "Boot with {} mode [{}(*{})x{}(*())]", windowed ? "window" : "fullscreen", xRes, hScale, yRes, vScale);
 
         if (autoIme) {
             currentLayout = GetKeyboardLayout (0);
@@ -278,7 +216,6 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         }
 
         // Update the logger with the level read from config file.
-        InitializeLogger (GetLogLevel (logLevelStr), logToFile, logPath);
         LogMessage (LogLevel::INFO, "Application started.");
 
         if (version == "auto") GetGameVersion ();
