@@ -68,16 +68,20 @@ ReduceAudioLatency () {
     } else {
         auto properties = audioClient->GetProperties ();
         auto prop = properties.value();
-        double currentDelay = prop.minimumBufferSize * 1000.0 / prop.sampleRate;
-        double defaultDelay = prop.defaultBufferSize * 1000.0 / prop.sampleRate;
-        LogMessage (LogLevel::INFO, "Audio latency: {:.2f}ms -> {:.2f}ms", defaultDelay, currentDelay);
+        if (prop.minimumBufferSize < prop.defaultBufferSize) {
+            double currentDelay = prop.minimumBufferSize * 1000.0 / prop.sampleRate;
+            double defaultDelay = prop.defaultBufferSize * 1000.0 / prop.sampleRate;
+            LogMessage (LogLevel::INFO, "Using REAL Audio latency: {:.2f}ms -> {:.2f}ms", defaultDelay, currentDelay);
+        } else {
+            LogMessage (LogLevel::WARN, "Using REAL Audio Failed, Please Check Audio Driver!");
+        }
     }
     return 0;
 }
 
 void
 Init () {
-    LogMessage (LogLevel::INFO, "Init Audio patches");
+    LogMessage (LogLevel::DEBUG, "Init Audio patches");
 
     if (real) ReduceAudioLatency ();
 

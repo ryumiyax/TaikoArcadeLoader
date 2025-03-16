@@ -549,7 +549,7 @@ CoCreateInstanceHook (const IID *const rclsid, const LPUNKNOWN pUnkOuter, const 
 
 void
 Init () {
-    LogMessage (LogLevel::INFO, "Init AmAuth patches");
+    LogMessage (LogLevel::DEBUG, "Init AmAuth patches");
 
     auto whereCoCreateInstance = GetProcAddress (LoadLibraryW (L"ole32.dll"), "CoCreateInstance");
     originalCoCreateInstanceHook = safetyhook::create_inline ((void *)whereCoCreateInstance, CoCreateInstanceHook);

@@ -225,16 +225,16 @@ Init () {
     // }
 
     if (analogInput) {
-        LogMessage (LogLevel::WARN, "[Analog Type] Axis: All the keyboard drum inputs have been disabled");
+        LogMessage (LogLevel::WARN, "Using Axis AnalogIn: All the keyboard drum inputs have been disabled");
         analogMethod = AnalogInputAxis;
     } else if (drumWaitPeriod > 0) {
-        LogMessage (LogLevel::WARN, "[Analog Type] WaitPeriod: Fast input might be queued");
+        LogMessage (LogLevel::WARN, "Using WaitPeriod AnalogIn: Fast input might be queued");
         analogMethod = AnalogInputWaitPeriod;
-    } else if (drumWaitPeriod == 0) {
-        LogMessage (LogLevel::INFO, "[Analog Type] Cooldown: Fastest and original input");
-        analogMethod = AnalogInputCooldown;
+    // } else if (drumWaitPeriod == 0) {
+    //     LogMessage (LogLevel::INFO, "Using Cooldown AnalogIn: Fastest and original input");
+    //     analogMethod = AnalogInputCooldown;
     } else {
-        LogMessage (LogLevel::INFO, "[Analog Type] Simple: Fastest and original input");
+        LogMessage (LogLevel::INFO, "Using Simple AnalogIn: Fastest and original input");
         analogMethod = AnalogInputSimple;
     }
 
@@ -244,7 +244,9 @@ Init () {
     }
 
     if (!emulateUsio && bnusioOriginal) {
-        LogMessage (LogLevel::WARN, "USIO emulation disabled");
+        LogMessage (LogLevel::WARN, "Disable USIO Emulation");
+    } else {
+        LogMessage (LogLevel::INFO, "Using USIO Emulation");
     }
 }
 

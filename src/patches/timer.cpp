@@ -31,9 +31,10 @@ namespace patches::Timer {
             bool setHighResolutionTimer = currentResolution > maximumResolution;
 
             if (setHighResolutionTimer) {
-                NTSTATUS status = NtSetTimerResolution(maximumResolution, TRUE, &currentResolution);
+                ULONG targetResolution = currentResolution;
+                NTSTATUS status = NtSetTimerResolution(maximumResolution, TRUE, &targetResolution);
                 if (status == 0) {
-                    LogMessage (LogLevel::INFO, "Timer resolution: {}ms -> {}ms", currentResolution / 10000.0, maximumResolution / 10000.0);
+                    LogMessage (LogLevel::INFO, "Using HiRes Timer: {}ms -> {}ms", currentResolution / 10000.0, targetResolution / 10000.0);
                 } else {
                     LogMessage (LogLevel::WARN, "Failed to change Timer resolution, status={}", status);
                 }

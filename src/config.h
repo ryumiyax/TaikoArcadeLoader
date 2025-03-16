@@ -42,6 +42,7 @@ struct patchesConfig {
     patchVersions version{"auto"};
     bool unlock_songs = true;
     bool local_files = true;
+    // int maximum_song = 1600;
     struct chn00Config {
         bool fix_language = false;
         bool demo_movie = true;
@@ -91,6 +92,7 @@ struct controllerConfig {
     int wait_period = 0;
     bool analog_input = false;
     bool global_keyboard = false;
+    bool simple_input = false;
 };
 
 struct keyboardConfig {
@@ -100,13 +102,16 @@ struct keyboardConfig {
 
 struct layeredfsConfig {
     bool enabled = false;
+    std::string mod_dir = "Data_mods";
 };
 
-using logLevels = rfl::Literal<"NONE", "ERROR", "WARN", "INFO", "DEBUG", "HOOKS">;
+using logLevels = rfl::Literal<"NONE", "ERROR", "WARN", "INFO", "GAME", "DEBUG", "HOOKS">;
 
 struct loggingConfig {
-    logLevels log_level{ "INFO"};
+    logLevels log_level{ "GAME" };
     bool log_to_file = false;
+    bool log_method_name = false;
+    bool log_full_source = false;
     std::string log_dir = "./logs/";
 };
 
@@ -434,8 +439,13 @@ public:
 
     // Singleton pattern for global access
     static ConfigManager& instance() {
-        static ConfigManager instance;  // Guaranteed to be destroyed, instantiated on first use
-        return instance;
+        try {
+            static ConfigManager instance;  // Guaranteed to be destroyed, instantiated on first use
+            return instance;
+        } catch (std::runtime_error &e) {
+            std::cerr << "[Logger] Failed to parse Default Config: " << e.what () << std::endl;
+            exit (1);
+        }
     }
 
     static bool validateConfigfile(std::string path);

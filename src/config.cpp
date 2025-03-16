@@ -4,6 +4,7 @@
 #include <Windows.h>
 #include <rfl/toml.hpp>
 #include <map>
+#include <stdexcept>
 
 #include "banner.h"
 #include "config.h"
@@ -101,7 +102,7 @@ ConfigManager::ConfigManager () {
 
 bool
 ConfigManager::loadKeyBindings () {
-    LogMessage (LogLevel::INFO, "Layout: {}", config.keyboard.jp_layout ? "JP" : "US");
+    LogMessage (LogLevel::INFO, "Using Keyboard Layout: {}", config.keyboard.jp_layout ? "JP" : "US");
     ConfigKeyboardButtons = config.keyboard.jp_layout ?  std::map(ConfigKeyboardButtons_JP) : std::map(ConfigKeyboardButtons_US);
 
     const auto configPath = std::filesystem::current_path () / "keyconfig.toml";
@@ -122,10 +123,10 @@ ConfigManager::loadKeyBindings () {
         keyBindings.usingKeyboard = usingKeyboard;
         keyBindings.usingMouse = usingMouse;
         keyBindings.usingController = usingController;
-        LogMessage (LogLevel::INFO, "Finish Loading keyconfig.toml");
-        if (usingKeyboard)   LogMessage (LogLevel::DEBUG, ">>>>> Using Keyboard!");
-        if (usingMouse)      LogMessage (LogLevel::DEBUG, ">>>>> Using Mouse!");
-        if (usingController) LogMessage (LogLevel::DEBUG, ">>>>> Using Controller!");
+        LogMessage (LogLevel::DEBUG, "Finish Loading keyconfig.toml");
+        if (usingKeyboard)   LogMessage (LogLevel::INFO, "Using Input Channel: Keyboard");
+        if (usingMouse)      LogMessage (LogLevel::INFO, "Using Input Channel: Mouse Wheel");
+        if (usingController) LogMessage (LogLevel::INFO, "Using Input Channel: Controller");
         return true;
     }
 

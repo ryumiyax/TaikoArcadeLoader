@@ -21,25 +21,30 @@ enum class LogLevel {
     ERROR,
     WARN,
     INFO,
+    GAME,
     DEBUG,
     HOOKS
 };
 
 class Logger {
 public:
-    static void InitializeLogger(LogLevel level, bool logToFile, std::string logDir);
+    static void InitLoggerHook ();
 
-    static void LogMessageHandler(const char* function, const char* codeFile, int codeLine, LogLevel messageLevel, const char* format, ...);
+    static void InitializeLogger (LogLevel level, bool logToFile, std::string logDir);
 
-    static void LogMessageHandler(const char* function, const char* codeFile, int codeLine, LogLevel messageLevel, const wchar_t* format, ...);
+    static bool GuardianOutput (LogLevel messageLevel);
 
-    static void CleanupLogger();
+    static void LogMessageHandler (const char* function, const char* codeFile, int codeLine, LogLevel messageLevel, const char* format, ...);
 
-    static LogLevel GetLogLevel(const std::string& logLevelStr);
+    static void LogMessageHandler (const char* function, const char* codeFile, int codeLine, LogLevel messageLevel, const wchar_t* format, ...);
 
-    static std::string GetLogLevelString(LogLevel messageLevel);
+    static void CleanupLogger ();
 
-    static int GetLogLevelColor(LogLevel messageLevel);
+    static LogLevel GetLogLevel (const std::string& logLevelStr);
+
+    static std::string GetLogLevelString (LogLevel messageLevel);
+
+    static int GetLogLevelColor (LogLevel messageLevel);
 
 private:
     // Private constructor to disallow instantiation
@@ -56,6 +61,7 @@ template <typename... Args>
 struct LogMessage {
     LogMessage (const LogLevel level, const std::string_view format, Args&&... args,
                const std::source_location& loc = std::source_location::current()) {
+        if (Logger::GuardianOutput (level)) return;
         std::string formatted_message =
             std::vformat(std::string(format), std::make_format_args(args...));
 
@@ -64,6 +70,7 @@ struct LogMessage {
 
     LogMessage (const LogLevel level, const std::wstring_view format, Args&&... args,
                const std::source_location& loc = std::source_location::current()) {
+        if (Logger::GuardianOutput (level)) return;
         std::wstring formatted_message =
             std::vformat(std::wstring(format), std::make_wformat_args(args...));
 
@@ -75,11 +82,13 @@ template <>
 struct LogMessage<void> {
     LogMessage(const LogLevel level, const std::string_view format,
                const std::source_location& loc = std::source_location::current()) {
+        if (Logger::GuardianOutput (level)) return;
         Logger::LogMessageHandler(loc.function_name(), loc.file_name(), loc.line(), level, format.data());
     }
 
     LogMessage(const LogLevel level, const std::wstring_view format,
                const std::source_location& loc = std::source_location::current()) {
+        if (Logger::GuardianOutput (level)) return;
         Logger::LogMessageHandler(loc.function_name(), loc.file_name(), loc.line(), level, format.data());
     }
 };

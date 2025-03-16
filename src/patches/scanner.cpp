@@ -234,15 +234,16 @@ namespace Card {
 
     void
     Init() {
-        LogMessage (LogLevel::INFO, "Init Card patches");
+        LogMessage (LogLevel::DEBUG, "Init Card patches");
         if (!emulateCardReader) {
-            LogMessage (LogLevel::WARN, "[Card] Card reader emulation disabled!");
+            LogMessage (LogLevel::WARN, "Disable Card Reader Emulation");
             INSTALL_FAST_HOOK (bngrw_ReqCancelOfficial);
             INSTALL_FAST_HOOK (bngrw_ReqWaitTouchOfficial);
             // patches::Plugins::InitCardReader (patches::Scanner::Card::Commit);
             return;
         }
 
+        LogMessage (LogLevel::INFO, "Using Card Reader Emulation");
         INSTALL_FAST_HOOK (bngrw_Init)
         INSTALL_FAST_HOOK (bngrw_Fin);
         INSTALL_FAST_HOOK (bngrw_IsCmdExec);
@@ -295,7 +296,6 @@ namespace Qr {
     FAST_HOOK_DYNAMIC (bool, Send3, i64, char) { return true; }
     FAST_HOOK_DYNAMIC (bool, Send4, i64, const void *, i64) { return true; }
     FAST_HOOK_DYNAMIC (i64, CopyData, i64, void *dest, int length) {
-        patches::Plugins::UsingQr ();
         lastScan = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now ().time_since_epoch ()).count ();
         if (state == State::CopyWait && scanQueue.size () > 0) {
             std::vector<uint8_t> *data = scanQueue.front ();
@@ -368,17 +368,6 @@ namespace Qr {
             if ((lastScan + 200) < std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now ().time_since_epoch ()).count ()) {
                 state = State::Disable;
                 patches::Plugins::UpdateStatus (StatusType::QrStatus, false);
-            } else {
-                void *plugin = patches::Plugins::CheckQr ();
-                if (plugin) {
-                    uint8_t *space = (uint8_t *)calloc (600, sizeof (uint8_t));
-                    size_t size = patches::Plugins::GetQr (plugin, 600, space);
-                    if (size > 0) {
-                        std::vector<uint8_t> data = {};
-                        for (size_t i = 0; i < size; i ++) data.push_back (space[i]);
-                        patches::Scanner::Qr::Commit (data);
-                    }
-                }
             }
         }
     }
@@ -436,13 +425,14 @@ namespace Qr {
 
     void
     Init () {
-        LogMessage (LogLevel::INFO, "Init Qr patches");
+        LogMessage (LogLevel::DEBUG, "Init Qr patches");
 
         if (!emulateQr) {
-            LogMessage (LogLevel::WARN, "[QR] QR emulation disabled!");
+            LogMessage (LogLevel::WARN, "Disable QR Scanner Emulation");
             return;
         }
-        patches::Plugins::InitQr (gameVersion);
+
+        LogMessage (LogLevel::INFO, "Using QR Scanner Emulation");
         SetConsoleOutputCP (CP_UTF8);
         auto amHandle = reinterpret_cast<u64> (GetModuleHandle ("AMFrameWork.dll"));
         switch (gameVersion) {
@@ -511,7 +501,7 @@ Update() {
 
 void
 Init() {
-    LogMessage (LogLevel::INFO, "Init Scanner patches");
+    LogMessage (LogLevel::DEBUG, "Init Scanner patches");
     patches::Scanner::Card::Init ();
     patches::Scanner::Qr::Init ();
 }

@@ -9,6 +9,7 @@
 static bool jpLayout       = Config::ConfigManager::instance ().getKeyboardConfig ().jp_layout;
 static bool autoIme        = Config::ConfigManager::instance ().getKeyboardConfig ().auto_ime;
 static bool globalKeyboard = Config::ConfigManager::instance ().getControllerConfig ().global_keyboard;
+static bool simpleInput    = Config::ConfigManager::instance ().getControllerConfig ().simple_input;
 static bool emulateUsio    = Config::ConfigManager::instance ().getEmulationConfig ().usio;
 
 extern float axisThreshold;
@@ -35,7 +36,7 @@ float currentControllerAxisState[static_cast<size_t>(SDLAxis::SDL_AXIS_MAX)] = {
 uint8_t controllerAxisCount[static_cast<size_t>(SDLAxis::SDL_AXIS_MAX)]      = { 0 };
 uint8_t controllerAxisDiff[static_cast<size_t>(SDLAxis::SDL_AXIS_MAX)]       = { 0 };
 
-int maxCount = 1;
+int maxCount = 10;
 
 SDL_Window *window;
 SDL_Gamepad *controllers[255];
@@ -101,10 +102,10 @@ void KeyboardMainLoop() {
     if (usingKeyboard) {
         keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, InputProc, nullptr, 0);
         if (keyboardHook == nullptr) LogMessage (LogLevel::ERROR, "Failed to install keyboard hook!\n");
-        else LogMessage (LogLevel::INFO, "KeyboardLL hook installed!");
+        else LogMessage (LogLevel::DEBUG, "KeyboardLL hook installed!");
     }
-    if (maxCount > 2) LogMessage (LogLevel::ERROR, "CHEATING MODE! max count is set to {}", maxCount);
-    LogMessage (LogLevel::WARN, "(experimental) Using Async IO!");
+    if (maxCount > 2) LogMessage (LogLevel::WARN, "Using Cache count max={}", maxCount);
+    LogMessage (LogLevel::INFO, "Using Async Keyboard");
     MSG msg;
     while (GetMessage(&msg, hwnd, 0, 0) > 0) {
         TranslateMessage(&msg);
@@ -115,9 +116,7 @@ void KeyboardMainLoop() {
 
 void
 InitializeKeyboard () {
-    if (usingKeyboard) {
-        std::thread (KeyboardMainLoop).detach ();
-    }
+    std::thread (KeyboardMainLoop).detach ();
 }
 
 void
@@ -137,8 +136,10 @@ InitializePoll (HWND windowHandle) {
     usingController = Config::ConfigManager::instance ().getKeyBindings ().usingController();
     usingSDLEvent = usingMouse || usingController;
 
+    if (simpleInput) LogMessage (LogLevel::INFO, "Using Simple Input (1-1 bind)");
+
     atexit ([](){ if (currentLayout != nullptr) ActivateKeyboardLayout (currentLayout, KLF_SETFORPROCESS);});
-    InitializeKeyboard ();
+    if (usingKeyboard) InitializeKeyboard ();
     if (usingSDLEvent) {
         LogMessage (LogLevel::DEBUG, "InitializePoll");
         bool hasRumble = true;
@@ -258,7 +259,7 @@ void
 UpdatePoll (HWND windowHandle) {
     if (!CheckForegroundWindow (windowHandle)) return;
     if (!emulateUsio) return;
-    CleanPoll ();
+    if (!simpleInput) CleanPoll ();
     if (usingSDLEvent) {
         SDL_Event event;
         SDL_Gamepad *controller;
@@ -356,8 +357,11 @@ int maxKeyboardCount = 1;
 bool
 KeyboardIsTapped (const uint8_t keycode) {
     if (keyboardCount[keycode] > 0) {
-        keyboardDiff[keycode] = 1;
-        keyboardClean = true;
+        if (simpleInput) keyboardCount[keycode] --;
+        else {
+            keyboardDiff[keycode] = 1;
+            keyboardClean = true;
+        }
         return true;
     } return false;
 }
@@ -383,7 +387,8 @@ bool
 GetMouseScrollIsTapped (const Scroll scroll) {
     if (scroll == Scroll::MOUSE_SCROLL_INVALID) return false;
     if (mouseWheelCount[(int)scroll - 1] > 0) {
-        mouseWheelDiff[(int)scroll - 1] = 1;
+        if (simpleInput) mouseWheelCount[(int)scroll - 1] --;
+        else mouseWheelDiff[(int)scroll - 1] = 1;
         return true;
     } return false;
 }
@@ -397,7 +402,8 @@ int maxButtonCount = 1;
 bool
 ControllerButtonIsTapped (const SDL_GamepadButton button) {
     if (controllerCount[button] > 0) {
-        controllerDiff[button] = 1;
+        if (simpleInput) controllerCount[button] --;
+        else controllerDiff[button] = 1;
         return true;
     } return false;
 }
@@ -410,7 +416,8 @@ ControllerAxisIsDown (const SDLAxis axis) {
 bool
 ControllerAxisIsTapped (const SDLAxis axis) {
     if (controllerAxisCount[(int)axis] > 0) {
-        controllerAxisDiff[(int)axis] = 1;
+        if (simpleInput) controllerAxisCount[(int)axis] --;
+        else controllerAxisDiff[(int)axis] = 1;
         return true;
     } return false;
 }

@@ -206,7 +206,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
             else if (yRes * 16 < xRes * 9) xRes = (int)(yRes * 16.0 / 9.0);
         }
         Config::ConfigManager::instance ().setRes (xRes, yRes);
-        LogMessage (LogLevel::INFO, "Boot with {} mode [{}(*{})x{}(*())]", windowed ? "window" : "fullscreen", xRes, hScale, yRes, vScale);
+        LogMessage (LogLevel::INFO, "Using {} mode [{}(x{}), {}(x{})]", windowed ? "window" : "fullscreen", xRes, hScale, yRes, vScale);
 
         if (autoIme) {
             currentLayout = GetKeyboardLayout (0);
@@ -216,7 +216,6 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         }
 
         // Update the logger with the level read from config file.
-        LogMessage (LogLevel::INFO, "Application started.");
 
         if (version == "auto") GetGameVersion ();
         else if (version == "JPN00") gameVersion = GameVersion::JPN00;
@@ -228,7 +227,8 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
             MessageBoxA (nullptr, "Unknown patch version", nullptr, MB_OK);
             ExitProcess (0);
         }
-        LogMessage (LogLevel::INFO, "GameVersion is {}", GameVersionToString (gameVersion));
+        LogMessage (LogLevel::INFO, "Using GameVersion: {}", GameVersionToString (gameVersion));
+        Logger::InitLoggerHook ();
 
         patches::Plugins::LoadPlugins ();
         patches::Plugins::InitVersion (gameVersion);
@@ -239,7 +239,7 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         GetPrivateProfileStringA ("card", "accessCode2", accessCode2, accessCode2, 21, ".\\card.ini");
         GetPrivateProfileStringA ("card", "chipId2", chipId2, chipId2, 33, ".\\card.ini");
 
-        LogMessage (LogLevel::INFO, "==== Loading patches, please wait...");
+        LogMessage (LogLevel::DEBUG, "=== Loading patches, please wait...");
 
         if (windowed && cursor) INSTALL_FAST_HOOK (ShowMouse);
         INSTALL_FAST_HOOK (ExitWindows);
@@ -284,7 +284,8 @@ DllMain (HMODULE module, const DWORD reason, LPVOID reserved) {
         // patches::UnlimitSong::Init ();
 
         std::chrono::duration<double> duration = std::chrono::high_resolution_clock::now() - start;
-        LogMessage (LogLevel::INFO, "==== Finished Loading patches! using: {:.2f}ms", duration.count () * 1000);
+        LogMessage (LogLevel::DEBUG, "=== Finished Loading patches!");
+        LogMessage (LogLevel::INFO, "Taiko Starts in {:.2f}ms", duration.count () * 1000);
     }
     return true;
 }
